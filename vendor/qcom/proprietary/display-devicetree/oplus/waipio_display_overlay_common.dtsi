@@ -1,0 +1,6 @@
+/* #ifdef OPLUS_ARCH_EXTENDS */
+/* Jie.Du@MULTIMEDIA.AUDIODRIVER.SMARTPA, 2021/06/22, modify fsa4480 */
+&sde_dp {
+	qcom,dp-aux-switch = <&fsa4480_new>;
+};
+/* OPLUS_ARCH_EXTENDS */

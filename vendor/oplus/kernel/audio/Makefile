@@ -1,0 +1,13 @@
+M=$(PWD)
+OPLUS_AUDIO_ROOT=$(KERNEL_SRC)/$(M)
+
+KBUILD_OPTIONS+=  OPLUS_AUDIO_ROOT=$(OPLUS_AUDIO_ROOT)
+
+all: modules
+
+clean:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
+
+%:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) $@ $(KBUILD_OPTIONS)
+

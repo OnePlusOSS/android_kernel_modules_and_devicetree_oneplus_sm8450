@@ -1,0 +1,3 @@
+#ifdef OPLUS_ARCH_EXTENDS
+obj-y += codecs/tfa98xx-v6/
+#endif /* OPLUS_ARCH_EXTENDS */

@@ -1,0 +1,6 @@
+config OPLUS_FEATURE_INPUT_BOOST
+	tristate "input boost"
+	default n
+	depends on OPLUS_FEATURE_PERFORMANCE_SCHED
+	help
+	  reduce execution time of heavy threads

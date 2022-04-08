@@ -1,0 +1,20 @@
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY), y)
+dtbo-$(CONFIG_ARCH_WAIPIO)		+= waipio-camera.dtbo
+#dtbo-$(CONFIG_ARCH_WAIPIO)		+= waipio-camera-overlay-v2.dtbo
+#dtbo-$(CONFIG_ARCH_WAIPIO)		+= waipio-camera-sensor-mtp.dtbo \
+#										waipio-camera-sensor-cdp.dtbo \
+#										waipio-camera-sensor-qrd.dtbo
+
+#PLUS_DTS_OVERLAY start
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-camera-waipio-overlay-EVB.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-camera-waipio-overlay-preT0.dtbo
+#OPLUS_DTS_OVERLAY end
+
+else
+$(error CONFIG_BUILD_ARM64_DT_OVERLAY is: $(CONFIG_BUILD_ARM64_DT_OVERLAY))
+endif
+
+always-y	:= $(dtbo-y) $(dtb-y)
+subdir-y	:= $(dts-dirs)
+clean-files	:= *.dtb *.dtbo
