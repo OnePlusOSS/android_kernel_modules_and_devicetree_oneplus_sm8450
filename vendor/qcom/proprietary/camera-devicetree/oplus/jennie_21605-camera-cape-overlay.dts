@@ -1,0 +1,23 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-waipio.h>
+#include <dt-bindings/clock/qcom,camcc-waipio.h>
+#include <dt-bindings/interconnect/qcom,waipio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include <dt-bindings/oplus/hw-id.h>
+//#include "../waipio-camera-sensor-mtp.dts"
+#include "waipio_camera_overlay_common.dtsi"
+#include "jennie_21605_camera_overlay_common.dtsi"
+/ {
+    model = "Qualcomm Technologies, Inc. Waipio MTP, jennie-a";
+    compatible = "qcom,cape", "qcom,capep";
+    qcom,msm-id = <530 0x10000>, <531 0x10000>, <540 0x10000>;
+    qcom,board-id = <8 0>, <0x10008 0>, <0x10008 2>, <0x10008 3>;
+
+
+    oplus,project-id = <21605 21736>;
+    oplus,hw-id = <OPLUS_EVB1 OPLUS_EVB2 OPLUS_T0 OPLUS_T1 OPLUS_EVT1 OPLUS_EVT2 OPLUS_EVT3 OPLUS_DVT1 OPLUS_DVT2 OPLUS_DVT3 OPLUS_PVT1 OPLUS_PVT2 OPLUS_MP1 OPLUS_MP2 OPLUS_MP3>;
+};

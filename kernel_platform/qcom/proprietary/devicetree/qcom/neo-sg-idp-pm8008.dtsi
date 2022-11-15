@@ -1,0 +1,5 @@
+#include "neo-sg-idp.dtsi"
+#include "neo-pm8008.dtsi"
+
+&soc {
+};

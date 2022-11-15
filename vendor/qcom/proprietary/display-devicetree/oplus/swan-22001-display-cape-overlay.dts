@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../display/cape-sde-display-mtp-overlay.dts"
+#include "cape_display_overlay_common.dtsi"
+#include "swan_22001_display_overlay_common.dtsi"
+/ {
+	oplus,project-id = <22001 22201>;
+	//oplus,hw-id = <OPLUS_PRE_EVB1 OPLUS_EVB1 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_DVT2 OPLUS_PVT1>;
+};

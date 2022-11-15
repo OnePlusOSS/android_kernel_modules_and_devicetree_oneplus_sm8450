@@ -1,0 +1,3 @@
+&mtp_21001 {
+    enable1v8_gpio = <&tlmm 186 0x1>;
+};

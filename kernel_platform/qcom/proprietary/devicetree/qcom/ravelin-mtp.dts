@@ -1,0 +1,11 @@
+/dts-v1/;
+
+#include "ravelin.dtsi"
+#include "ravelin-mtp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Ravelin MTP";
+	compatible = "qcom,ravelin-mtp", "qcom,ravelin", "qcom,mtp";
+	qcom,board-id = <0x10008 0>;
+};
+

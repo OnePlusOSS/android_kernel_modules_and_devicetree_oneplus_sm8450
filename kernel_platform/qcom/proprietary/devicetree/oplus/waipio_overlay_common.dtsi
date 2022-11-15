@@ -1,0 +1,614 @@
+/* #ifdef OPLUS_ARCH_EXTENDS */
+&fsa4480 {
+	status = "disabled";
+};
+
+&qupv3_se14_i2c {
+	status = "ok";
+	fsa4480_new: fsa4480_new@42 {
+		status = "ok";
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+	};
+};
+/* OPLUS_ARCH_EXTENDS */
+
+//waipio-pinctrl.dtsi
+&tlmm {
+    //#ifdef OPLUS_FEATURE_FINGERPRINT
+	oplus_fp_common{
+		gpio_id2_default: gpio_id2_default {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+	goodix_fp{
+		gpio_goodix_irq_default: gpio_goodix_irq_default {
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio40";
+				drive-strength = <2>;
+				bias-pull-down;
+				input-enable;
+			};
+		};
+	};
+	//#endif /*OPLUS_FEATURE_FINGERPRINT*/
+
+	pmx_ts_int_active {
+		ts_int_active: ts_int_active {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <8>;
+				bias-disable;
+				input-enable;
+			};
+		};
+	};
+
+	pmx_ts_reset_active {
+		ts_reset_active: ts_reset_active {
+			mux {
+				pins = "gpio20";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <8>;
+				output-low;
+				bias-disable;
+			};
+		};
+	};
+
+	uphall_tri_state_key_active: uphall_tri_state_key_active {
+		mux {
+			pins = "gpio71";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio71";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+	downhall_tri_state_key_active: downhall_tri_state_key_active {
+		mux {
+			pins = "gpio117";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio117";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	gpio_wakeup: gpio_wakeup {
+		compatible = "gpio_wakeup";
+		gpio_table = <12 67 98 153 155>;
+	};
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+};
+
+&pmk8350_vadc {
+	gpio1b_v {
+		reg = <PM8350_ADC7_AMUX_THM5>;
+		label = "gpio1b_v";
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+//waipio.dtsi
+&firmware {
+		android {
+			vbmeta {
+				//#ifndef OPLUS_FEATURE_SECURITY_COMMON
+				/*2021/09/26 Add verify boot*/
+				parts = "vbmeta,boot,system,vendor,dtbo,recovery,vendor_boot";
+				//#else
+				//parts = "vbmeta,boot,system,vendor,dtbo,recovery";
+				//#endif /* OPLUS_FEATURE_SECURITY_COMMON */
+			};
+
+			fstab {
+				vendor {
+//#ifndef OPLUS_FEATURE_SECURITY_COMMON
+					fsmgr_flags = "wait,slotselect,avb";
+//#else
+					//fsmgr_flags = "wait,avb";
+//#endif /* OPLUS_FEATURE_SECURITY_COMMON */
+				};
+			};
+		};
+};
+
+&soc {
+	bootloader_log {
+		compatible = "bootloader_log";
+		linux,contiguous-region = <&bootloader_log_mem>;
+	};
+/* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
+	dump_device_info {
+		compatible = "dump_device_info";
+		linux,contiguous-region = <&dump_device_info_mem>;
+	};
+/* #endif OPLUS_FEATURE_DUMP_DEVICE_INFO */
+	//#ifdef OPLUS_FEATURE_FINGERPRINT
+	oplus_fp_common {
+		compatible = "oplus,fp_common";
+		oplus,fp_gpio_num = <1>;
+		oplus,fp_gpio_0 = <&tlmm 42 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_id2_default>;
+		goodix_optical_G7 {
+			oplus,fp-id = <1>; /* fp id mapping table */
+			vendor-chip = <11>; /* please refer to the struct fp_vendor_t in oplus_fp_commmon.n */
+			eng-menu = "-1,-1"; /* represents SNR, inclination test item in engineer menu, and 0/1 means off/on */
+			chip-name = "G_OPTICAL_G7";  /* /proc/fp_id, will be displayed in engineer menu  */
+		};
+	};
+	goodix_fp {
+		status = "ok";
+		compatible = "goodix,goodix_fp";
+		interrupt-parent = <&tlmm>;
+		interrupts = <40 0>;
+		ldo-supply = <&pm8350c_l11>;
+		ldo-config = <3000000 3000000 150000>;
+		goodix,gpio_irq = <&tlmm 40 0x1>;
+		goodix,gpio_reset = <&tlmm 41 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_goodix_irq_default>;
+		notify_tpinfo_flag = <1>;
+		power-num = <1>;
+		power_source_1 {
+			power-mode = <1>;
+			power-name = "ldo";
+			power-config = "ldo-config";
+			delay-time = <0>;
+		};
+	};
+	//#endif /*OPLUS_FEATURE_FINGERPRINT*/
+	//#ifdef OPLUS_FEATURE_SECURITY_COMMON
+	/* 2021/09/04 add for oplus secure */
+	oplus_secure_common {
+		compatible = "oplus,secure_common";
+		oplus,sec_reg_num = <0x221C8604>;
+		oplus,sec_en_anti_reg = <0x221C21B0>;
+		oplus,sec_override1_reg = <0x221C21B0>;
+		oplus,override1_en_value = <0x1>;
+	};
+	//#endif /*OPLUS_FEATURE_SECURITY_COMMON*/
+
+	//#ifdef OPLUS_FEATRUE_ESIM
+	oplus-gpio {
+		compatible = "oplus,oplus-gpio";
+		pinctrl-names = "default", "sim2_det_no_pull", "sim2_det_pull_high", "sim2_det_pull_low";
+		pinctrl-0 = <&esim_gpio &esim_det_gpio &sim2_det_no_pull>;
+		pinctrl-1 = <&sim2_det_no_pull>;
+		pinctrl-2 = <&sim2_det_pull_high>;
+		pinctrl-3 = <&sim2_det_pull_low>;
+		oplus,oplus-gpio-esim = <&tlmm 125 0>;
+		oplus,oplus-esim-det = <&tlmm 129 0>;
+		oplus,oplus-sim2-det = <&pm8350_gpios 8 0>;
+		oplus,uim-reset-pin = "modem_solution";
+	};
+	//#endif /* OPLUS_FEATRUE_ESIM */
+
+	//#ifdef OPLUS_FEATRUE_SIM_HOLDER_DETECT
+	oplus_sim_detect {
+		compatible = "oplus, sim_detect";
+		Hw,sim_det = "modem_det";
+	};
+	//#endif /* OPLUS_FEATRUE_SIM_HOLDER_DETECT */
+
+	//#ifdef OPLUS_FEATURE_THERMAL_HORAE
+	shell_front {
+		compatible = "oplus,shell-temp";
+	};
+
+	shell_frame {
+		compatible = "oplus,shell-temp";
+	};
+
+	shell_back {
+		compatible = "oplus,shell-temp";
+	};
+	//#endif
+
+	//#ifdef CONFIG_OPLUS_OMRG
+	oplus-omrg {
+		compatible = "oplus,oplus-omrg";
+		oplus-omrg0 {
+			oplus,divider-cells = <2>;
+			oplus,omrg-master = <&CPU4 1555200 1996800>;
+			oplus,omrg-slave = <&CPU0 1075200 1574400>;
+			up_limit_enable;
+			/* down_limit_enable; */
+			/* thermal_enable; */
+		};
+	};
+	//#endif
+
+	gpio_keys {
+		vol_up {
+			linux,code = <KEY_VOLUMEDOWN>;
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+		};
+	};
+
+	devinfo {
+		compatible = "oplus-devinfo";
+
+		//pinctrl-names = "active", "sleep";
+		//pinctrl-0 = <&hw_id_active>;
+		//pinctrl-1 = <&hw_id_sleep>;
+
+		io-channels= <&pmk8350_vadc PM8350_ADC7_AMUX_THM5>;
+		io-channel-names= "vph_pwr_voltage_sub";
+
+		main-sub {
+			compatible = "hw-match, main-sub";
+			use_pmic_adc;
+			adc_ranges = <0 80
+					81 180
+					181 300
+					301 420
+					421 550
+					551 650
+					651 760
+					761 850
+					851 950
+					951 1050
+					1051 1150
+					1151 1300>;
+			aboard-patterns = <2 3 4 2 3>;
+
+			/*main board*/
+			match-projects = <21001 21001 21201 21001 21001>;
+
+			/*rf type*/
+			rf_match_support;
+			rf-patterns = <1 2 3 4 5>;
+		};
+	};
+ 
+	aop-msg-client {
+		compatible = "qcom,debugfs-qmp-client";
+		mboxes = <&qmp_aop 0>;
+		mbox-names = "aop";
+	};
+
+	//#ifdef CONFIG_OPLUS_FEATURE_PMIC_MONITOR, read pmic info from nvmem(only for xblloader close)
+		oplus-pmic-monitor-log {
+			compatible = "oplus,pmic-monitor-log";
+			nvmem = <&pmk8350_sdam_5>;
+			nvmem-names = "pon_log";
+		};
+	//#endif
+};
+
+//#ifdef OPLUS_FEATURE_WIFI_MAC
+&wlan {
+	use-nv-mac;
+};
+//#endif /* OPLUS_FEATURE_WIFI_MAC */
+
+//#ifdef OPLUS_BUG_STABILITY
+&reserved_memory {
+/*
+	ramoops: ramoops@0xa1f00000 {
+		compatible = "ramoops";
+		reg = <0 0xa1f00000 0 0x00100000>;  //1M
+		console-size = <0x40000>; //256k
+	};
+*/
+/* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
+	dump_device_info_mem: device_info_mem@0xA4F00000 {
+		reg = <0 0xA4F00000 0 0x00008000>;
+		label = "dump_device_info_mem";
+	};
+/* #endif OPLUS_FEATURE_DUMP_DEVICE_INFO */
+	/*
+	This size is from
+	boot_images/boot/QcomPkg/SocPkg/Waipio/Common/uefiplat.cfg
+	0xA7605000, 0x00008000, "Log Buffer",        AddMem, SYS_MEM, SYS_MEM_CAP, RtData, WRITE_BACK_XN
+	so we reserve this for bootloader log
+	*/
+	bootloader_log_mem: botloader_mem@0xA7605000 {
+		reg = <0 0xA7605000 0 0x00008000>;
+		label = "bootloader_log_mem";
+	};
+
+	mte_region: mte_region@c0000000 {
+		no-map;
+		reg = <0x0 0xc0000000 0x0 0x0>;
+	};
+};
+
+&tlmm {
+	//#ifdef OPLUS_FEATRUE_ESIM
+	esim_gpio: esim_gpio {
+		mux {
+			pins = "gpio125";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio125";
+			bias-disable; /* NO pull */
+			drive-strength = <2>; /* 2 MA */
+			output-high;
+		};
+	};
+
+	esim_det_gpio: esim_det_gpio {
+		mux {
+			pins = "gpio129";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio129";
+			bias-disable; /* NO pull */
+			drive-strength = <2>; /* 2 MA */
+			output-high;
+		};
+	};
+	//#endif /* OPLUS_FEATRUE_ESIM */
+};
+
+&qupv3_se9_i2c {
+	ist8801@19 {
+		compatible = "oplus,hall-ist8801,up";
+		reg = <0x19>;
+		dhall,id = <1>;
+		vdd-supply = <&L7C>;
+		vio-supply = <&S10B>;
+		magnachip,init-interval = <200>;
+		interrupt-parent = <&tlmm>;
+		interrups = <117 0x02>;
+		dhall,irq-gpio = <&tlmm 117 0x2008>;
+		pinctrl-names = "uphall_tri_state_key_active";
+		pinctrl-0 = <&uphall_tri_state_key_active>;
+	};
+	ist8801@18 {
+		compatible = "oplus,hall-ist8801,down";
+		reg = <0x18>;
+		dhall,id = <2>;
+		vdd-supply = <&L7C>;
+		vio-supply = <&S10B>;
+		magnachip,init-interval = <200>;
+		interrupt-parent = <&tlmm>;
+		interrups = <71 0x02>;
+		dhall,irq-gpio = <&tlmm 71 0x2008>;
+		pinctrl-names = "downhall_tri_state_key_active";
+		pinctrl-0 = <&downhall_tri_state_key_active>;
+	};
+
+	magnachip@0D {
+		compatible = "oplus,hall-mxm1120,up";
+		reg = <0x0D>;
+		vdd-supply = <&L7C>;
+		vio-supply = <&S10B>;
+		magnachip,init-interval = <200>;
+		interrupt-parent = <&tlmm>;
+		interrups = <117 0x02>;
+		dhall,irq-gpio = <&tlmm 117 0x2008>;
+		pinctrl-names = "uphall_tri_state_key_active";
+		pinctrl-0 = <&uphall_tri_state_key_active>;
+	};
+	magnachip@0C {
+		compatible = "oplus,hall-mxm1120,down";
+		reg = <0x0C>;
+		vdd-supply = <&L7C>;
+		vio-supply = <&S10B>;
+		magnachip,init-interval = <200>;
+		interrupt-parent = <&tlmm>;
+		interrups = <71 0x02>;
+		dhall,irq-gpio = <&tlmm 71 0x2008>;
+		pinctrl-names = "downhall_tri_state_key_active";
+		pinctrl-0 = <&downhall_tri_state_key_active>;
+	};
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+};
+
+&L3C {
+	regulator-min-microvolt = <2800000>;
+	qcom,init-voltage = <3008000>;
+};
+
+&qupv3_se4_i2c {
+	qcom,i2c-touch-active = "synaptics-s3908";
+
+	focaltech@38 {
+		status = "disabled";
+	};
+
+	mtp_21001:synaptics20031@4B {
+		compatible = "synaptics-s3908";
+		reg = <0x4B>;
+		chip-name = "S3908";
+
+		/* Interrupt && Irq-gpio */
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 0x2008>;
+
+		/* Power Config */
+		//enable2v8_gpio = <&tlmm 26 0x1>;
+		enable1v8_gpio = <&tlmm 97 0x1>;
+		vdd_2v8-supply = <&L3C>;
+		vcc_1v8-supply = <&L4H>;
+		vdd_2v8_volt = <3008000>;
+
+		/* Other HW Resource */
+		irq-gpio = <&tlmm 21 0x2008>;
+		reset-gpio = <&tlmm 20 0x1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <17 38>;
+		earsense,tx-rx-num = <17 18>;
+		touchpanel,panel-coords = <5760 12864>;
+		touchpanel,display-coords = <1440 3216>;
+		touchpanel,touchmajor-limit = <256 256>;
+		touchpanel,int-mode = <1>; /*0: interrupt and disable, 1:interrupt and not disable*/
+		touchpanel,curved-size = <45>;
+
+		prevention,curved_screen_V2;
+		prevention,grip_disable_level = <6>;
+		prevention,updelay_time_ms = <30>;
+		prevention,makeup_cnt_weight = <4 1 2 2 2>;
+		prevention,large_corner_range = <600 1400>;
+		prevention,large_corner_judge_condition = <500 100 600 4 4>;
+		prevention,trx_reject_condition = <8 7 7>;
+		prevention,trx_strict_reject_condition = <8 5 5>;
+		prevention,large_judge_time_ms = <500 50 40>;
+		prevention,large_exit_condition = <8 8 2>;
+		prevention,single_channel_width = <160 160>;
+		prevention,normal_tap_condition = <10 300>;
+		prevention,long_edge_condition = <230 90 180 80>;
+		prevention,long_strict_edge_condition = <160 60>;
+		prevention,long_fingerhold_condition = <50 6 4 4>;
+		prevention,short_edge_condition = <200 90 180 80>;
+		prevention,short_strict_edge_condition = <160 60>;
+		prevention,large_strict_exit_condition = <2 2>;
+		prevention,top_corner_config = <280 800 240>;
+		prevention,edge_swipe_config = <150 400>;
+
+		touchpanel,smooth-level = <0 1 2 4 7 9>;
+		touchpanel,smooth-level-charging = <0 2 4 7 8 9>;
+		touchpanel,sensitive-level = <0 70 55 40 25 10>;
+		touchpanel,single-optimized-time = <8>;
+		touchpanel,high-frame-rate-time = <60>;
+
+		end_stretch_value = <480 250 16 16>;
+
+		touchpanel,tp_ic_type = <2>;
+		panel_type = <8>;
+		// type of tp_dev ,TP-SAMSUNG = 8;
+		firmware_name = "SS";
+		platform_support_project = <20031 21001 21201 20846 20847 20848 20849 0x2084A 21009>;
+		platform_support_project_dir = <21001 21001 21001 21001 21001 21001 21001 21001 21009>;
+		platform_support_project_commandline = "mdss_dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd";
+
+		/* SW Support Feature Control */
+		exception_upload_support;
+		black_gesture_support;
+		sportify_aod_gesture_support;
+		//fw_edge_limit_support;
+		pressure_report_support;
+		charger_pump_support;
+		game_switch_support;
+		smart_gesture_support;
+		fw_update_app_support;
+		fingerprint_underscreen_support;
+		freq_hop_simulate_support;
+		report_flow_unlock_support;
+		screenoff_fingerprint_info_support;
+		irq_need_dev_resume_ok;
+		enable_point_auto_change;
+		report_rate_white_list_support;
+		kernel_grip_support;
+		//grip_no_driver_support;
+		health_monitor_support;
+		black_gesture_indep_support;
+		//algorithm_support;
+		snr_read_support;
+		//enable_touch_helper;
+
+		/*
+		 *Virtual Key Config:
+		 *1:touchpanel,button-type: <virtualkey_type  supportted_button-map>
+		 *virtualkey_type:
+		 *Type 1: using board_properties
+		 *Type 2: using same IC (button zone&& touch zone are seprate)
+		 *Type 3: using diffrent IC (button zone&& touch zone are seprate)
+		 *Type 4: No need of virtual key process
+		 *supportted_button-map:select|menu|home|back
+		 *
+		 *2:touchpanel,button-map
+		 *type (X1,Y1)(X2,Y2)(X3,Y3)(Width_X,Hight_Y)--Only when button-type is 0
+		 */
+		touchpanel,button-type = <4>;
+		touchpanel.button-TRx = <0 0>;
+
+		S3908 {
+			report_rate_default = <60>;
+			report_rate_game_value = <2>;
+			default_gesture_mask = <8191>;
+			fwupdate_bootloader = <1>;
+		};
+	};
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+};
+#include "tp/mtp21001-s3908-firmware.dtsi"
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+
+&pm8350_gpios {
+	//#ifdef OPLUS_FEATRUE_DUAL_SIM_DETECT
+	sim2_det_no_pull: sim2_det_no_pull {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
+			bias-disable;
+	};
+
+	sim2_det_pull_high: sim2_det_pull_high {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
+			bias-pull-up;
+	};
+
+	sim2_det_pull_low: sim2_det_pull_low {
+			pins = "gpio8";
+			function = "normal";
+			input-enable;
+			power-source = <1>;
+			bias-pull-down;
+	};
+	//#endif OPLUS_FEATRUE_DUAL_SIM_DETECT
+};
+
+&pm8350b_haptics {
+//#ifdef OPLUS_FEATURE_CHG_BASIC
+	qcom,vmax-mv = <1680>;
+	qcom,cl-vmax-mv = <1680>;
+	qcom,lra-period-us = <5882>;
+	qcom,fifo-vmax-mv = <8500>;
+	qcom,old-steady-vmax-mv = <8500>;
+	qcom,cal-data-restore;
+	qcom,fifo-empty-threshold = <480>;
+//#endif
+	qcom,vibrator-type = <8151>;//sla0815
+};
+
+//waipio.dtsi
+/* #ifdef OPLUS_ARCH_EXTENDS */
+&video_mem {
+	reg = <0x0 0x9fd00000 0x0 0x700000>;
+};
+
+&adsp_mem {
+	reg = <0x0 0x85700000 0x0 0x2800000>;
+};
+/* OPLUS_ARCH_EXTENDS */

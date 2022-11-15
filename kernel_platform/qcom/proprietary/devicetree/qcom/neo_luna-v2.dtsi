@@ -1,0 +1,10 @@
+#include "neo_la.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. NEO LUNA-V2";
+	qcom,msm-id = <579 0x10000>;
+};
+
+&kgsl_smmu {
+	status = "ok";
+};

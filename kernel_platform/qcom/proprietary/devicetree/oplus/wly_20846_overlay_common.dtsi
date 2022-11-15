@@ -1,0 +1,182 @@
+/* Waipio configurations for PM8010I and PM8010J connected via SPMI */
+&L1I {
+    regulator-min-microvolt = <1104000>;
+    regulator-max-microvolt = <1104000>;
+    qcom,init-voltage = <1104000>;
+};
+
+&L2I{
+    regulator-min-microvolt = <1056000>;
+    regulator-max-microvolt = <1056000>;
+    qcom,init-voltage = <1056000>;
+};
+
+&L3I{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2904000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L4I{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2900000>;
+    qcom,init-voltage = <2900000>;
+};
+
+&L5I{
+    regulator-min-microvolt = <1800000>;
+    regulator-max-microvolt = <1800000>;
+    qcom,init-voltage = <1800000>;
+};
+
+&L6I{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L7I{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2960000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L1J{
+    regulator-min-microvolt = <1050000>;
+    regulator-max-microvolt = <1104000>;
+    qcom,init-voltage = <1050000>;
+};
+
+&L2J{
+    regulator-min-microvolt = <1056000>;
+    regulator-max-microvolt = <1200000>;
+    qcom,init-voltage = <1200000>;
+};
+
+&L3J{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L4J{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L5J{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L6J{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&L7J{
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <3304000>;
+    qcom,init-voltage = <2800000>;
+};
+
+&mtp_21001 {
+	vcc_1v8-supply = <&L6C>;
+	enable1v8_gpio = <&tlmm 186 0x1>;
+};
+
+&soc {
+    devinfo {
+        status = "disabled";
+    };
+
+	devinfo_wly {
+		compatible = "oplus-devinfo";
+
+		//pinctrl-names = "active", "sleep";
+		//pinctrl-0 = <&hw_id_active>;
+		//pinctrl-1 = <&hw_id_sleep>;
+
+		io-channels= <&pmk8350_vadc PM8350_ADC7_AMUX_THM5>;
+		io-channel-names= "vph_pwr_voltage_sub";
+
+		main-sub {
+			compatible = "hw-match, main-sub";
+			use_pmic_adc;
+			adc_ranges = <0 80
+					81 180
+					181 300
+					301 420
+					421 550
+					551 650
+					651 760
+					761 850
+					851 950
+					951 1050
+					1051 1150
+					1151 1300>;
+			aboard-patterns = <0 0 1 0 1 0 0>;
+			region-patterns = <1 1 2 3 2 3 3>;
+
+			/*main board*/
+			match-projects = <20846 20847 20847 20847 20848 20849 0x2084A>;
+
+		};
+	};
+};
+
+//#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
+&tlmm {
+  rf_cable0_active: rf_cable0_active {
+    mux {
+      pins = "gpio89";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio89";
+      drive-strength = <2>;
+      input-enable;
+      bias-pull-up;
+    };
+  };
+};
+
+&soc {
+  oplus_rf_cable {
+    compatible = "oplus,rf_cable";
+    interrupt-parent = <&tlmm>;
+    rf_cable_support_num = <1>;
+    rf,cable0-gpio = <&tlmm 89 0>;
+    rf,cable-support-timer = <0>;
+    pinctrl-names = "rf_cable_active";
+    pinctrl-0 = <&rf_cable0_active>;
+  };
+};
+//#endif /* OPLUS_FEATURE_RF_CABLE_DETECT */
+
+&soc {
+	//#ifdef OPLUS_FEATURE_THERMAL_HORAE
+		shell_front {
+				compatible = "oplus,shell-temp";
+		};
+
+		shell_frame {
+				compatible = "oplus,shell-temp";
+		};
+
+		shell_back {
+				compatible = "oplus,shell-temp";
+		};
+	//#endif
+};
+
+//#ifdef OPLUS_FEATURE_CHG_BASIC
+&pm8350b_haptics {
+    qcom,fifo-vmax-mv = <8700>;
+    qcom,old-steady-vmax-mv = <8700>;//8.7v
+};
+//#endif
+

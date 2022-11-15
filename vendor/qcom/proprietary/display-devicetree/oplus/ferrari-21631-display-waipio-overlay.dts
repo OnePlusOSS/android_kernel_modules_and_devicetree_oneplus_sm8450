@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../display/waipio-sde-display-mtp-overlay.dts"
+#include "waipio_display_overlay_common.dtsi"
+#include "ferrari_21631_display_overlay_common.dtsi"
+/ {
+    oplus,project-id = <21631 0x216AC>;
+    oplus,hw-id = <OPLUS_EVB1 OPLUS_EVB2 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_EVT3 OPLUS_DVT1 OPLUS_DVT2 OPLUS_DVT3 OPLUS_PVT1 OPLUS_MP1 OPLUS_MP2 OPLUS_MP3>;
+};

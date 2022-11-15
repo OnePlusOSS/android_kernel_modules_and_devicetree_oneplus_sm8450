@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (C) 2018-2020 Oplus. All rights reserved.
+KASAN_SANITIZE_slub_track.o = n
+KCSAN_SANITIZE_slub_track.o = n
+KCOV_INSTRUMENT_slub_track.o = n
+
+KASAN_SANITIZE_memleak_debug_stackdepot.o := n
+KCOV_INSTRUMENT_memleak_debug_stackdepot.o := n
+
+obj-$(CONFIG_MEMLEAK_DETECT) += oplus_bsp_memleak_detect.o
+
+oplus_bsp_memleak_detect-y := slub_track.o vmalloc_track.o memleak_debug_stackdepot.o
