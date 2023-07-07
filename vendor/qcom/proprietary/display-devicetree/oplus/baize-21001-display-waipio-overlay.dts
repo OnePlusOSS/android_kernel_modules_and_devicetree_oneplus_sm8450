@@ -1,0 +1,16 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../display/waipio-sde-display-mtp-overlay.dts"
+#include "waipio_display_overlay_common.dtsi"
+#include "baize_21001_display_overlay_common.dtsi"
+/ {
+    oplus,project-id = <21001 21201>;
+    oplus,hw-id = <OPLUS_EVB1 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_PVT1 OPLUS_MP1>;
+};
+
+&display_panel_avdd {
+	/delete-property/ gpio;
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
+};

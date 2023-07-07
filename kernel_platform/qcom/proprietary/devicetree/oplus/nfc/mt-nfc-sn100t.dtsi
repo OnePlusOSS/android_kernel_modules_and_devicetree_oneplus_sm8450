@@ -1,0 +1,25 @@
+/**********************************************************************************
+* Copyright (c)  2008-2020  Guangdong oplus Mobile Comm Corp., Ltd
+* Description: oplus sn100t nfc dtsi
+*
+* Version: 1.0
+* Date: 2021-06-24
+* Author: LiuWenJie
+*
+* ------------------------------ Revision History: --------------------------------
+* <version>           <date>                <author>                            <desc>
+* Revision 1.0       2021-06-24            LiuWenJie           Created for mt-nfc-sn100t.dtsi
+***********************************************************************************/
+&soc {
+	//add for nfc_chipset
+	nfc_chipset {
+		compatible = "oplus-nfc-chipset";
+		chipset-20845 = "SN100T";//China
+		chipset-2084B = "SN100T";//USA
+		chipset-2084D = "SN100T";//india
+		chipset-2084E = "SN100T";//Europe
+	};
+};
+
+
+

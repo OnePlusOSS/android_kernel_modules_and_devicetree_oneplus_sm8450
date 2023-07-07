@@ -1,0 +1,106 @@
+&L1I {
+  regulator-min-microvolt = <1104000>;
+  regulator-max-microvolt = <1204000>;
+  qcom,init-voltage = <1150000>;
+};
+
+&L2I {
+  regulator-min-microvolt = <1056000>;
+  regulator-max-microvolt = <1260000>;
+  qcom,init-voltage = <1056000>;
+};
+
+&L3I {
+  regulator-min-microvolt = <2700000>;
+  regulator-max-microvolt = <2904000>;
+  qcom,init-voltage = <2800000>;
+};
+
+&L4I {
+  regulator-min-microvolt = <2800000>;
+  regulator-max-microvolt = <3304000>;
+  qcom,init-voltage = <3150000>;
+};
+
+&L5I {
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <2800000>;
+  qcom,init-voltage = <1800000>;
+};
+
+&L6I {
+  regulator-min-microvolt = <2800000>;
+  regulator-max-microvolt = <3304000>;
+  qcom,init-voltage = <3150000>;
+};
+
+&L7I {
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <2960000>;
+  qcom,init-voltage = <1800000>;
+};
+
+&L1J {
+  regulator-min-microvolt = <1104000>;
+  regulator-max-microvolt = <1204000>;
+  qcom,init-voltage = <1104000>;
+};
+
+&L2J {
+  regulator-min-microvolt = <800000>;
+  regulator-max-microvolt = <1056000>;
+  qcom,init-voltage = <810000>;
+};
+
+&L3J {
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <2904000>;
+  qcom,init-voltage = <2800000>;
+};
+
+&L4J {
+  regulator-min-microvolt = <2800000>;
+  regulator-max-microvolt = <3008000>;
+  qcom,init-voltage = <2904000>;
+};
+
+&L5J {
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <2800000>;
+  qcom,init-voltage = <1800000>;
+};
+
+&L6J {
+  regulator-min-microvolt = <2800000>;
+  regulator-max-microvolt = <2800000>;
+  qcom,init-voltage = <2800000>;
+};
+
+&L7J {
+  regulator-min-microvolt = <2800000>;
+  regulator-max-microvolt = <3304000>;
+  qcom,init-voltage = <2800000>;
+};
+
+&soc {
+	//#ifdef OPLUS_FEATURE_THERMAL_HORAE
+	shell_front {
+			compatible = "oplus,shell-temp";
+	};
+
+	shell_frame {
+			compatible = "oplus,shell-temp";
+	};
+
+	shell_back {
+			compatible = "oplus,shell-temp";
+	};
+	//#endif
+
+};
+
+//pm8350c.dtsi
+&pm8350c_switch2 {
+	qcom,led-mask = <9>; /* Channels 1 & 4 */
+	qcom,symmetry-en;
+};

@@ -1,0 +1,15 @@
+/* #ifdef OPLUS_ARCH_EXTENDS */
+&sde_dp {
+	qcom,dp-aux-switch = <&fsa4480_new>;
+};
+/* OPLUS_ARCH_EXTENDS */
+
+/* #ifdef OPLUS_FEATURE_DISPLAY */
+&mdss_dsi_phy0 {
+	oplus,dsi-pll-ssc-disalbed;
+};
+
+&mdss_dsi_phy1 {
+	oplus,dsi-pll-ssc-disalbed;
+};
+/* OPLUS_FEATURE_DISPLAY */

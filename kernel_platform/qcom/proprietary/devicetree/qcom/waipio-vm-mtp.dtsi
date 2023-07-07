@@ -1,0 +1,367 @@
+&qupv3_se4_i2c {
+	status = "disabled";
+	mtp_21001:synaptics20031@4B {
+		compatible = "synaptics-s3908";
+		reg = <0x4B>;
+		chip-name = "S3908";
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <17 38>;
+		earsense,tx-rx-num = <17 18>;
+		touchpanel,panel-coords = <5760 12864>;
+		touchpanel,display-coords = <1440 3216>;
+		touchpanel,touchmajor-limit = <256 256>;
+		touchpanel,int-mode = <1>; /*0: interrupt and disable, 1:interrupt and not disable*/
+		touchpanel,curved-size = <45>;
+
+		prevention,curved_screen_V2;
+		prevention,grip_disable_level = <6>;
+		prevention,updelay_time_ms = <30>;
+		prevention,makeup_cnt_weight = <4 1 2 2 2>;
+		prevention,large_corner_range = <600 1400>;
+		prevention,large_corner_judge_condition = <500 100 600 4 4>;
+		prevention,trx_reject_condition = <8 7 7>;
+		prevention,trx_strict_reject_condition = <8 5 5>;
+		prevention,large_judge_time_ms = <500 50 40>;
+		prevention,large_exit_condition = <8 8 2>;
+		prevention,single_channel_width = <160 160>;
+		prevention,normal_tap_condition = <10 300>;
+		prevention,long_edge_condition = <230 90 180 80>;
+		prevention,long_strict_edge_condition = <160 60>;
+		prevention,long_fingerhold_condition = <50 6 4 4>;
+		prevention,short_edge_condition = <200 90 180 80>;
+		prevention,short_strict_edge_condition = <160 60>;
+		prevention,large_strict_exit_condition = <2 2>;
+		prevention,top_corner_config = <280 800 240>;
+		prevention,edge_swipe_config = <150 400>;
+
+		touchpanel,smooth-level = <0 1 2 4 7 9>;
+		touchpanel,smooth-level-charging = <0 2 4 7 8 9>;
+		touchpanel,sensitive-level = <0 70 55 40 25 10>;
+		touchpanel,single-optimized-time = <8>;
+		touchpanel,high-frame-rate-time = <60>;
+
+		end_stretch_value = <480 250 16 16>;
+
+		touchpanel,tp_ic_type = <2>;
+		panel_type = <8>;
+		// type of tp_dev ,TP-SAMSUNG = 8;
+		firmware_name = "SS";
+		platform_support_project = <20031 21001 21201 20846 20847 20848 20849 0x2084A 21009>;
+		platform_support_project_dir = <21001 21001 21001 21001 21001 21001 21001 21001 21009>;
+		platform_support_project_commandline = "mdss_dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd";
+
+		/* SW Support Feature Control */
+		exception_upload_support;
+		black_gesture_support;
+		sportify_aod_gesture_support;
+		//fw_edge_limit_support;
+		pressure_report_support;
+		charger_pump_support;
+		game_switch_support;
+		smart_gesture_support;
+		fw_update_app_support;
+		fingerprint_underscreen_support;
+		freq_hop_simulate_support;
+		report_flow_unlock_support;
+		screenoff_fingerprint_info_support;
+		irq_need_dev_resume_ok;
+		enable_point_auto_change;
+		report_rate_white_list_support;
+		kernel_grip_support;
+		//grip_no_driver_support;
+		health_monitor_support;
+		black_gesture_indep_support;
+		//algorithm_support;
+		snr_read_support;
+		enable_touch_helper;
+		trusted_touch_support;
+
+		touchpanel,trusted-touch-mode = "vm_mode";
+		touchpanel,touch-environment = "tvm";
+		touchpanel,trusted-touch-type = "primary";
+		touchpanel,trusted-touch-spi-irq = <754>;
+		touchpanel,trusted-touch-io-bases = <0x990000 0x910000>;
+		touchpanel,trusted-touch-io-sizes = <0x1000 0x4000>;
+		touchpanel,trusted-touch-vm-gpio-list = <&tlmm 16 0 &tlmm 17 0 &tlmm 18 0
+                                &tlmm 19 0 &tlmm 20 0 &tlmm 21 0x2008>;
+		/*
+		 *Virtual Key Config:
+		 *1:touchpanel,button-type: <virtualkey_type  supportted_button-map>
+		 *virtualkey_type:
+		 *Type 1: using board_properties
+		 *Type 2: using same IC (button zone&& touch zone are seprate)
+		 *Type 3: using diffrent IC (button zone&& touch zone are seprate)
+		 *Type 4: No need of virtual key process
+		 *supportted_button-map:select|menu|home|back
+		 *
+		 *2:touchpanel,button-map
+		 *type (X1,Y1)(X2,Y2)(X3,Y3)(Width_X,Hight_Y)--Only when button-type is 0
+		 */
+		touchpanel,button-type = <4>;
+		touchpanel.button-TRx = <0 0>;
+
+		S3908 {
+			report_rate_default = <60>;
+			report_rate_game_value = <2>;
+			default_gesture_mask = <8191>;
+			fwupdate_bootloader = <1>;
+		};
+	};
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+};
+
+&qupv3_se4_spi {
+	status = "ok";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	qcom,le-vm;
+
+	qcom,spi-touch-active = "goodix-gt9966";
+
+	goodix_gt9966@0 {
+		status = "ok";
+		compatible = "goodix-gt9966";
+		reg = <0x0>;
+		spi-max-frequency = <12000000>;
+		chip-name = "GT9966";
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <32 34>;
+		earsense,tx-rx-num = <32 34>;
+		touchpanel,panel-coords = <19200 17920>;
+		touchpanel,display-coords = <1920 1792>;
+		touchpanel,touchmajor-limit = <128 216>;
+		touchpanel,single-optimized-time = <8>;
+		touchpanel,high-frame-rate-time = <60>;
+
+		touchpanel,pen-tx-rx-num = <32 34>;
+		touchpanel,pen-panel-coords = <19200 17920>;
+		touchpanel,pen-max-pressure = <4096>;
+		touchpanel,pen-max-tilt = <60 60>;
+		touchpanel,msecs-to-jiffies-time = <100>;
+
+		//touchpanel,smooth-level = <0 121 152 183 229 241>;
+		//touchpanel,smooth-level-charging = <0 121 152 183 229 241>;
+		touchpanel,sensitive-level = <0 100 90 70 60 51>;
+
+		project_id = <22001>;
+		vid_len = <2>;
+		touchpanel,tp-index = <0>;
+		touchpanel,tp_ic_type = <2>;
+		panel_type = <3>;
+		// type of tp_dev ,TP-BOE = 3;
+		firmware_name = "AA381", "AA381";
+		platform_support_project = <22001 22201>;
+		platform_support_project_dir = <22001 22001>;
+		platform_support_project_commandline = "dsi_oplus_samsung_s6e3xa2_1792_1920_dsc_cmd",
+							"dsi_oplus_samsung_s6e3xa2_1792_1920_dsc_cmd";
+
+		prevention,curved_screen_V2;
+		prevention,grip_disable_level = <6>;
+		prevention,updelay_time_ms = <45>;
+		prevention,makeup_cnt_weight = <5 1 2 2 2>;
+		prevention,large_corner_range = <1200 3000>;
+		prevention,large_corner_judge_condition = <850 100 1000 7 7>;
+		prevention,trx_reject_condition = <7 7 7>;
+		prevention,trx_strict_reject_condition = <8 6 6>;
+		prevention,large_judge_time_ms = <500 50 30>;
+		prevention,large_exit_condition = <8 8 2>;
+		prevention,single_channel_width = <320 320>;
+		prevention,normal_tap_condition = <10 350>;
+		prevention,long_edge_condition = <240 150 180 80>;
+		prevention,long_strict_edge_condition = <160 60>;
+		prevention,long_fingerhold_condition = <70 6 4 4>;
+		prevention,short_edge_condition = <250 90 180 80>;
+		prevention,short_strict_edge_condition = <160 60>;
+		prevention,large_strict_exit_condition = <4 4>;
+		prevention,top_corner_config = <500 1500 300>;
+		prevention,edge_swipe_config = <300 1000>;
+
+		trusted_touch_support;
+		touchpanel,irq_tui_flags = <0x1>;	/* 0x1:IRQ_TYPE_EDGE_RISING */
+		touchpanel,trusted-touch-mode = "vm_mode";
+		touchpanel,touch-environment = "tvm";
+		touchpanel,trusted-touch-type = "primary";
+		touchpanel,trusted-touch-spi-irq = <754>;
+		touchpanel,trusted-touch-io-bases = <0x990000 0x910000>;
+		touchpanel,trusted-touch-io-sizes = <0x1000 0x4000>;
+		touchpanel,trusted-touch-vm-gpio-list = <&tlmm 16 0 &tlmm 17 0 &tlmm 18 0
+								&tlmm 19 0 &tlmm 20 0 &tlmm 21 0x2002>;
+		touchpanel,trusted-touch-reset-io-base = <0xF114000>;
+		touchpanel,trusted-touch-reset-io-size = <0x1000>;
+		touchpanel,trusted-touch-reset-io-offset = <0x4>;
+		touchpanel,trusted-touch-irq-io-base = <0xF115000>;
+		touchpanel,trusted-touch-irq-io-size = <0x1000>;
+		touchpanel,trusted-touch-irq-io-offset = <0x8>;
+
+		black_gesture_support;
+		pressure_report_support;
+		charger_pump_support;
+		game_switch_support;
+		smart_gesture_support;
+		spi_port_support;
+		fw_update_app_support;
+		//fingerprint_underscreen_support;
+		freq_hop_simulate_support;
+		report_flow_unlock_support;
+		//screenoff_fingerprint_info_support;
+		irq_need_dev_resume_ok;
+		//enable_point_auto_change;
+		//report_rate_white_list_support;
+		kernel_grip_support;
+		exception_upload_support;
+		//grip_no_driver_support;
+		health_monitor_support;
+		black_gesture_indep_support;
+		//algorithm_support;
+		//snr_read_support;
+		//touchpanel,get_motor_coord = <0 370 70>;
+		pen_support;
+		/*
+		 *Virtual Key Config:
+		 *1:touchpanel,button-type: <virtualkey_type  supportted_button-map>
+		 *virtualkey_type:
+		 *Type 1: using board_properties
+		 *Type 2: using same IC (button zone&& touch zone are seprate)
+		 *Type 3: using diffrent IC (button zone&& touch zone are seprate)
+		 *Type 4: No need of virtual key process
+		 *supportted_button-map:select|menu|home|back
+		 *
+		 *2:touchpanel,button-map
+		 *type (X1,Y1)(X2,Y2)(X3,Y3)(Width_X,Hight_Y)--Only when button-type is 0
+		 */
+		touchpanel,button-type = <4>;
+		touchpanel.button-TRx = <0 0>;
+
+		GT9966 {
+			support_gesture_type = <0x10002>;
+			support_disp_rate = <60 120>;
+		};
+	};
+};
+
+&qupv3_se19_spi {
+	status = "ok";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+	qcom,le-vm;
+
+	synaptics_tcm@0{
+		compatible = "synaptics-s3910";
+		reg = <0x0>;
+		chip-name = "S3910";
+		spi-max-frequency = <12000000>;
+
+		touchpanel,max-num-support = <10>;
+		touchpanel,tx-rx-num = <16 32>;
+		touchpanel,panel-coords = <10800 21200>;
+		touchpanel,display-coords = <1080 2120>;
+		touchpanel,touchmajor-limit = <128 216>;
+		touchpanel,elimination-range = <20 200 200>;
+		touchpanel,int-mode = <1>; /*0: interrupt and disable, 1:interrupt and not disable*/
+		touchpanel,smooth-level = <0 1 2 4 7 9>;
+		touchpanel,smooth-level-charging = <0 2 4 7 8 9>;
+		touchpanel,sensitive-level = <0 70 55 40 25 10>;
+		touchpanel,single-optimized-time = <8>;
+		touchpanel,high-frame-rate-time = <60>;
+
+		project_id = <22001>;
+		vid_len = <2>;
+		touchpanel,tp-index = <1>;
+		touchpanel,tp_ic_type = <2>;
+		panel_type = <3>;
+		// type of tp_dev ,TP-SAMSUNG = 8;
+		platform_support_project = <22001 22201>;
+		platform_support_project_dir = <22001 22001>;
+		platform_support_project_commandline = "dsi_oplus_samsung_s6e3fac_1080_2120_dsc_cmd",
+							"dsi_oplus_samsung_s6e3fac_1080_2120_dsc_cmd";
+
+		prevention,curved_screen_V2;
+		prevention,grip_disable_level = <6>;
+		prevention,updelay_time_ms = <45>;
+		prevention,makeup_cnt_weight = <5 1 2 2 2>;
+		prevention,large_corner_range = <1200 3000>;
+		prevention,large_corner_judge_condition = <850 100 1000 7 7>;
+		prevention,trx_reject_condition = <8 7 7>;
+		prevention,trx_strict_reject_condition = <8 6 6>;
+		prevention,large_judge_time_ms = <500 50 30>;
+		prevention,large_exit_condition = <8 8 2>;
+		prevention,single_channel_width = <320 320>;
+		prevention,normal_tap_condition = <10 350>;
+		prevention,long_edge_condition = <240 150 180 80>;
+		prevention,long_strict_edge_condition = <160 60>;
+		prevention,long_fingerhold_condition = <70 6 4 4>;
+		prevention,short_edge_condition = <250 90 180 80>;
+		prevention,short_strict_edge_condition = <160 60>;
+		prevention,large_strict_exit_condition = <6 6>;
+		prevention,top_corner_config = <500 1500 300>;
+		prevention,edge_swipe_config = <300 1000>;
+
+		trusted_touch_support;
+		touchpanel,irq_tui_flags = <0x4>;	/* 0x4:IRQ_TYPE_LEVEL_HIGH */
+		touchpanel,trusted-touch-mode = "vm_mode";
+		touchpanel,touch-environment = "tvm";
+		touchpanel,trusted-touch-type = "secondary";
+		touchpanel,trusted-touch-spi-irq = <566>;
+		touchpanel,trusted-touch-io-bases = <0x890000 0x810000>;
+		touchpanel,trusted-touch-io-sizes = <0x1000 0x4000>;
+		touchpanel,trusted-touch-vm-gpio-list = <&tlmm 72 0 &tlmm 73 0 &tlmm 74 0
+								&tlmm 75 0 &tlmm 6 0 &tlmm 23 0x2008>;
+		touchpanel,trusted-touch-reset-io-base = <0xF106000>;
+		touchpanel,trusted-touch-reset-io-size = <0x1000>;
+		touchpanel,trusted-touch-reset-io-offset = <0x4>;
+		touchpanel,trusted-touch-irq-io-base = <0xF117000>;
+		touchpanel,trusted-touch-irq-io-size = <0x1000>;
+		touchpanel,trusted-touch-irq-io-offset = <0x8>;
+
+		/* SW Support Feature Control */
+		black_gesture_support;
+		pressure_report_support;
+		charger_pump_support;
+		game_switch_support;
+		smart_gesture_support;
+		spi_port_support;
+		fw_update_app_support;
+		fingerprint_underscreen_support;
+		freq_hop_simulate_support;
+		report_flow_unlock_support;
+		screenoff_fingerprint_info_support;
+		irq_need_dev_resume_ok;
+		enable_point_auto_change;
+		report_rate_white_list_support;
+		kernel_grip_support;
+		exception_upload_support;
+		//grip_no_driver_support;
+		health_monitor_support;
+		black_gesture_indep_support;
+		algorithm_support;
+		snr_read_support;
+		/*
+		 *Virtual Key Config:
+		 *1:touchpanel,button-type: <virtualkey_type  supportted_button-map>
+		 *virtualkey_type:
+		 *Type 1: using board_properties
+		 *Type 2: using same IC (button zone&& touch zone are seprate)
+		 *Type 3: using diffrent IC (button zone&& touch zone are seprate)
+		 *Type 4: No need of virtual key process
+		 *supportted_button-map:select|menu|home|back
+		 *
+		 *2:touchpanel,button-map
+		 *type (X1,Y1)(X2,Y2)(X3,Y3)(Width_X,Hight_Y)--Only when button-type is 0
+		 */
+		touchpanel,button-type = <4>;
+		touchpanel.button-TRx = <0 0>;
+
+		S3910 {
+			switch_report_rate;
+			report_rate_default = <60>;
+			report_rate_game_value = <0x03>;
+			fps_report_rate = <60 2 90 3 120 3>;//1:360Hz 2:125Hz 3:240Hz
+			fwupdate_bootloader = <1>;
+			default_gesture_mask = <8191>;
+		};
+	};
+
+};
