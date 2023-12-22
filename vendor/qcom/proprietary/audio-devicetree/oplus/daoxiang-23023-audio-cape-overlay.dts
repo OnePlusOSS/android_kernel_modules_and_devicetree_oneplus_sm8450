@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../cape-audio-mtp.dts"
+#include "cape_audio_overlay_common.dtsi"
+#include "daoxiang_23023_audio_overlay_common.dtsi"
+/ {
+        oplus,project-id = <23023>;
+        oplus,hw-id = <OPLUS_EVB1 OPLUS_T0 OPLUS_T1 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_DVT2 OPLUS_PVT1 OPLUS_MP1>;
+};

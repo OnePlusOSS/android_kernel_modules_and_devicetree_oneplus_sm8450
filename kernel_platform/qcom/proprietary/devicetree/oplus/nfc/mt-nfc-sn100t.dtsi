@@ -1,0 +1,47 @@
+/**********************************************************************************
+* Copyright (c)  2008-2020  Guangdong oplus Mobile Comm Corp., Ltd
+* Description: oplus sn100t nfc dtsi
+*
+* Version: 1.0
+* Date: 2021-06-24
+* Author: LiuWenJie
+*
+* ------------------------------ Revision History: --------------------------------
+* <version>           <date>                <author>                            <desc>
+* Revision 1.0       2021-06-24            LiuWenJie           Created for mt-nfc-sn100t.dtsi
+***********************************************************************************/
+&soc {
+	//add for nfc_chipset
+	nfc_chipset {
+		compatible = "oplus-nfc-chipset";
+		chipset-20845 = "SN100T";//China
+		chipset-2084B = "SN100T";//USA
+		chipset-2084D = "SN100T";//india
+		chipset-2084E = "SN100T";//Europe
+	};
+};
+
+&qupv3_se9_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <1000000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	nq@28 {
+		compatible = "qcom,sn-nci";
+		reg = <0x28>;
+		qcom,sn-irq = <&tlmm 46 0x00>;
+		qcom,sn-ven = <&tlmm 34 0x00>;
+		qcom,sn-firm = <&tlmm 45 0x00>;
+		qcom,sn-clkreq = <&tlmm 35 0x00>;
+		qcom,sn-vdd-1p8-supply = <&S10B>;
+		qcom,sn-vdd-1p8-voltage = <1800000 1800000>;
+		qcom,sn-vdd-1p8-current = <157000>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <46 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active", "nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_enable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_enable_suspend>;
+	};
+};
+

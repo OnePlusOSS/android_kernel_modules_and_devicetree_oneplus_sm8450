@@ -1,0 +1,2 @@
+obj-$(CONFIG_OPLUS_FEATURE_TASK_CPUSTATS) += oplus_bsp_task_cpustats.o
+oplus_bsp_task_cpustats-y := task_cpustats.o

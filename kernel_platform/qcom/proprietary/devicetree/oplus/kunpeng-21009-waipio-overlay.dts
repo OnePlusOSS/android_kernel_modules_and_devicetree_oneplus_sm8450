@@ -1,0 +1,222 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/oplus/hw-id.h>
+#include "../qcom/waipio-mtp-pm8010-overlay.dts"
+#include "waipio_overlay_common.dtsi"
+#include "kunpeng_21009_overlay_common.dtsi"
+#include "oplus_chg/oplus-chg-21009.dtsi"
+#include "nfc/kunpeng-nfc-sn100t.dtsi"
+#include <dt-bindings/clock/qcom,rpmh.h>
+#include "sensor/kunpeng-oplus-sensor.dtsi"
+
+/ {
+    model = "Qualcomm Technologies, Inc. Waipio MTP with PM8010, kunpeng";
+
+    oplus,project-id = <21009>;
+    oplus,hw-id = <OPLUS_EVB1 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_PVT1 OPLUS_MP1>;
+};
+
+&pcie1 {
+  status = "disabled";
+};
+
+&tlmm {
+  //#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
+  rf_cable0_active: rf_cable0_active {
+    mux {
+      pins = "gpio89";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio89";
+      drive-strength = <2>;
+      input-enable;
+      bias-pull-up;
+    };
+  };
+  //#endif /* OPLUS_FEATURE_RF_CABLE_DETECT */
+
+  cd_pin_pulldown: cd_pin_pulldown {
+    mux {
+      pins = "gpio99";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio99";
+      drive-strength = <2>;
+      bias-pull-down;
+      input-enable;
+    };
+  };
+
+  explorer_int0: explorer_int0 {
+    mux {
+      pins = "gpio150";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio150";
+      bias-pull-down;
+      drive-strength = <2>;
+      input-enable;
+    };
+  };
+
+  explorer_int1: explorer_int1 {
+    mux {
+      pins = "gpio154";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio154";
+      bias-pull-down;
+      drive-strength = <2>;
+      input-enable;
+    };
+  };
+
+  explorer_int2: explorer_int2 {
+    mux {
+      pins = "gpio187";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio187";
+      bias-pull-down;
+      drive-strength = <2>;
+      input-enable;
+    };
+  };
+
+  pmic_pon_1: pmic_pon_1 {
+    mux {
+      pins = "gpio116";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio116";
+      bias-pull-down;
+      drive-strength = <2>;
+      output-low;
+    };
+  };
+
+  gpio_sleep: gpio_sleep {
+    mux {
+      pins = "gpio19";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio19";
+      bias-pull-down;
+      drive-strength = <2>;
+      input-enable;
+    };
+  };
+
+  pmic_resin_n: pmic_resin_n {
+    mux {
+      pins = "gpio119";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio119";
+      bias-pull-down;
+      drive-strength = <2>;
+      output-low;
+    };
+  };
+
+  sdc2_on: sdc2_on {
+    clk {
+      pins = "sdc2_clk";
+      bias-disable;
+      drive-strength = <8>;
+    };
+
+    cmd {
+      pins = "sdc2_cmd";
+      bias-pull-up;
+      drive-strength = <6>;
+    };
+
+    data {
+      pins = "sdc2_data";
+      bias-pull-up;
+      drive-strength = <6>;
+    };
+  };
+
+  sdc2_off: sdc2_off {
+    clk {
+      pins = "sdc2_clk";
+      bias-disable;
+      drive-strength = <2>;
+    };
+
+    cmd {
+      pins = "sdc2_cmd";
+      bias-pull-up;
+      drive-strength = <2>;
+    };
+
+    data {
+      pins = "sdc2_data";
+      bias-pull-up;
+      drive-strength = <2>;
+    };
+  };
+};
+
+&sdhc_2 {
+  cd-debounce-delay-ms = <1>;
+  cd-gpios = <&tlmm 99 GPIO_ACTIVE_HIGH>;
+  pinctrl-names = "default", "sleep";
+  pinctrl-0 = <&sdc2_on &cd_pin_pulldown>;
+  pinctrl-1 = <&sdc2_off>;
+  filter-enable;
+  no-sd;
+  no-mmc;
+  qcom,vdd-io-voltage-level = <1800000 1800000>;
+  status = "ok";
+};
+
+&soc {
+  //#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
+  oplus_rf_cable {
+    compatible = "oplus,rf_cable";
+    interrupt-parent = <&tlmm>;
+    rf_cable_support_num = <1>;
+    rf,cable0-gpio = <&tlmm 89 0>;
+    rf,cable-support-timer = <0>;
+    pinctrl-names = "rf_cable_active";
+    pinctrl-0 = <&rf_cable0_active>;
+  };
+  //#endif /* OPLUS_FEATURE_RF_CABLE_DETECT */
+  preisp: zeku,explorer@0 {
+    compatible = "zeku,explorer";
+    interrupt-parent = <&tlmm>;
+    bsp_irq_gpio = <&tlmm 150 0>;
+    bsp_int1_gpio = <&tlmm 154 0>;
+    bsp_int2_gpio = <&tlmm 187 0>;
+    explorer_sleep_gpio = <&tlmm 19 0>;
+    pmic_pon_gpio = <&tlmm 116 0>;
+    pmic_reset_gpio = <&tlmm 119 0>;
+    pinctrl-names = "default";
+    pinctrl-0 = <&explorer_int0 &explorer_int1 &explorer_int2 &pmic_pon_1 &gpio_sleep &pmic_resin_n>;
+    clock-names = "clk_ref";
+    clocks = <&clock_rpmh RPMH_RF_CLK5>;
+    vcc_sdio-supply = <&L6C>;
+    explorer,clk-drive-strength = <4>;
+    explorer,cmd-drive-strength = <4>;
+    explorer,data-drive-strength = <4>;
+  };
+};
+//#ifdef OPLUS_FEATURE_CHG_BASIC
+&pm8350b_haptics {
+    qcom,fifo-vmax-mv = <8900>;
+    qcom,old-steady-vmax-mv = <8900>;//8.9v
+};
+//#endif
+

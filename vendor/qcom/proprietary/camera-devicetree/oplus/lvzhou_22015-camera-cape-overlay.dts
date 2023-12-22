@@ -1,0 +1,19 @@
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/qcom,gcc-waipio.h>
+#include <dt-bindings/clock/qcom,camcc-waipio.h>
+#include <dt-bindings/interconnect/qcom,waipio.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+#include <dt-bindings/oplus/hw-id.h>
+//#include "../waipio-camera-sensor-mtp.dts"
+#include "waipio_camera_overlay_common.dtsi"
+#include "lvzhou_22015_camera_overlay_common.dtsi"
+/ {
+    model = "Qualcomm Technologies, Inc. Cape MTP, lvzhou";
+    compatible = "qcom,cape", "qcom,cape";
+    oplus,project-id = <22015 22015>;
+    oplus,hw-id = <OPLUS_EVB1 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_PVT1 OPLUS_MP1>;
+};

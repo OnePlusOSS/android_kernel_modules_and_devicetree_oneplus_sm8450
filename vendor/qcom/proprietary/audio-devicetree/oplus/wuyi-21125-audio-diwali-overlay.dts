@@ -1,0 +1,33 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../diwali-audio-idp.dts"
+#include "diwali_audio_overlay_common.dtsi"
+/ {
+    oplus,project-id = <21125 21125>;
+    oplus,hw-id = <OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_PVT1 OPLUS_MP1>;
+};
+
+&pri_mi2s_sck_active {
+	config {
+		drive-strength = <4>;   /* 4 mA */
+	};
+};
+
+&pri_mi2s_ws_active {
+	config {
+		drive-strength = <4>;   /* 4 mA */
+	};
+};
+
+&pri_mi2s_sd0_active {
+	config {
+		drive-strength = <4>;   /* 4 mA */
+	};
+};
+
+&pri_mi2s_sd1_active {
+	config {
+		drive-strength = <4>;   /* 4 mA */
+	};
+};

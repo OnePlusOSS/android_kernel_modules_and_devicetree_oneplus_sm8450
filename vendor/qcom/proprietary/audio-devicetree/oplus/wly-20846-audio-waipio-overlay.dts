@@ -1,0 +1,10 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../waipio-audio-mtp.dts"
+#include "waipio_audio_overlay_common.dtsi"
+#include "wly_20846_audio_overlay_common.dtsi"
+/ {
+    oplus,project-id = <20846 20847 20848 20849 0x2084a>;
+    oplus,hw-id = <OPLUS_PRE_EVB1 OPLUS_EVB1 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_DVT2 OPLUS_PVT1>;
+};

@@ -1,0 +1,176 @@
+#include "cape-sde-display.dtsi"
+
+
+&dsi_r66451_amoled_cmd_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_extvdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <10>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_r66451_amoled_144hz_cmd_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_extvdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <10>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_r66451_amoled_144hz_video_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_extvdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <150>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_r66451_amoled_video_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_extvdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <150>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_r66451_amoled_120hz_cmd_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_extvdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <10>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_r66451_amoled_120hz_video_cphy {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_extvdd>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <150>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+};
+
+&dsi_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_dual_sim_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,bl-dsc-cmd-state = "dsi_lp_mode";
+};
+
+&dsi_dual_sim_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+};
+
+&dsi_sim_dsc_375_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+};
+
+&dsi_sim_dsc_10b_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+};
+
+&sde_dsi {
+	qcom,dsi-default-panel = <&dsi_r66451_amoled_120hz_cmd_cphy>;
+};
+
+&dsi_r66451_amoled_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_supply_sim>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-sec-bl-pmic-control-type = "bl_ctrl_dcs";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <8191>;
+	qcom,mdss-dsi-bl-inverted-dbv;
+	qcom,platform-reset-gpio = <&tlmm 0 0>;
+	qcom,platform-sec-reset-gpio = <&tlmm 4 0>;
+};
+
+//#fidef OPLUS_BSP_TP_FEATURE
+&qupv3_se4_spi {
+	goodix_gt9966@0 {
+		panel = <&dsi_oplus_samsung_s6e3xa2_1792_1920_dsc_cmd>;
+	};
+	synaptics_tcm@0 {
+		panel = <&dsi_panel_lvzhou_ab241_ili7838a_1080_2412_dsc_cmd
+			&dsi_panel_tianma_ab389_ili7838a_1080_2412_dsc_cmd
+			&dsi_oplus_boe_rm692e5_1080_2412_dsc_cmd
+			&dsi_oplus21606_nt37701b_1080_2412_dsc_cmd_udc
+			&dsi_oplus21605_nt37701a_1080_2412_dsc_cmd
+			&dsi_oplus_senna_bc_nt37705_1240_2772_dsc_cmd
+			&dsi_oplus_senna_bc_nt37705_1240_2772_dsc_cmd_04
+			&dsi_oplus_senna_bc_nt37705_06_1240_2772_dsc_cmd
+			&dsi_oplus_senna_bc_nt37705_1240_2772_dsc_cmd_evt
+			&dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd
+			&dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd_04
+			&dsi_oplus_senna22623_nt37705_06_1240_2772_dsc_cmd
+			&dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd_evt>;
+	};
+};
+
+&qupv3_se19_spi {
+	synaptics_tcm@0{
+		panel = <&dsi_oplus_samsung_s6e3fac_1080_2120_dsc_cmd
+				&dsi_oplus_samsung_s6e3fac_1080_2120_dsc_cmd_wdte>;
+	};
+};
+//#endif OPLUS_BSP_TP_FEATURE
+
+//#ifdef OPLUS_FEATURE_UFF_FINGERPRINT
+//#BSP.Biometrics.Fingerprint, 2022/08/02, add for uff-fingerprint notify
+&soc {
+        fingerprint_dev {
+            panel = <&dsi_oplus_boe_rm692e5_1080_2412_dsc_cmd
+                    &dsi_oplus_ovaltine_boe_nt37705_1080_2412_dsc_cmd
+                    &dsi_panel_tianma_ab389_ili7838a_1080_2412_dsc_cmd
+                    &dsi_oplus21606_nt37701b_1080_2412_dsc_cmd_udc
+                    &dsi_oplus21605_nt37701a_1080_2412_dsc_cmd
+                    &dsi_oplus_senna_bc_nt37705_1240_2772_dsc_cmd
+                    &dsi_oplus_senna_bc_nt37705_1240_2772_dsc_cmd_04
+                    &dsi_oplus_senna_bc_nt37705_06_1240_2772_dsc_cmd
+                    &dsi_oplus_senna_bc_nt37705_1240_2772_dsc_cmd_evt
+                    &dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd
+                    &dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd_04
+                    &dsi_oplus_senna22623_nt37705_06_1240_2772_dsc_cmd
+                    &dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd_evt>;
+        };
+};
+//#endif /*OPLUS_FEATURE_UFF_FINGERPRINT*/
+
+&spmi_bus {
+	qcom,pm8350b@3 {
+		qcom,amoled-ecm@f900 {
+			display-panels = <&dsi_r66451_amoled_cmd_cphy
+					&dsi_r66451_amoled_144hz_cmd_cphy
+					&dsi_r66451_amoled_144hz_video_cphy
+					&dsi_r66451_amoled_video_cphy
+					&dsi_r66451_amoled_120hz_cmd_cphy
+					&dsi_r66451_amoled_120hz_video_cphy>;
+		};
+	};
+};

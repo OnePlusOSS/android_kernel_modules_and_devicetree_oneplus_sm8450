@@ -1,0 +1,57 @@
+ifeq ($(CONFIG_BUILD_ARM64_DT_OVERLAY), y)
+dtbo-$(CONFIG_ARCH_WAIPIO)		+= waipio-camera.dtbo
+#dtbo-$(CONFIG_ARCH_WAIPIO)		+= waipio-camera-overlay-v2.dtbo
+#dtbo-$(CONFIG_ARCH_WAIPIO)		+= waipio-camera-sensor-mtp.dtbo \
+#										waipio-camera-sensor-cdp.dtbo \
+#										waipio-camera-sensor-qrd.dtbo
+
+
+
+#PLUS_DTS_OVERLAY start
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-camera-waipio-overlay-EVB.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-camera-waipio-overlay-preT0.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/mt-20845-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/jnc-20865-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/baize-21001-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/ferrari-21631-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/kunpeng-21009-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/unicorn-21166-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/jennie_21605-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/udon_22803-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/jennie_21606-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/monroe_22091-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/monroe_22091-camera-waipio-overlay-preT0.dtbo
+
+dtbo-$(CONFIG_ARCH_DIWALI)		+= diwali-camera.dtbo
+dtbo-$(CONFIG_ARCH_DIWALI) += oplus/wuyi-21125-camera-diwali-overlay.dtbo
+
+dtbo-$(CONFIG_ARCH_CAPE) += cape-camera.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/jennie_21605-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/udon_22803-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/jennie_21606-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/ovaltine-21841-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/ovaltine-21841-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/senna-22624-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/senna-22625-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/whiteswan_22001-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/whiteswan_22001-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/lvzhou_22015-camera-waipio-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/lvzhou_22015-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/monroe_22091-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/monroe_22091-camera-cape-overlay-preT0.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/daoxiang_23023-camera-cape-overlay.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/daoxiang_23023-camera-cape-overlay-T1.dtbo
+
+dtbo-$(CONFIG_ARCH_CAPE) += ukee-camera.dtbo
+dtbo-$(CONFIG_ARCH_CAPE) += oplus/senna_22623-camera-ukee-overlay.dtbo
+
+#OPLUS_DTS_OVERLAY end
+
+else
+$(error CONFIG_BUILD_ARM64_DT_OVERLAY is: $(CONFIG_BUILD_ARM64_DT_OVERLAY))
+endif
+
+always-y	:= $(dtbo-y) $(dtb-y)
+subdir-y	:= $(dts-dirs)
+clean-files	:= *.dtb *.dtbo

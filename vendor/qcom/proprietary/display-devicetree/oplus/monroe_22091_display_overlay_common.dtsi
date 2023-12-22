@@ -1,0 +1,5 @@
+/* #ifdef OPLUS_FEATURE_DISPLAY */
+&mdss_dsi_phy0 {
+	oplus,dsi-pll-ssc-disalbed;
+};
+/* OPLUS_FEATURE_DISPLAY */

@@ -1,0 +1,30 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include <dt-bindings/iio/qcom,spmi-adc7-pm8350.h>
+#include "../display/cape-sde-display-mtp-overlay.dts"
+#include "senna_22624_display_overlay_common.dtsi"
+/* #if defined(CONFIG_PXLW_IRIS) */
+#include "../display/pxlw-senna/pxlw-iris5.dtsi"
+#include "../display/pxlw-senna/dsi-panel-pxlw.dtsi"
+/* #endif */
+/ {
+    oplus,project-id = <22624 0x226AA 0x226AB>;
+//    oplus,hw-id = <OPLUS_EVB1 OPLUS_EVB2 OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_EVT3 OPLUS_DVT1 OPLUS_DVT2 OPLUS_DVT3 OPLUS_PVT1 OPLUS_MP1 OPLUS_MP2 OPLUS_MP3>;
+};
+
+/*Adapt parameters to obtain screen temperature*/
+&pmk8350_vadc {
+    disp0_con_therm_adc {
+        reg = <PM8350_ADC7_AMUX_THM4_100K_PU>;
+        label = "disp0_con_therm_adc";
+        qcom,pre-scaling = <1 1>;
+        qcom,ratiometric;
+        qcom,hw-settle-time = <200>;
+    };
+};
+
+&sde_dsi{
+    io-channels = <&pmk8350_vadc PM8350_ADC7_AMUX_THM4_100K_PU>;
+    io-channel-names = "disp0_con_therm_adc";
+};
