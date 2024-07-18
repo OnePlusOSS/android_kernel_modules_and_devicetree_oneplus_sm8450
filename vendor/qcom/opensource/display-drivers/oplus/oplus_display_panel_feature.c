@@ -169,6 +169,25 @@ int oplus_panel_features_config(struct dsi_panel *panel)
 	LCD_INFO("oplus,power-seq-adj: %s\n",
 			panel->oplus_priv.power_seq_adj ? "true" : "false");
 
+	/* Add for onepulse feature */
+	panel->oplus_priv.pwm_onepulse_support = utils->read_bool(utils->data,
+			"oplus,pwm-onepulse-support");
+	LCD_INFO("oplus,pwm-onepulse-support: %s\n",
+			panel->oplus_priv.pwm_onepulse_support ? "true" : "false");
+	panel->oplus_priv.pwm_onepulse_enabled = utils->read_bool(utils->data,
+			"oplus,pwm-onepulse-default-enabled");
+	LCD_INFO("oplus,pwm-onepulse-default-enabled: %s\n",
+			panel->oplus_priv.pwm_onepulse_enabled ? "true" : "false");
+	panel->oplus_priv.hpwm_onepulse_support = utils->read_bool(utils->data,
+		    "oplus,hpwm-onepulse-support");
+	LCD_INFO("oplus,oplus,hpwm-onepulse-support: %s\n",
+		    panel->oplus_priv.hpwm_onepulse_support ? "true" : "false");
+	if (panel->oplus_priv.hpwm_onepulse_support) {
+		panel->oplus_priv.oplus_panel_send_cmd_wq = create_singlethread_workqueue("oplus_panel_send_cmd_wq");
+		if (panel->oplus_priv.oplus_panel_send_cmd_wq) {
+			INIT_WORK(&panel->oplus_priv.oplus_panel_send_cmd_queue_work, oplus_panel_hpwm_onepulse_send_cmd_work_handler);
+		}
+	}
 
 	oplus_panel_get_serial_number_info(panel);
 
@@ -218,6 +237,8 @@ int oplus_panel_post_on_backlight(void *display, struct dsi_panel *panel, u32 bl
 		if ((!strcmp(panel->name, "BOE AB319 NT37701B UDC") || !strcmp(panel->name, "BOE AB241 NT37701A"))
 			&& get_oplus_display_power_status() == OPLUS_DISPLAY_POWER_ON)
 			oplus_panel_event_data_notifier_trigger(panel, DRM_PANEL_EVENT_UNBLANK, 0, true);
+		/* Add for onepulse feature */
+		panel->post_power_on = true;
 	}
 	return 0;
 }
@@ -262,7 +283,9 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 	timing = panel->cur_mode->timing;
 	refresh_rate = timing.refresh_rate;
 
-	if ((!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705")) || (!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))) {
+	if ((!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705"))
+		|| (!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))
+		|| (!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05"))) {
 		if (bl_lvl > 0 && bl_lvl < 8)
 			bl_lvl = 8;
 	}
@@ -289,6 +312,13 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 	oplus_panel_backlight_level_mapping(panel, &bl_lvl);
 	/*backlight value mapping */
 	oplus_panel_global_hbm_mapping(panel, &bl_lvl);
+
+	if (panel->oplus_priv.hpwm_onepulse_support) {
+		oplus_display_pwm_turbo_kickoff();
+	}
+
+	/* Add for onepulse feature */
+	oplus_panel_pwm_switch_backlight(panel, bl_lvl);
 
 	if (!panel->oplus_priv.need_sync && panel->cur_mode->priv_info->async_bl_delay) {
 		oplus_apollo_async_bl_delay(panel);
@@ -320,10 +350,16 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 
 	if (!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705") && (bl_lvl > 1)) {
 		oplus_display_update_dbv_evt(panel, bl_lvl);
-	} else if (!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT") && (bl_lvl > 1)) {
+	} else if (((!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))
+		|| (!strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05"))) && (bl_lvl > 1)) {
 		SDE_ATRACE_BEGIN("oplus_display_update_dbv");
 		oplus_display_update_dbv(panel);
 		SDE_ATRACE_END("oplus_display_update_dbv");
+	}
+
+	if (panel->oplus_priv.hpwm_onepulse_support && panel->oplus_priv.onepulse_skip_bl_cmd) {
+		panel->oplus_priv.onepulse_skip_bl_cmd = false;
+		DSI_INFO("skip mipi_dsi_dcs_set_display_brightness\n");
 	} else {
 	if (oplus_adfr_is_support()) {
 		/* if backlight cmd is set after qsync window setting and qsync is enable, filter it
@@ -352,8 +388,7 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 		if (rc < 0)
 			DSI_ERR("failed to update dcs backlight:%d\n", bl_lvl);
 	}
-	}
-
+	}/* end else onepulse_skip_bl_cmd */
 #ifdef OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION
 	if (oplus_temp_compensation_is_supported()) {
 		oplus_temp_compensation_first_half_frame_cmd_set(panel);
@@ -632,4 +667,92 @@ void oplus_printf_backlight_log(struct dsi_display *display, u32 bl_lvl) {
 		}
 		pr_info("<%s> len:%d dsi_display_set_backlight %s\n", display->panel->oplus_priv.vendor_name, len, backlight_log_buf);
 	}
+}
+
+int oplus_panel_hpwm_onepulse_cmd_wq_send(void)
+{
+	struct dsi_display *display = NULL;
+	struct dsi_panel *panel = NULL;
+	int rc = -1;
+
+	display = oplus_display_get_current_display();
+	if (!display) {
+		DSI_ERR("failed for: %s %d\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	panel = display->panel;
+	if (!panel) {
+		DSI_ERR("failed for: %s %d\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	if (!panel->oplus_priv.hpwm_onepulse_support) {  /* no support hpwm_onepulse, retrun */
+		return rc;
+	}
+
+	DSI_DEBUG("start\n");
+	if (panel->oplus_priv.oplus_panel_send_cmd_wq) {
+		queue_work(panel->oplus_priv.oplus_panel_send_cmd_wq, &panel->oplus_priv.oplus_panel_send_cmd_queue_work);
+	}
+	DSI_DEBUG("end\n");
+
+	return 0;
+}
+
+void oplus_panel_hpwm_onepulse_send_cmd_work_handler(struct work_struct *work_item)
+{
+	int rc = 0;
+	bool enabled = false;
+	struct dsi_display *display = oplus_display_get_current_display();
+	struct dsi_panel *panel = NULL;
+
+	DSI_DEBUG("start\n");
+
+	if (IS_ERR_OR_NULL(display) || IS_ERR_OR_NULL(display->panel)) {
+		DSI_ERR("Invalid params\n");
+		return;
+	}
+	panel = display->panel;
+
+	if (!dsi_panel_initialized(panel)) {
+		DSI_ERR("should not set onepulse cmd in the power on panel\n");
+		return;
+	}
+
+	SDE_ATRACE_BEGIN("oplus_panel_hpwm_onepulse_send_cmd_work_handler");
+
+	oplus_sde_early_wakeup();
+	oplus_wait_for_vsync(display->panel);
+
+	mutex_lock(&display->panel->panel_lock);
+	DSI_DEBUG("oplus_panel_hpwm_onepulse_send_cmd_work_handler\n");
+
+	enabled = panel->oplus_priv.pwm_turbo_status;
+
+	if (enabled) {
+		if (panel->cur_mode->timing.refresh_rate == 60)
+			rc |= dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH_120_HIGH_FRE);
+		if (panel->cur_mode->timing.refresh_rate != 90)
+			rc |= dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH_HIGH_FRE);
+	} else {
+		if (panel->cur_mode->timing.refresh_rate == 60)
+			rc |= dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH_120);
+		if (panel->cur_mode->timing.refresh_rate != 90)
+			rc |= dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_TIMING_SWITCH);
+	}
+
+	if (panel->cur_mode->timing.refresh_rate != 90)
+		rc |= dsi_panel_tx_cmd_set(panel, DSI_CMD_RECOVERY_SCANLINE);
+
+	if (rc) {
+		DSI_ERR("failed to set onepulse cmd, rc=%d\n", rc);
+	}
+	mutex_unlock(&display->panel->panel_lock);
+
+	SDE_ATRACE_END("oplus_panel_hpwm_onepulse_send_cmd_work_handler");
+
+	DSI_DEBUG("end\n");
+
+	return;
 }

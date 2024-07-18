@@ -58,6 +58,7 @@ static int goodix_test_item(struct seq_file *s, struct touchpanel_data *ts,
 	struct test_item_info *p_test_item_info = NULL;
 	struct goodix_auto_test_operations *gd_test_ops = NULL;
 	struct com_test_data *com_test_data_p = NULL;
+	int support_item = 0;
 
 	com_test_data_p = &ts->com_test_data;
 
@@ -83,85 +84,89 @@ static int goodix_test_item(struct seq_file *s, struct touchpanel_data *ts,
 		}
 	}
 
-	p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST1);
+	if (gd_test_ops->test1) {
+		p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST1);
+		if (!p_test_item_info) {
+			TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST1);
+		} else {
+			ret = gd_test_ops->test1(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
+			if (ret < 0) {
+				TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST1, ret);
+				error_count++;
+			}
+			support_item++;
+		}
+		tp_kfree((void **)&p_test_item_info);
+	}
 
-	if (!p_test_item_info) {
-		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST1);
+	if (gd_test_ops->test2) {
+		p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST2);
+		if (!p_test_item_info) {
+			TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST2);
+		} else {
+			ret = gd_test_ops->test2(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
+			if (ret < 0) {
+				TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST2, ret);
+				error_count++;
+			}
+			support_item++;
+		}
+		tp_kfree((void **)&p_test_item_info);
+	}
 
-	} else {
-		ret = gd_test_ops->test1(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
+	if (gd_test_ops->test3) {
+		p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST3);
+		if (!p_test_item_info) {
+			TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST3);
+		} else {
+			ret = gd_test_ops->test3(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
+			if (ret < 0) {
+				TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST3, ret);
+				error_count++;
+			}
+			support_item++;
+		}
+		tp_kfree((void **)&p_test_item_info);
+	}
 
+
+	if (gd_test_ops->test4) {
+		p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST4);
+		if (!p_test_item_info) {
+			TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST4);
+		} else {
+			ret = gd_test_ops->test4(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
+			if (ret < 0) {
+				TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST4, ret);
+				error_count++;
+			}
+			support_item++;
+		}
+		tp_kfree((void **)&p_test_item_info);
+	}
+
+	if (gd_test_ops->test5) {
+		p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST5);
+		if (!p_test_item_info) {
+			TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST5);
+		} else {
+			ret = gd_test_ops->test5(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
+			if (ret < 0) {
+				TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST5, ret);
+				error_count++;
+			}
+			support_item++;
+		}
+		tp_kfree((void **)&p_test_item_info);
+	}
+
+	if (gd_test_ops->test6) {
+		ret = gd_test_ops->test6(s, ts->chip_data, NULL, NULL);
 		if (ret < 0) {
-			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST1, ret);
+			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST6, ret);
 			error_count++;
 		}
 	}
-
-	tp_kfree((void **)&p_test_item_info);
-
-	p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST2);
-
-	if (!p_test_item_info) {
-		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST2);
-
-	} else {
-		ret = gd_test_ops->test2(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
-
-		if (ret < 0) {
-			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST2, ret);
-			error_count++;
-		}
-	}
-
-	tp_kfree((void **)&p_test_item_info);
-
-	p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST3);
-
-	if (!p_test_item_info) {
-		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST3);
-
-	} else {
-		ret = gd_test_ops->test3(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
-
-		if (ret < 0) {
-			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST3, ret);
-			error_count++;
-		}
-	}
-
-	tp_kfree((void **)&p_test_item_info);
-
-	p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST4);
-
-	if (!p_test_item_info) {
-		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST4);
-
-	} else {
-		ret = gd_test_ops->test4(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
-
-		if (ret < 0) {
-			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST4, ret);
-			error_count++;
-		}
-	}
-
-	tp_kfree((void **)&p_test_item_info);
-
-	p_test_item_info = get_test_item_info(p_goodix_testdata->fw, TYPE_TEST5);
-
-	if (!p_test_item_info) {
-		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST5);
-
-	} else {
-		ret = gd_test_ops->test5(s, ts->chip_data, p_goodix_testdata, p_test_item_info);
-
-		if (ret < 0) {
-			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST5, ret);
-			error_count++;
-		}
-	}
-
-	tp_kfree((void **)&p_test_item_info);
 
 	if (!gd_test_ops->auto_test_endoperation) {
 		TPD_INFO("not support gd_test_ops->auto_test_preoperation callback\n");
@@ -177,6 +182,9 @@ static int goodix_test_item(struct seq_file *s, struct touchpanel_data *ts,
 	}
 
 END:
+	if (!support_item) {
+		error_count++;
+	}
 	return error_count;
 }
 
@@ -258,12 +266,7 @@ static int goodix_config_version_open(struct inode *inode, struct file *file)
 	return single_open(file, proc_data_config_version_read, PDE_DATA(inode));
 }
 
-static const struct file_operations goodix_config_version_proc_fops = {
-	.owner = THIS_MODULE,
-	.open = goodix_config_version_open,
-	.read = seq_read,
-	.release = single_release,
-};
+DECLARE_PROC_OPS(goodix_config_version_proc_fops, goodix_config_version_open, seq_read, NULL, single_release);
 
 int goodix_create_proc(struct touchpanel_data *ts,
 		       struct goodix_proc_operations *goodix_ops)
@@ -296,6 +299,47 @@ int goodix_remove_proc(struct touchpanel_data *ts)
 	return 0;
 }
 EXPORT_SYMBOL(goodix_remove_proc);
+
+void goodix_print_differ(s16 *diff_buf, u32 diff_size, int tx, int rx)
+{
+	int ret = 0;
+	int i, j;
+	u8 *out_str;
+	u32 out_size;
+
+	if (diff_buf == NULL) {
+		TPD_INFO("GT:%s:diff_buf is NULL\n", __func__);
+		return;
+	}
+
+	out_size = (tx+rx)*5 + 1;
+	out_str = kzalloc(out_size, GFP_KERNEL);
+	if (out_str == NULL) {
+		TPD_INFO("GT:%s:kmalloc error\n", __func__);
+		return;
+	}
+
+	TPD_INFO("GT:%s:mutual diff start\n", __func__);
+	for (i = 0; i < rx; ++i) {
+		ret = 0;
+		for (j = 0; j < tx; ++j) {
+			ret += snprintf(out_str+ret, out_size - ret, "%5d", diff_buf[i*tx + j]);
+		}
+		TPD_INFO("[%2d]%s\n", i, out_str);
+	}
+	TPD_INFO("GT:%s:mutual diff end\n", __func__);
+
+	TPD_INFO("GT:%s:self diff start\n", __func__);
+	ret = 0;
+	for (i = tx*rx; i < diff_size; ++i) {
+		ret += snprintf(out_str + ret, out_size - ret, "%5d", diff_buf[i]);
+	}
+	TPD_INFO("%s\n", out_str);
+	TPD_INFO("GT:%s:self diff end\n", __func__);
+
+	kfree(out_str);
+}
+EXPORT_SYMBOL(goodix_print_differ);
 
 MODULE_DESCRIPTION("Touchscreen Goodix Common Interface");
 MODULE_LICENSE("GPL");

@@ -3429,15 +3429,15 @@ int __init tp_driver_init_ili_9881h(void)
 	TPD_INFO("%s is called\n", __func__);
 
 	if (!tp_judge_ic_match(TPD_DEVICE)) {
-		TPD_INFO("TP driver is already register\n");
-		return -1;
+		TPD_INFO("TP driver is already register  tp_judge_ic_match fail\n");
+		return 0;
 	}
 
 	res = spi_register_driver(&tp_spi_driver);
 
 	if (res < 0) {
 		TPD_INFO("Failed to add spi driver\n");
-		return -ENODEV;
+		return 0;
 	}
 
 	TPD_INFO("Succeed to add driver\n");

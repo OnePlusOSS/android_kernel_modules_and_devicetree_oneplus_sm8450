@@ -2056,7 +2056,7 @@
 
 			qcom,adsp_qrtr {
 				qcom,glink-channels = "IPCRTR";
-				qcom,non-wake-svc = <0x190>;
+				qcom,no-wake-svc = <0x190>;
 				qcom,intents = <0x800  5
 						0x2000 3
 						0x4400 2>;
@@ -2676,6 +2676,7 @@
 		iommus = <&apps_smmu 0x20 0x0>;
 		qcom,iommu-dma = "fastmap";
 		dma-coherent;
+		qcom,iommu-faults = "non-fatal";
 
 		/* Multilevel clock scaling support for higher ufs clock freq */
 		multi-level-clk-scaling-support;

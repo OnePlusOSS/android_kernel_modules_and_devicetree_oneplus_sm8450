@@ -472,7 +472,9 @@ static void *fts_seq_start(struct seq_file *s, loff_t *pos)
 	}
 	/* TPD_DEBUG("%s: In start(), updated pos = %ld limit = %d printed = %d chunk = %d\n",__func__, *pos, limit, printed, chunk); */
 	memset(St80yProcData->buf_chunk, 0, CHUNK_PROC);
-	memcpy(St80yProcData->buf_chunk, &St80yProcData->driver_test_buff[(int)*pos], St80yProcData->chunk);
+	if (St80yProcData->driver_test_buff != NULL) {
+		memcpy(St80yProcData->buf_chunk, &St80yProcData->driver_test_buff[(int)*pos], St80yProcData->chunk);
+	}
 
 	return St80yProcData->buf_chunk;
 }
@@ -676,35 +678,43 @@ static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 			size = MESSAGE_MIN_HEADER_SIZE + 2;    /* +2 send also the first 2 lsb of the error code */
 			switch (St80yProcData->mess.action) {
 			case ACTION_READ:
-				cmd[0] = funcToTest[0] = CMD_READ_BYTE;
+				funcToTest[0] = CMD_READ_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITE:
-				cmd[0] = funcToTest[0] = CMD_WRITE_BYTE;
+				funcToTest[0] = CMD_WRITE_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITE_READ:
-				cmd[0] = funcToTest[0] = CMD_WRITEREAD_BYTE;
+				funcToTest[0] = CMD_WRITEREAD_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITETHENWRITEREAD:
-				cmd[0] = funcToTest[0] = CMD_WRITETHENWRITEREAD_BYTE;
+				funcToTest[0] = CMD_WRITETHENWRITEREAD_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITEU8UX:
-				cmd[0] = funcToTest[0] = CMD_WRITEU8UX_BYTE;
+				funcToTest[0] = CMD_WRITEU8UX_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITEREADU8UX:
-				cmd[0] = funcToTest[0] = CMD_WRITEREADU8UX_BYTE;
+				funcToTest[0] = CMD_WRITEREADU8UX_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITEU8UXTHENWRITEU8UX:
-				cmd[0] = funcToTest[0] = CMD_WRITEU8UXTHENWRITEU8UX_BYTE;
+				funcToTest[0] = CMD_WRITEU8UXTHENWRITEU8UX_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			case ACTION_WRITEU8XTHENWRITEREADU8UX:
-				cmd[0] = funcToTest[0] = CMD_WRITEU8UXTHENWRITEREADU8UX_BYTE;
+				funcToTest[0] = CMD_WRITEU8UXTHENWRITEREADU8UX_BYTE;
+				cmd[0] = funcToTest[0];
 				break;
 
 			default:

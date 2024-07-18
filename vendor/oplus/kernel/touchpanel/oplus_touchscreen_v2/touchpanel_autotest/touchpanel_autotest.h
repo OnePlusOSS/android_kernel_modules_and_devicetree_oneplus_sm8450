@@ -33,6 +33,8 @@ enum limit_type {
 	LIMIT_TYPE_TOP_FLOOR_DATA          = 0x06,     /*means all nodes limit data is a certain data*/
 	LIMIT_TYPE_DOZE_FDM_DATA           = 0x07,     /*means all nodes limit data is a certain data*/
 	LIMIT_TYPE_TOP_FLOOR_RX_TX_DATA    = 0x08,     /*means all nodes limit data is a certain data*/
+	LIMIT_TYPE_PEN_X_DATA              = 0x09,
+	LIMIT_TYPE_PEN_Y_DATA              = 0x0A,
 	LIMIT_TYPE_INVALID_DATA            = 0xFF,            /*means wrong limit data type*/
 };
 

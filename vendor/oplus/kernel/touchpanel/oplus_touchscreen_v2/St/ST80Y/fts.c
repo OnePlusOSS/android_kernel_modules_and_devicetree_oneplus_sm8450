@@ -3279,7 +3279,7 @@ static int enableGesture(void *chip_data, u8 *mask, int size)
 			}
 		/* back up of the gesture enabled */
 
-		res = setFeatures(chip_data, FEAT_SEL_GESTURE, info->gesture_mask, GESTURE_MASK_SIZE);
+		res = setFeatures(chip_data, FEAT_SEL_GESTURE, mask, GESTURE_MASK_SIZE);
 		if (res < OK) {
 			TPD_INFO("enableGesture: ERROR %08X\n", res);
 			goto END;
@@ -3333,7 +3333,7 @@ static int disableGesture(void *chip_data, u8 *mask, int size)
 			pointer = (u8 *)&i;
 		}
 
-		res = setFeatures(chip_data, FEAT_SEL_GESTURE, pointer, GESTURE_MASK_SIZE);
+		res = setFeatures(chip_data, FEAT_SEL_GESTURE, mask, GESTURE_MASK_SIZE);
 		if (res < OK) {
 			TPD_INFO("disableGesture: ERROR %08X\n", res);
 			goto END;
@@ -3356,13 +3356,23 @@ static int setGestureMode(void *chip_data, int mode)
 {
 	u8 gesture_mask[GESTURE_MASK_SIZE] = { 0xBF, 0x11, 0x07, 0x00 };
 	int ret = 0;
+	struct fts_ts_info *info = (struct fts_ts_info *)chip_data;
+	int state = info->gesture_state;
 
 	TPD_DEBUG("%s: Setting mode = %d !\n", __func__, mode);
 
-	gesture_mask[0] = 0x20;//enable duble tap bit5
+	gesture_mask[0] = 0x00;
 	gesture_mask[1] = 0x00;
 	gesture_mask[2] = 0x00;
 	gesture_mask[3] = 0x00;
+
+	/* enable DOU_TAP --> bit5 */
+	SET_GESTURE_BIT(state, DOU_TAP, gesture_mask[0], 5);
+	/* enbale SINGLE_TAP --> bit25 */
+	SET_GESTURE_BIT(state, SINGLE_TAP, gesture_mask[3], 1);
+	TPD_DEBUG("%s: gesture_mask[0] = 0x%02X !\n", __func__, gesture_mask[0]);
+	TPD_DEBUG("%s: gesture_mask[3] = 0x%02X !\n", __func__, gesture_mask[3]);
+
 	if (mode) {
 		ret = enableGesture(chip_data, gesture_mask, GESTURE_MASK_SIZE);
 		if (ret < OK) {
@@ -3646,6 +3656,11 @@ static int st80y_get_gesture_info(void *chip_data, struct gesture_info *gesture)
 			default:
 				gesture->gesture_type = UNKOWN_GESTURE;
 				TPD_DEBUG("%s:  No valid GestureID!\n", __func__);
+			}
+
+			if (gesture->gesture_type == SINGLE_TAP || gesture->gesture_type == DOU_TAP) {
+				gesture->Point_start.x = (data[3] | (data[4] << 8));
+				gesture->Point_start.y = (data[5] | (data[6] << 8));
 			}
 		}
 	}
@@ -5227,6 +5242,13 @@ static void st80y_freq_hop_trigger(void *chip_data)
 	}
 }
 
+static void st80y_set_gesture_state(void *chip_data, int state)
+{
+	struct fts_ts_info *info = (struct fts_ts_info *)chip_data;
+
+	info->gesture_state = state;
+}
+
 #ifdef CONFIG_OPLUS_TP_APK
 static void fts_apk_water_set(void *chip_data, int type)
 {
@@ -5287,6 +5309,7 @@ static struct oplus_touchpanel_operations st80y_ops = {
 	.calibrate                 = st80y_calibrate,
 	.get_cal_status            = st80y_get_cal_status,
 	.freq_hop_trigger		   = st80y_freq_hop_trigger,
+	.set_gesture_state          = st80y_set_gesture_state,
         .set_high_frame_rate       = st80y_set_high_frame_rate,
 };
 
@@ -7347,10 +7370,13 @@ static int __init st80y_driver_init(void)
 	TPD_INFO("%s is called\n", __func__);
 
 	if (!tp_judge_ic_match(TPD_DEVICE)) {
-		return -1;
+		TPD_INFO("tp_judge_ic_match  fail  \n");
+		return 0;
 	}
-
-	return i2c_add_driver(&st80y_i2c_driver);
+	if(i2c_add_driver(&st80y_i2c_driver)) {
+		TPD_INFO("i2c_add_driver  fail  \n");
+	}
+	return 0;
 }
 
 static void __exit st80y_driver_exit(void)

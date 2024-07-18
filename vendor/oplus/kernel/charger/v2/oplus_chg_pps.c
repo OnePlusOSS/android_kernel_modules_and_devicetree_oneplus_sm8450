@@ -33,9 +33,11 @@
 #define PPS_MONITOR_CYCLE_MS		1500
 #define PPS_WATCHDOG_TIME_MS		3000
 #define PPS_START_DEF_CURR_MA		1500
-#define PPS_START_DEF_VOL_MV		5000
+#define PPS_START_DEF_VOL_MV		5500
 #define PPS_MONITOR_TIME_MS		500
 #define OPLUS_FIXED_PDO_CURR_MA		3000
+#define OPLUS_FIXED_PDO_DEF_VOL		5000
+
 
 #define PPS_UPDATE_PDO_TIME		5
 #define PPS_UPDATE_FASTCHG_TIME	1
@@ -848,7 +850,7 @@ static int oplus_pps_switch_to_normal(struct oplus_pps *chip)
 	/* switch to 5v when switch to normal */
 	if (chip->wired_online)
 		rc = oplus_chg_ic_func(chip->pps_ic, OPLUS_IC_FUNC_FIXED_PDO_SET,
-				PPS_START_DEF_VOL_MV, OPLUS_FIXED_PDO_CURR_MA);
+				OPLUS_FIXED_PDO_DEF_VOL, OPLUS_FIXED_PDO_CURR_MA);
 
 	rc = oplus_chg_ic_func(chip->dpdm_switch,
 		OPLUS_IC_FUNC_SET_DPDM_SWITCH_MODE, DPDM_SWITCH_TO_AP);
@@ -1018,9 +1020,9 @@ static bool oplus_pps_charge_allow_check(struct oplus_pps *chip)
 	}
 
 	if (chg_temp < chip->limits.pps_batt_over_low_temp ||
-	    chg_temp > chip->limits.pps_batt_over_high_temp) {
+	    chg_temp >= (chip->limits.pps_batt_over_high_temp - PPS_TEMP_WARM_RANGE_THD)) {
 		vote(chip->pps_not_allow_votable, BATT_TEMP_VOTER, true, 1, false);
-	} else if (chg_temp > chip->limits.pps_normal_high_temp) {
+	} else if (chg_temp > (chip->limits.pps_normal_high_temp - PPS_TEMP_WARM_RANGE_THD)) {
 		if (chip->ui_soc > chip->limits.pps_warm_allow_soc ||
 		    vbat_mv > chip->limits.pps_warm_allow_vol)
 			vote(chip->pps_not_allow_votable, BATT_TEMP_VOTER, true, 1, false);
@@ -2102,6 +2104,10 @@ static void oplus_pps_check_low_curr_full(struct oplus_pps *chip)
 
 #define PPS_FULL_COUNTS_LOW_CURR	6
 
+	/* third pps not support low current full check */
+	if (!chip->oplus_pps_adapter)
+		return;
+
 	oplus_pps_check_low_curr_temp_status(chip);
 
 	if (!is_gauge_topic_available(chip)) {
@@ -2335,6 +2341,10 @@ static void oplus_pps_imp_check(struct oplus_pps *chip)
 {
 	int curr;
 	int rc;
+
+	/* third pps not support impedance check */
+	if (!chip->oplus_pps_adapter)
+		return;
 
 	if (!chip->imp_uint) {
 		/* prevent triggering watchdog */

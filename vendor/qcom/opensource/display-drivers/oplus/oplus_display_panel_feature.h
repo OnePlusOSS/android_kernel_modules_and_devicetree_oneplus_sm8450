@@ -44,5 +44,6 @@ void oplus_panel_update_backlight(struct dsi_panel *panel,
 		struct mipi_dsi_device *dsi, u32 bl_lvl);
 u32 oplus_panel_silence_backlight(struct dsi_panel *panel, u32 bl_lvl);
 void oplus_printf_backlight_log(struct dsi_display *display, u32 bl_lvl);
-
+int oplus_panel_hpwm_onepulse_cmd_wq_send(void);
+void oplus_panel_hpwm_onepulse_send_cmd_work_handler(struct work_struct *work_item);
 #endif /*_OPLUS_DISPLAY_PANEL_FEATURE_H_*/

@@ -5078,7 +5078,8 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 		oplus_adfr_handle_idle_mode(sde_enc, false);
 	}
 
-	oplus_display_pwm_turbo_kickoff();
+	if (!oplus_is_support_hpwm_onepulse())
+		oplus_display_pwm_turbo_kickoff();
 
 #endif /* OPLUS_FEATURE_DISPLAY */
 
@@ -5106,6 +5107,7 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 
 #ifdef OPLUS_FEATURE_DISPLAY
 	oplus_display_panel_set_demua();
+	oplus_display_hpwm_to_onepulse_async_send_cmd();
 #endif
 
 #if defined(CONFIG_PXLW_IRIS) || defined(CONFIG_PXLW_SOFT_IRIS)

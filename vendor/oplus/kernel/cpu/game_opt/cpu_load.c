@@ -156,6 +156,11 @@ static void time_in_state_update_freq(struct cpumask *cpus,
 	}
 }
 
+static inline bool need_stat_cpu_load(void)
+{
+	return (atomic_read(&have_valid_game_pid) > 0) || (atomic_read(&have_valid_render_pid) > 0);
+}
+
 static void android_vh_cpu_idle_enter(void *unused, int *state, struct cpuidle_device *dev)
 {
 	if (!need_stat_cpu_load())

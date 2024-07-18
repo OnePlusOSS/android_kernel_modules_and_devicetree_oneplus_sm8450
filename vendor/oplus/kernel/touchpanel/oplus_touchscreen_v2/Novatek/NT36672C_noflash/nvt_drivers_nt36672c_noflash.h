@@ -8,7 +8,7 @@
 
 /*********PART1:Head files**********************/
 #include <linux/spi/spi.h>
-#ifdef CONFIG_SPI_MT65XX
+#ifdef CONFIG_TOUCHPANEL_MTK_PLATFORM
 #include <linux/platform_data/spi-mt65xx.h>
 #endif
 
@@ -89,6 +89,9 @@
 #define EVENTBUFFER_EXT_DBG_WKG_COORD_RECORD_OFF  0x06
 #define EVENTBUFFER_EXT_DBG_WATER_POLLING_ON      0x07
 #define EVENTBUFFER_EXT_DBG_WATER_POLLING_OFF     0x08
+#define EVENTBUFFER_EXT_JITTER_LEVEL              0x0C
+#define EVENTBUFFER_EXT_SMOOTH_LEVEL              0x0D
+#define EVENTBUFFER_EXT_REPORT_RATE               0x14
 
 #define NVT_TOUCH_FW_DEBUG_INFO (1)
 #define NVT_DUMP_SRAM   (0)
@@ -288,11 +291,7 @@ struct chip_data_nt36672c {
 	struct device                   *dev;
 	/*const struct firmware           *g_fw;*/
 #ifdef CONFIG_TOUCHPANEL_MTK_PLATFORM
-#ifdef CONFIG_SPI_MT65XX
 	struct mtk_chip_config          spi_ctrl;
-#else
-	struct mt_chip_conf             spi_ctrl;
-#endif
 #endif /* end of CONFIG_TOUCHPANEL_MTK_PLATFORM*/
 	struct mutex                    mutex_testing;
 	int                             probe_done;

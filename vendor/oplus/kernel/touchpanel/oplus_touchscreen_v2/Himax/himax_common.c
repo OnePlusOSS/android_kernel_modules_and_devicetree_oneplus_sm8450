@@ -25,57 +25,73 @@ int hx_test_data_pop_out(struct touchpanel_data *ts,
 	char *project_name_log = "OPLUS_";
 	char *g_project_test_info_log = NULL;
 	char *g_Company_info_log = NULL;
-	mm_segment_t fs;
-	loff_t pos = 0;
+	#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+	#else
+		mm_segment_t fs;
+		loff_t pos = 0;
+	#endif
 	int ret_val = NO_ERR;
 
 	TPD_INFO("%s: Entering!\n", __func__);
 
 	g_Company_info_log = tp_devm_kzalloc(&ts->s_client->dev, 256, GFP_KERNEL);
 	g_project_test_info_log = tp_devm_kzalloc(&ts->s_client->dev, 256, GFP_KERNEL);
-
+	if ((g_Company_info_log == NULL) || (g_project_test_info_log == NULL)) {
+		TPD_INFO("%s alloc error \n", __func__);
+		ret_val = -1;
+		goto SAVE_DATA_ERR;
+	}
 	/*Company Info*/
 	snprintf(g_Company_info_log, 160, "%s%s%s%s", line, Company, Info, line);
 	TPD_DETAIL("%s 000: %s \n", __func__, g_Company_info_log);
 
 	/*project Info*/
-	snprintf(g_project_test_info_log, 118,
-		 "Project_name: %s%d\nFW_ID: %8X\nFW_Ver: %4X\nPanel Info: TX_Num=%d RX_Num=%d\nTest stage: Mobile\n",
-		 project_name_log, get_project(), hx_testdata->tp_fw, hx_testdata->dev_tp_fw,
-		 ts->hw_res.tx_num, ts->hw_res.rx_num);
-	TPD_DETAIL("%s 001: %s \n", __func__, g_project_test_info_log);
+	#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+		snprintf(g_project_test_info_log, 118,
+			"Project_name: %s\nFW_ID: %8llX\nFW_Ver: %4llX\nPanel Info: TX_Num=%d RX_Num=%d\nTest stage: Mobile\n",
+			project_name_log, hx_testdata->tp_fw, hx_testdata->dev_tp_fw,
+			ts->hw_res.tx_num, ts->hw_res.rx_num);
+		TPD_DETAIL("%s 001: %s \n", __func__, g_project_test_info_log);
+	#else
+		snprintf(g_project_test_info_log, 118,
+			 "Project_name: %s%d\nFW_ID: %8X\nFW_Ver: %4X\nPanel Info: TX_Num=%d RX_Num=%d\nTest stage: Mobile\n",
+			 project_name_log, get_project(), hx_testdata->tp_fw, hx_testdata->dev_tp_fw,
+			 ts->hw_res.tx_num, ts->hw_res.rx_num);
+	#endif
 
 	if (IS_ERR(hx_testdata->fp)) {
 		TPD_INFO("%s open file failed = %ld\n", __func__, PTR_ERR(hx_testdata->fp));
 		ret_val = -EIO;
 		goto SAVE_DATA_ERR;
 	}
+	#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+	#else
+		fs = get_fs();
+		set_fs(get_ds());
+		vfs_write(hx_testdata->fp, g_Company_info_log,
+			  (int)(strlen(g_Company_info_log)), &pos);
+		pos = pos + (int)(strlen(g_Company_info_log));
 
-	fs = get_fs();
-	set_fs(get_ds());
-	vfs_write(hx_testdata->fp, g_Company_info_log,
-		  (int)(strlen(g_Company_info_log)), &pos);
-	pos = pos + (int)(strlen(g_Company_info_log));
+		vfs_write(hx_testdata->fp, g_project_test_info_log,
+				(int)(strlen(g_project_test_info_log)), &pos);
+		pos = pos + (int)(strlen(g_project_test_info_log));
 
-	vfs_write(hx_testdata->fp, g_project_test_info_log,
-		  (int)(strlen(g_project_test_info_log)), &pos);
-	pos = pos + (int)(strlen(g_project_test_info_log));
+		vfs_write(hx_testdata->fp, hx_testdata->test_list_log,
+				(int)(strlen(hx_testdata->test_list_log)), &pos);
+		pos = pos + (int)(strlen(hx_testdata->test_list_log));
 
-	vfs_write(hx_testdata->fp, hx_testdata->test_list_log,
-		  (int)(strlen(hx_testdata->test_list_log)), &pos);
-	pos = pos + (int)(strlen(hx_testdata->test_list_log));
-
-	set_fs(fs);
+		set_fs(fs);
+	#endif
 
 SAVE_DATA_ERR:
 
 	if (g_project_test_info_log) {
-		tp_devm_kfree(&ts->s_client->dev, (void **)g_project_test_info_log, 256);
+		tp_devm_kfree(&ts->s_client->dev, (void **)&g_project_test_info_log, 256);
 		g_project_test_info_log = NULL;
 	}
 
 	if (g_Company_info_log) {
-		tp_devm_kfree(&ts->s_client->dev, (void **)g_Company_info_log, 256);
+		tp_devm_kfree(&ts->s_client->dev, (void **)&g_Company_info_log, 256);
 		g_Company_info_log = NULL;
 	}
 
@@ -152,7 +168,7 @@ static int hx_testdata_init(struct touchpanel_data *ts,
 	}
 
 	if (fw_name_test) {
-		tp_devm_kfree(&ts->s_client->dev, (void **)fw_name_test, MAX_FW_NAME_LENGTH);
+		tp_devm_kfree(&ts->s_client->dev, (void **)&fw_name_test, MAX_FW_NAME_LENGTH);
 		fw_name_test = NULL;
 	}
 
@@ -231,7 +247,7 @@ int hx_auto_test(struct seq_file *s,  struct touchpanel_data *ts)
 RET_OUT:
 
 	if (hx_testdata.test_list_log) {
-		tp_devm_kfree(&ts->s_client->dev, (void **)hx_testdata.test_list_log, 256);
+		tp_devm_kfree(&ts->s_client->dev, (void **)&hx_testdata.test_list_log, 256);
 		hx_testdata.test_list_log = NULL;
 	}
 
@@ -299,7 +315,7 @@ int hx_black_screen_test(struct black_gesture_test *p_black_gesture_test,
 RET_OUT:
 
 	if (hx_testdata.test_list_log) {
-		tp_devm_kfree(&ts->s_client->dev, (void **)hx_testdata.test_list_log, 256);
+		tp_devm_kfree(&ts->s_client->dev, (void **)&hx_testdata.test_list_log, 256);
 		hx_testdata.test_list_log = NULL;
 	}
 
@@ -376,16 +392,33 @@ static ssize_t himax_proc_register_write(struct file *file, const char *buff,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+
+static const struct proc_ops himax_proc_register_ops = {
+	.proc_open = simple_open,
+	.proc_read = himax_proc_register_read,
+	.proc_write = himax_proc_register_write,
+};
+#else
 static struct file_operations himax_proc_register_ops = {
 	.owner = THIS_MODULE,
 	.read = himax_proc_register_read,
 	.write = himax_proc_register_write,
 };
+#endif
 
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+static int himax_proc_diag_read(struct seq_file *s, void *v)
+#else
 static ssize_t himax_proc_diag_read(struct file *file, char *buff, size_t len,
-				    loff_t *pos)
+					loff_t *pos)
+#endif
 {
-	struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+	#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+		struct touchpanel_data *ts = s->private;
+	#else
+		struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+	#endif
 	struct himax_proc_operations *hx_ops;
 	ssize_t ret = 0;
 
@@ -398,17 +431,24 @@ static ssize_t himax_proc_diag_read(struct file *file, char *buff, size_t len,
 	if (!hx_ops) {
 		return 0;
 	}
-
-	if (!hx_ops->himax_proc_diag_read) {
-		if (copy_to_user(buff, "Not support auto-test proc node\n",
-				 strlen("Not support auto-test proc node\n"))) {
+	#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+		if (!hx_ops->himax_proc_diag_read) {
+			seq_printf(s, "Not support auto-test proc node\n");
 			TPD_INFO("%s,here:%d\n", __func__, __LINE__);
+			return 0;
 		}
+		ret = hx_ops->himax_proc_diag_read(s, v);
+	#else
+		if (!hx_ops->himax_proc_diag_read) {
+			if (copy_to_user(buff, "Not support auto-test proc node\n",
+					strlen("Not support auto-test proc node\n"))) {
+				TPD_INFO("%s,here:%d\n", __func__, __LINE__);
+			}
 
-		return 0;
-	}
-
-	ret = hx_ops->himax_proc_diag_read(file, buff, len, pos);
+			return 0;
+		}
+		ret = hx_ops->himax_proc_diag_read(file, buff, len, pos);
+	#endif
 	return ret;
 }
 
@@ -438,11 +478,27 @@ static ssize_t himax_proc_diag_write(struct file *file, const char *buff,
 	return ret;
 }
 
+
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+static int himax_proc_diag_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, himax_proc_diag_read, PDE_DATA(inode));
+}
+
+static const struct proc_ops himax_proc_diag_ops = {
+	.proc_open = himax_proc_diag_open,
+	.proc_write = himax_proc_diag_write,
+	.proc_read = seq_read,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+#else
 static struct file_operations himax_proc_diag_ops = {
 	.owner = THIS_MODULE,
 	.read = himax_proc_diag_read,
 	.write = himax_proc_diag_write,
 };
+#endif
 
 static ssize_t himax_proc_DD_debug_read(struct file *file, char *buff,
 					size_t len, loff_t *pos)
@@ -500,11 +556,21 @@ static ssize_t himax_proc_DD_debug_write(struct file *file, const char *buff,
 	return ret;
 }
 
+
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+
+static const struct proc_ops himax_proc_dd_debug_ops = {
+	.proc_open = simple_open,
+	.proc_read = himax_proc_DD_debug_read,
+	.proc_write = himax_proc_DD_debug_write,
+};
+#else
 static struct file_operations himax_proc_dd_debug_ops = {
 	.owner = THIS_MODULE,
 	.read = himax_proc_DD_debug_read,
 	.write = himax_proc_DD_debug_write,
 };
+#endif
 
 static ssize_t himax_proc_FW_debug_read(struct file *file, char *buff,
 					size_t len, loff_t *pos)
@@ -532,11 +598,18 @@ static ssize_t himax_proc_FW_debug_read(struct file *file, char *buff,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+
+static const struct proc_ops himax_proc_fw_debug_ops = {
+	.proc_open = simple_open,
+	.proc_read = himax_proc_FW_debug_read,
+};
+#else
 static struct file_operations himax_proc_fw_debug_ops = {
 	.owner = THIS_MODULE,
 	.read = himax_proc_FW_debug_read,
 };
-
+#endif
 static ssize_t himax_proc_reset_write(struct file *file, const char *buff,
 				      size_t len, loff_t *pos)
 {
@@ -563,10 +636,18 @@ static ssize_t himax_proc_reset_write(struct file *file, const char *buff,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+
+static const struct proc_ops himax_proc_reset_ops = {
+	.proc_open = simple_open,
+	.proc_write = himax_proc_reset_write,
+};
+#else
 static struct file_operations himax_proc_reset_ops = {
 	.owner = THIS_MODULE,
 	.write = himax_proc_reset_write,
 };
+#endif
 
 static ssize_t himax_proc_sense_on_off_write(struct file *file,
 		const char *buff, size_t len, loff_t *pos)
@@ -594,10 +675,18 @@ static ssize_t himax_proc_sense_on_off_write(struct file *file,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE>= KERNEL_VERSION(5, 10, 0)
+
+static const struct proc_ops himax_proc_sense_on_off_ops = {
+	.proc_open = simple_open,
+	.proc_write = himax_proc_sense_on_off_write,
+};
+#else
 static struct file_operations himax_proc_sense_on_off_ops = {
 	.owner = THIS_MODULE,
 	.write = himax_proc_sense_on_off_write,
 };
+#endif
 
 int himax_create_proc(struct touchpanel_data *ts,
 		      struct himax_proc_operations *hx_ops)

@@ -835,7 +835,8 @@ irqreturn_t oplus_adfr_dynamic_te_handler(int irq, void *data)
 		}
 
 		if ((!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705"))
-			|| (!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))) {
+			|| (!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))
+			|| (!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05"))) {
 			if (timing.h_skew == SDC_ADFR || timing.h_skew == SDC_MFR) {
 				if (timing.refresh_rate == 120) {
 					if (temp_refresh_rate > 75) {
@@ -1061,7 +1062,8 @@ ssize_t oplus_adfr_get_dynamic_te(struct kobject *obj,
 	}
 
 	if ((!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705"))
-		|| (!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))) {
+		|| (!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))
+		|| (!strcmp(display->panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05"))) {
 		if ((oplus_adfr_config == 0) || (oplus_adfr_dynamic_te.refresh_rate == 1)
 			|| (oplus_adfr_dynamic_te.refresh_rate == 0)) {
 			timing = display->panel->cur_mode->timing;
@@ -1447,7 +1449,8 @@ void dsi_panel_adfr_status_reset(void *dsi_panel)
 		if (refresh_rate == 90) {
 			/* should +9 in auto off mode */
 			if (strcmp(panel->oplus_priv.vendor_name, "TM_NT37705") && strcmp(panel->oplus_priv.vendor_name, "NT37705")
-				&& strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT") && strcmp(panel->oplus_priv.vendor_name, "BOE_NT37705"))
+				&& strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT") && strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05")
+				&& strcmp(panel->oplus_priv.vendor_name, "BOE_NT37705"))
 				oplus_adfr_auto_min_fps_cmd = OPLUS_ADFR_AUTO_MIN_FPS_MAX + 9;
 		} else {
 			oplus_adfr_auto_min_fps_cmd = oplus_adfr_auto_min_fps;
@@ -2486,7 +2489,8 @@ static int dsi_panel_auto_minfps_check(struct dsi_panel *panel, u32 extend_frame
 				}
 			} else if (refresh_rate == 90) {
 				if (strcmp(panel->oplus_priv.vendor_name, "TM_NT37705") && strcmp(panel->oplus_priv.vendor_name, "NT37705")
-					&& strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT") && strcmp(panel->oplus_priv.vendor_name, "BOE_NT37705")) {
+					&& strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT") && strcmp(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05")
+					&& strcmp(panel->oplus_priv.vendor_name, "BOE_NT37705")) {
 					/* locked in 90hz */
 					DSI_DEBUG("kVRR %s extend_frame = 9\n", panel->oplus_priv.vendor_name);
 					extend_frame = OPLUS_ADFR_AUTO_MIN_FPS_MAX + 9;

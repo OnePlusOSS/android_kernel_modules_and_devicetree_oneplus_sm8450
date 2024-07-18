@@ -26,6 +26,9 @@ extern unsigned int tp_debug;
 #define TPD_DEVICE "touchpanel"
 #endif
 
+#define TPD_BOOT_INFO(a, arg...)  pr_info("[TP]"TPD_DEVICE ": " a, ##arg)
+#define TP_BOOT_INFO(index, a, arg...)  pr_info("[TP""%x""]"TPD_DEVICE": " a, index, ##arg)
+
 #define TPD_INFO(a, arg...)  pr_err("[TP]"TPD_DEVICE ": " a, ##arg)
 #define TP_INFO(index, a, arg...)  pr_err("[TP""%x""]"TPD_DEVICE": " a, index, ##arg)
 

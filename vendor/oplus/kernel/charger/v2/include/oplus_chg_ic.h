@@ -229,6 +229,7 @@ inline size_t oplus_chg_ic_debug_data_size(int argc);
 struct oplus_chg_ic_overwrite_data *
 oplus_chg_ic_get_overwrite_data(struct oplus_chg_ic_dev *ic_dev,
 				enum oplus_chg_ic_func func_id);
+int oplus_chg_ic_get_item_data_size(const void *buf, int index);
 #endif /* CONFIG_OPLUS_CHG_IC_DEBUG */
 
 #endif /* __OPLUS_CHG_IC_H__ */

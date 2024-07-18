@@ -66,6 +66,7 @@ struct oplus_configfs_device {
 	struct votable *pd_svooc_votable;
 	struct votable *ufcs_curr_votable;
 	struct votable *pps_curr_votable;
+	struct votable *wls_fcc_curr_votable;
 
 	bool batt_exist;
 	int vbat_mv;
@@ -109,6 +110,8 @@ struct oplus_configfs_device {
 	bool pps_charging;
 	bool pps_oplus_adapter;
 	u32 pps_adapter_id;
+
+	int vbat_uv_thr;
 };
 
 static struct oplus_configfs_device *g_cfg_dev;
@@ -159,6 +162,14 @@ is_pps_curr_votable_available(struct oplus_configfs_device *chip)
 	if (!chip->pps_curr_votable)
 		chip->pps_curr_votable = find_votable("PPS_CURR");
 	return !!chip->pps_curr_votable;
+}
+
+__maybe_unused static bool
+is_wls_curr_votable_available(struct oplus_configfs_device *chip)
+{
+	if (!chip->wls_fcc_curr_votable)
+		chip->wls_fcc_curr_votable = find_votable("WLS_FCC");
+	return !!chip->wls_fcc_curr_votable;
 }
 
 static bool is_parallel_topic_available(struct oplus_configfs_device *chip)
@@ -497,6 +508,24 @@ static ssize_t smartchg_soh_support_show(struct device *dev, struct device_attri
 	return sprintf(buf, "%d\n", val);
 }
 static DEVICE_ATTR_RO(smartchg_soh_support);
+
+static ssize_t battery_sn_show(struct device *dev, struct device_attribute *attr,
+			      char *buf)
+{
+	int len = 0;
+	int ret = 0;
+	char batt_sn[OPLUS_BATT_SERIAL_NUM_SIZE * 2] = {"\0"};
+	struct oplus_configfs_device *chip = dev->driver_data;
+
+	ret = oplus_gauge_get_battinfo_sn(chip->gauge_topic, batt_sn, sizeof(batt_sn));
+	if (ret < 0)
+		chg_err("get battery sn error");
+	else
+		len = sprintf(buf, "%s\n", batt_sn);
+
+	return len;
+}
+static DEVICE_ATTR_RO(battery_sn);
 
 #ifdef CONFIG_OPLUS_CALL_MODE_SUPPORT
 static ssize_t call_mode_show(struct device *dev, struct device_attribute *attr,
@@ -1073,7 +1102,10 @@ static ssize_t bcc_current_store(struct device *dev, struct device_attribute *at
 		const char *buf, size_t count)
 {
 	int val = 0;
+	int val_ma = 0;
 	struct oplus_configfs_device *chip = dev->driver_data;
+	union mms_msg_data data = { 0 };
+
 	if (!chip) {
 		chg_err("chip is NULL\n");
 		return -EINVAL;
@@ -1084,23 +1116,32 @@ static ssize_t bcc_current_store(struct device *dev, struct device_attribute *at
 		return -EINVAL;
 	}
 
+	val_ma = val * 100; /* 0.1A to mA */
 	if (is_vooc_curr_votable_available(chip)) {
-		chg_err("bcc current = %d\n", val);
+		chg_err("bcc current = %d, %d\n", val, val_ma);
 		/* turn current to mA, hidl will send as 73, it means 7300mA */
-		val = val * 100;
-		vote(chip->vooc_curr_votable, BCC_VOTER, (val == 0) ? false : true, val, false);
+		vote(chip->vooc_curr_votable, BCC_VOTER, (val_ma == 0) ? false : true, val_ma, false);
 	}
 
 	if (chip->ufcs_online && is_ufcs_curr_votable_available(chip)) {
-		chg_info("ufcs bcc current = %d\n", val);
-		val = val * 100; /* 0.1A to mA */
-		vote(chip->ufcs_curr_votable, BCC_VOTER, (val == 0) ? false : true, val, false);
+		chg_info("ufcs bcc current = %d, %d\n", val, val_ma);
+		vote(chip->ufcs_curr_votable, BCC_VOTER, (val_ma == 0) ? false : true, val_ma, false);
 	}
 
 	if (chip->pps_online && is_pps_curr_votable_available(chip)) {
-		chg_info("pps bcc current = %d\n", val);
-		val = val * 100; /* 0.1A to mA */
-		vote(chip->pps_curr_votable, BCC_VOTER, (val == 0) ? false : true, val, false);
+		chg_info("pps bcc current = %d, %d\n", val, val_ma);
+		vote(chip->pps_curr_votable, BCC_VOTER, (val_ma == 0) ? false : true, val_ma, false);
+	}
+
+	if (chip->wls_topic) {
+		oplus_mms_get_item_data(chip->wls_topic, WLS_ITEM_FASTCHG_STATUS, &data, true);
+
+		if ((!!data.intval) && is_wls_curr_votable_available(chip)) {
+			oplus_mms_get_item_data(chip->wls_topic, WLS_ITEM_FCC_TO_ICL, &data, true);
+			chg_info("wls bcc current = %d, %d; fcc_to_icl:%d.\n", val, val_ma, data.intval);
+			vote(chip->wls_fcc_curr_votable, BCC_CURRENT_VOTER, (val_ma == 0) ? false : true,
+				(data.intval != 0) ? (val_ma / data.intval) : (val_ma / 2), false);
+		}
 	}
 
 	oplus_wired_set_bcc_curr_request(chip->wired_topic);
@@ -1141,7 +1182,6 @@ static ssize_t normal_cool_down_store(struct device *dev, struct device_attribut
 		chg_err("buf error\n");
 		return -EINVAL;
 	}
-	chg_info("val:%d\n", val);
 	rc = oplus_smart_chg_set_normal_cool_down(val);
 	if (rc < 0)
 		return rc;
@@ -1503,6 +1543,7 @@ static struct device_attribute *oplus_battery_attributes[] = {
 	&dev_attr_pkg_name,
 	&dev_attr_dual_chan_info,
 	&dev_attr_slow_chg_en,
+	&dev_attr_battery_sn,
 	NULL
 };
 
@@ -1620,6 +1661,7 @@ static ssize_t status_keep_store(struct device *dev, struct device_attribute *at
 	int val = 0;
 	struct oplus_configfs_device *chip = NULL;
 	union mms_msg_data data = { 0 };
+	struct power_supply *batt_psy;
 	int rc;
 
 	if (!dev || !buf) {
@@ -1651,6 +1693,11 @@ static ssize_t status_keep_store(struct device *dev, struct device_attribute *at
 		}
 	}
 	(void)oplus_chg_wls_set_status_keep(chip->wls_topic, val);
+	if (val == 0) {
+		batt_psy = power_supply_get_by_name("battery");
+		if (batt_psy)
+			power_supply_changed(batt_psy);
+	}
 
 	return count;
 }
@@ -1873,6 +1920,81 @@ static ssize_t mutual_cmd_store(struct device *dev, struct device_attribute *att
 }
 static DEVICE_ATTR_RW(mutual_cmd);
 
+static ssize_t deep_dischg_counts_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct oplus_configfs_device *chip = dev->driver_data;
+	int counts = 0;
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	counts = oplus_gauge_show_deep_dischg_count(chip->gauge_topic);
+	if (counts < 0)
+		return counts;
+
+	return sprintf(buf, "%d\n", counts);
+}
+
+static ssize_t deep_dischg_counts_store(struct device *dev, struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct oplus_configfs_device *chip = dev->driver_data;
+	int val = 0;
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (kstrtos32(buf, 0, &val)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	oplus_gauge_set_deep_dischg_count(chip->gauge_topic, val);
+
+	return count;
+}
+static DEVICE_ATTR_RW(deep_dischg_counts);
+
+static ssize_t deep_dischg_count_cali_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct oplus_configfs_device *chip = dev->driver_data;
+	int volt = 0;
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	volt = oplus_gauge_get_deep_count_cali(chip->gauge_topic);
+
+	return sprintf(buf, "%d\n", volt);
+}
+
+static ssize_t deep_dischg_count_cali_store(struct device *dev, struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct oplus_configfs_device *chip = dev->driver_data;
+	int val = 0;
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (kstrtos32(buf, 0, &val)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+	oplus_gauge_set_deep_count_cali(chip->gauge_topic, val);
+
+	return count;
+}
+static DEVICE_ATTR_RW(deep_dischg_count_cali);
+
 static struct device_attribute *oplus_common_attributes[] = {
 	&dev_attr_common,
 	&dev_attr_boot_completed,
@@ -1881,6 +2003,8 @@ static struct device_attribute *oplus_common_attributes[] = {
 	&dev_attr_time_zone,
 	&dev_attr_battlog_push_config,
 	&dev_attr_mutual_cmd,
+	&dev_attr_deep_dischg_counts,
+	&dev_attr_deep_dischg_count_cali,
 	NULL
 };
 
@@ -2577,6 +2701,10 @@ static void oplus_configfs_comm_subs_callback(struct mms_subscribe *subs,
 			chip->slow_chg_watt = SLOW_CHG_TO_WATT(data.intval);
 			chip->slow_chg_enable = !!SLOW_CHG_TO_ENABLE(data.intval);
 			break;
+		case COMM_ITEM_VBAT_UV_THR:
+			oplus_mms_get_item_data(chip->comm_topic, id, &data, false);
+			chip->vbat_uv_thr = data.intval;
+			break;
 		default:
 			break;
 		}
@@ -2606,6 +2734,9 @@ static void oplus_configfs_subscribe_comm_topic(struct oplus_mms *topic,
 	oplus_mms_get_item_data(chip->comm_topic, COMM_ITEM_NOTIFY_CODE, &data,
 				true);
 	chip->notify_code = data.intval;
+	oplus_mms_get_item_data(chip->comm_topic, COMM_ITEM_VBAT_UV_THR, &data,
+				true);
+	chip->vbat_uv_thr = data.intval;
 
 	oplus_mms_get_item_data(chip->comm_topic, COMM_ITEM_SLOW_CHG, &data, true);
 	chip->slow_chg_pct = SLOW_CHG_TO_PCT(data.intval);

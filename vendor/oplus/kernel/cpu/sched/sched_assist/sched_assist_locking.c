@@ -41,8 +41,11 @@ bool locking_protect_disable = false;
 
 unsigned int locking_wakeup_preepmt_enable;
 
+extern u64 get_running_time(struct task_struct *tsk);
+
 static DEFINE_PER_CPU(int, prev_locking_state);
 static DEFINE_PER_CPU(int, prev_locking_depth);
+static int expected_duration = NSEC_PER_USEC * 2000;
 #define LK_STATE_UNLOCK  (0)
 #define LK_STATE_LOCK    (1)
 #define LK_STATE_INVALID (2)
@@ -108,9 +111,28 @@ bool task_inlock(struct oplus_task_struct *ots)
 	return ots->locking_start_time > 0;
 }
 
+static inline bool locking_protect_outtime(struct oplus_task_struct *ots, struct cfs_rq *rq)
+{
+	struct task_struct *p;
+	int cpu;
+
+	p = ots_to_ts(ots);
+	cpu = cpu_of(rq->rq);
+
+	if(unlikely(global_debug_enabled & DEBUG_SYSTRACE)) {
+		char buf[256];
+		snprintf(buf, sizeof(buf), "C|9999|Cpu%d_cur_exec_runtime|%lld\n",
+				cpu, p->se.sum_exec_runtime - p->se.prev_sum_exec_runtime);
+		tracing_mark_write(buf);
+	}
+
+	return (time_after(jiffies, ots->locking_start_time) && ((p->se.sum_exec_runtime - p->se.prev_sum_exec_runtime) > expected_duration));
+}
+
 void enqueue_locking_thread(struct rq *rq, struct task_struct *p)
 {
 	struct oplus_task_struct *ots = NULL;
+	struct oplus_task_struct *tmp = NULL;
 	struct oplus_rq *orq = NULL;
 	struct list_head *pos, *n;
 
@@ -134,9 +156,13 @@ void enqueue_locking_thread(struct rq *rq, struct task_struct *p)
 				exist = true;
 				break;
 			}
+			tmp = container_of(pos, struct oplus_task_struct, locking_entry);
+			if (tmp->locking_start_time < ots->locking_start_time) {
+				break;
+			}
 		}
 		if (!exist) {
-			list_add_tail(&ots->locking_entry, &orq->locking_thread_list);
+			list_add(&ots->locking_entry, pos);
 			orq->rq_locking_task++;
 			get_task_struct(p);
 			trace_enqueue_locking_thread(p, ots->locking_depth, orq->rq_locking_task);
@@ -339,7 +365,7 @@ void check_preempt_tick_handler_locking(struct task_struct *p,
 	if (likely(0 == ots->locking_start_time))
 		return;
 
-	if (time_after(jiffies, ots->locking_start_time))
+	if (locking_protect_outtime(ots, cfs_rq))
 		ots->locking_start_time = 0;
 }
 

@@ -433,6 +433,11 @@ static void set_sched_boost(struct task_struct *p, bool enable)
 	int ux_state = oplus_get_ux_state(p);
 
 	if (enable) {
+		/* If the task is already a inherit ux task, we unset it to avoid canceling audio ux when inherit ux is canceled. */
+		if (oplus_get_inherit_ux(p)) {
+			clear_all_inherit_type(p);
+			ux_state = 0;
+		}
 		oplus_set_ux_state_lock(p, (ux_state | UX_PRIORITY_AUDIO | SA_TYPE_SWIFT), true);
 	} else {
 		oplus_set_ux_state_lock(p, (ux_state & ~(SCHED_ASSIST_UX_PRIORITY_MASK | SA_TYPE_SWIFT)), true);
@@ -460,7 +465,7 @@ void oplus_sched_assist_audio_perf_addIm(struct task_struct *task, int im_flag)
 
 	if (is_audio_task(task) && im_flag == IM_FLAG_NONE)
 		set_sched_boost(task, false);
-	else if (im_flag == IM_FLAG_AUDIO && !test_task_ux(task)) /* if the task is already a ux task, we can't set it to audio task */
+	else if (im_flag == IM_FLAG_AUDIO)
 		set_sched_boost(task, true);
 }
 

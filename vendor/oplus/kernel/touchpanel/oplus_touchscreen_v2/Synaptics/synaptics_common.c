@@ -35,8 +35,9 @@ static int syna_auto_test_irq(struct touchpanel_data *ts,
 	if (syna_test_ops->syna_auto_test_enable_irq) {
 		ret = syna_test_ops->syna_auto_test_enable_irq(ts->chip_data, false);
 
-		if (ret)
+		if (ret) {
 			TPD_INFO("%s: syna_auto_test_enable_irq failed !\n", __func__);
+		}
 	}
 
 	eint_count = 0;
@@ -46,11 +47,12 @@ static int syna_auto_test_irq(struct touchpanel_data *ts,
 		msleep(5);
 		eint_status = gpio_get_value(syna_testdata->irq_gpio);
 
-		if (eint_status == 1)
+		if (eint_status == 1) {
 			eint_count--;
 
-		else
+		} else {
 			eint_count++;
+		}
 
 		TPD_INFO("%s: eint_count = %d  eint_status = %d\n", __func__, eint_count,
 			 eint_status);
@@ -73,6 +75,7 @@ int synaptics_auto_test(struct seq_file *s,  struct touchpanel_data *ts)
 	uint32_t *p_data32 = NULL;
 	uint32_t item_cnt = 0;
 	uint32_t i = 0;
+	int support_item = 0;
 
 	struct test_item_info *p_test_item_info = NULL;
 	struct syna_auto_test_operations *syna_test_ops = NULL;
@@ -116,8 +119,9 @@ int synaptics_auto_test(struct seq_file *s,  struct touchpanel_data *ts)
 	TPD_INFO("current test item: %llx\n", test_head->test_item);
 
 	for (i = 0; i < 8 * sizeof(test_head->test_item); i++) {
-		if ((test_head->test_item >> i) & 0x01)
+		if ((test_head->test_item >> i) & 0x01) {
 			item_cnt++;
+		}
 	}
 
 	/*check limit support any item or not*/
@@ -154,215 +158,212 @@ int synaptics_auto_test(struct seq_file *s,  struct touchpanel_data *ts)
 		tp_test_write(syna_testdata.fp, syna_testdata.length, data_buf,
 			      strlen(data_buf), syna_testdata.pos);
 		ret = 0;
-		goto END;
 	}
 
-	if (!syna_test_ops->syna_auto_test_preoperation)
+	if (!syna_test_ops->syna_auto_test_preoperation) {
 		TPD_INFO("not support syna_test_ops->syna_auto_test_preoperation callback\n");
 
-	else {
+	} else {
 		syna_test_ops->syna_auto_test_preoperation(s, ts->chip_data, &syna_testdata,
 				p_test_item_info);
 	}
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST1);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST1);
 
-	else {
+	} else {
 		ret = syna_test_ops->test1(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST2);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST2);
 
-	else {
+	} else {
 		ret = syna_test_ops->test2(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST3);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST3);
 
-	else {
+	} else {
 		ret = syna_test_ops->test3(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST4);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST4);
 
-	else {
+	} else {
 		ret = syna_test_ops->test4(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST5);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST5);
 
-	else {
+	} else {
 		ret = syna_test_ops->test5(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST6);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST6);
 
-	else {
+	} else {
 		ret = syna_test_ops->test6(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST7);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST7);
 
-	else {
+	} else {
 		ret = syna_test_ops->test7(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST8);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST8);
 
-	else {
+	} else {
 		ret = syna_test_ops->test8(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST9);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST9);
 
-	else {
+	} else {
 		ret = syna_test_ops->test9(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST10);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST10);
 
-	else {
+	} else {
 		ret = syna_test_ops->test10(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
 
 	p_test_item_info = get_test_item_info(syna_testdata.fw, TYPE_TEST11);
 
-	if (!p_test_item_info)
+	if (!p_test_item_info) {
 		TPD_INFO("item: %d get_test_item_info fail\n", TYPE_TEST11);
 
-	else {
+	} else {
 		ret = syna_test_ops->test11(s, ts->chip_data, &syna_testdata, p_test_item_info);
 
 		if (ret > 0) {
 			TPD_INFO("synaptics_capacity_test failed! ret is %d\n", ret);
 			error_count++;
-			goto END_TEST;
 		}
+		support_item++;
 	}
 
-	tp_kfree((void **)&p_test_item_info);
-
-END_TEST:
-
-	if (!syna_test_ops->syna_auto_test_endoperation)
+	if (!syna_test_ops->syna_auto_test_endoperation) {
 		TPD_INFO("not support syna_test_ops->syna_auto_test_endoperation callback\n");
 
-	else {
+	} else {
 		syna_test_ops->syna_auto_test_endoperation(s, ts->chip_data, &syna_testdata,
 				p_test_item_info);
 	}
 
-END:
+	if (!support_item) {
+		error_count++;
+	}
 
 	seq_printf(s, "imageid = 0x%llx, deviceid = 0x%llx\n", syna_testdata.tp_fw,
 		   syna_testdata.tp_fw);
@@ -372,6 +373,7 @@ END:
 		 error_count ? "" : "All test passed.");
 	TPD_INFO("\n\nstep5 reset and open irq complete\n");
 
+	tp_kfree((void **)&p_test_item_info);
 	return error_count;
 }
 EXPORT_SYMBOL(synaptics_auto_test);
@@ -410,8 +412,9 @@ int synaptics_parse_header_v2(struct image_info *image_info,
 
 		magic_value =  le4_to_uint(descriptor->magic_value);
 
-		if (magic_value != FLASH_AREA_MAGIC_VALUE)
+		if (magic_value != FLASH_AREA_MAGIC_VALUE) {
 			continue;
+		}
 
 		length = le4_to_uint(descriptor->length);
 		content = (unsigned char *)descriptor + sizeof(*descriptor);
@@ -515,8 +518,9 @@ void synaptics_parse_header(struct image_header_data *header,
 	TPD_DEBUG(" header->contains_firmware_id is %x\n",
 		  header->contains_firmware_id);
 
-	if (header->contains_firmware_id)
+	if (header->contains_firmware_id) {
 		header->firmware_id = extract_uint_le(data->firmware_id);
+	}
 
 	return;
 }
@@ -526,13 +530,15 @@ static int tp_RT251_read_func(struct seq_file *s, void *v)
 	struct touchpanel_data *ts = s->private;
 	struct debug_info_proc_operations *debug_info_ops;
 
-	if (!ts)
+	if (!ts) {
 		return 0;
+	}
 
 	debug_info_ops = (struct debug_info_proc_operations *)ts->debug_info_ops;
 
-	if (!debug_info_ops)
+	if (!debug_info_ops) {
 		return 0;
+	}
 
 	if (!debug_info_ops->reserve1) {
 		seq_printf(s, "Not support RT251 proc node\n");
@@ -553,33 +559,22 @@ static int RT251_open(struct inode *inode, struct file *file)
 	return single_open(file, tp_RT251_read_func, PDE_DATA(inode));
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-static const struct proc_ops tp_RT251_proc_fops = {
-	.proc_open  = RT251_open,
-	.proc_read  = seq_read,
-	.proc_release = single_release,
-};
-#else
-static const struct file_operations tp_RT251_proc_fops = {
-	.owner = THIS_MODULE,
-	.open  = RT251_open,
-	.read  = seq_read,
-	.release = single_release,
-};
-#endif
+DECLARE_PROC_OPS(tp_RT251_proc_fops, RT251_open, seq_read, NULL, single_release);
 
 static int tp_RT76_read_func(struct seq_file *s, void *v)
 {
 	struct touchpanel_data *ts = s->private;
 	struct debug_info_proc_operations *debug_info_ops;
 
-	if (!ts)
+	if (!ts) {
 		return 0;
+	}
 
 	debug_info_ops = (struct debug_info_proc_operations *)ts->debug_info_ops;
 
-	if (!debug_info_ops)
+	if (!debug_info_ops) {
 		return 0;
+	}
 
 	if (!debug_info_ops->reserve2) {
 		seq_printf(s, "Not support RT76 proc node\n");
@@ -600,33 +595,22 @@ static int RT76_open(struct inode *inode, struct file *file)
 	return single_open(file, tp_RT76_read_func, PDE_DATA(inode));
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-static const struct proc_ops tp_RT76_proc_fops = {
-	.proc_open  = RT76_open,
-	.proc_read  = seq_read,
-	.proc_release = single_release,
-};
-#else
-static const struct file_operations tp_RT76_proc_fops = {
-	.owner = THIS_MODULE,
-	.open  = RT76_open,
-	.read  = seq_read,
-	.release = single_release,
-};
-#endif
+DECLARE_PROC_OPS(tp_RT76_proc_fops, RT76_open, seq_read, NULL, single_release);
 
 static int tp_DRT_read_func(struct seq_file *s, void *v)
 {
 	struct touchpanel_data *ts = s->private;
 	struct debug_info_proc_operations *debug_info_ops;
 
-	if (!ts)
+	if (!ts) {
 		return 0;
+	}
 
 	debug_info_ops = (struct debug_info_proc_operations *)ts->debug_info_ops;
 
-	if (!debug_info_ops)
+	if (!debug_info_ops) {
 		return 0;
+	}
 
 	if (!debug_info_ops->reserve4) {
 		seq_printf(s, "Not support RT76 proc node\n");
@@ -638,15 +622,17 @@ static int tp_DRT_read_func(struct seq_file *s, void *v)
 		return 0;
 	}
 
-	if (ts->int_mode == BANNABLE)
+	if (ts->int_mode == BANNABLE) {
 		disable_irq_nosync(ts->irq);
+	}
 
 	mutex_lock(&ts->mutex);
 	debug_info_ops->reserve4(s, ts->chip_data);
 	mutex_unlock(&ts->mutex);
 
-	if (ts->int_mode == BANNABLE)
+	if (ts->int_mode == BANNABLE) {
 		enable_irq(ts->client->irq);
+	}
 
 	return 0;
 }
@@ -656,20 +642,7 @@ static int DRT_open(struct inode *inode, struct file *file)
 	return single_open(file, tp_DRT_read_func, PDE_DATA(inode));
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-static const struct proc_ops tp_DRT_proc_fops = {
-	.proc_open  = DRT_open,
-	.proc_read  = seq_read,
-	.proc_release = single_release,
-};
-#else
-static const struct file_operations tp_DRT_proc_fops = {
-	.owner = THIS_MODULE,
-	.open  = DRT_open,
-	.read  = seq_read,
-	.release = single_release,
-};
-#endif
+DECLARE_PROC_OPS(tp_DRT_proc_fops, DRT_open, seq_read, NULL, single_release);
 
 static ssize_t proc_touchfilter_control_read(struct file *file,
 		char __user *user_buf, size_t count, loff_t *ppos)
@@ -679,15 +652,17 @@ static ssize_t proc_touchfilter_control_read(struct file *file,
 	struct touchpanel_data *ts = PDE_DATA(file_inode(file));
 	struct synaptics_proc_operations *syn_ops;
 
-	if (!ts)
+	if (!ts) {
 		return 0;
+	}
 
 	syn_ops = (struct synaptics_proc_operations *)ts->private_data;
 
-	if (!syn_ops->get_touchfilter_state)
+	if (!syn_ops->get_touchfilter_state) {
 		return 0;
+	}
 
-	snprintf(page, PAGESIZE - 1, "%d.\n",
+	snprintf(page, PAGESIZE - 1, "%hhu.\n",
 		 syn_ops->get_touchfilter_state(ts->chip_data));
 	ret = simple_read_from_buffer(user_buf, count, ppos, page, strlen(page));
 
@@ -702,16 +677,19 @@ static ssize_t proc_touchfilter_control_write(struct file *file,
 	struct touchpanel_data *ts = PDE_DATA(file_inode(file));
 	struct synaptics_proc_operations *syn_ops;
 
-	if (!ts)
+	if (!ts) {
 		return count;
+	}
 
 	syn_ops = (struct synaptics_proc_operations *)ts->private_data;
 
-	if (!syn_ops->set_touchfilter_state)
+	if (!syn_ops->set_touchfilter_state) {
 		return count;
+	}
 
-	if (count > 2)
+	if (count > 2) {
 		return count;
+	}
 
 	if (copy_from_user(buf, buffer, count)) {
 		TPD_DEBUG("%s: read proc input error.\n", __func__);
@@ -727,20 +705,7 @@ static ssize_t proc_touchfilter_control_write(struct file *file,
 	return count;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-static const struct proc_ops touch_filter_proc_fops = {
-	.proc_read  = proc_touchfilter_control_read,
-	.proc_write = proc_touchfilter_control_write,
-	.proc_open  = simple_open,
-};
-#else
-static const struct file_operations touch_filter_proc_fops = {
-	.read  = proc_touchfilter_control_read,
-	.write = proc_touchfilter_control_write,
-	.open  = simple_open,
-	.owner = THIS_MODULE,
-};
-#endif
+DECLARE_PROC_OPS(touch_filter_proc_fops, simple_open, proc_touchfilter_control_read, proc_touchfilter_control_write, NULL);
 
 int synaptics_create_proc(struct touchpanel_data *ts,
 			  struct synaptics_proc_operations *syna_ops)
@@ -794,15 +759,17 @@ EXPORT_SYMBOL(synaptics_create_proc);
 int synaptics_remove_proc(struct touchpanel_data *ts,
 			  struct synaptics_proc_operations *syna_ops)
 {
-	if (!ts)
+	if (!ts) {
 		return -EINVAL;
+	}
 
 	remove_proc_entry("RT251", ts->prEntry_debug_tp);
 	remove_proc_entry("RT76", ts->prEntry_debug_tp);
 	remove_proc_entry("DRT", ts->prEntry_debug_tp);
 
-	if (ts->face_detect_support)
+	if (ts->face_detect_support) {
 		remove_proc_entry("touch_filter", ts->prEntry_tp);
+	}
 
 	return 0;
 }

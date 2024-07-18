@@ -10,6 +10,7 @@
 
 obj-$(CONFIG_TOUCHPANEL_FOCAL_FT3518) += ft3518/
 obj-$(CONFIG_TOUCHPANEL_FOCAL_FT3658U) += ft3658u/
+obj-$(CONFIG_TOUCHPANEL_FOCAL_FT3658U_SPI) += ft3658u_spi/
 obj-$(CONFIG_TOUCHPANEL_FOCAL_FT3681) += ft3681/
 
 oplus_bsp_tp_focal_common-y += focal_common.o

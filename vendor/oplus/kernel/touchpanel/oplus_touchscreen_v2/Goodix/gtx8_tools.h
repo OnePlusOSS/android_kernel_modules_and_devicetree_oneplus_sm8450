@@ -26,8 +26,10 @@ struct gtx8_tool_info {
 	bool   esd_handle_support;            /*esd handle support feature*/
 	int    *is_suspended;
 	void   *chip_data;
+	int irq;
 	struct hw_resource *hw_res;
 	struct i2c_client  *client;
+	struct spi_device *spi;
 	struct fw_update_info *update_info;
 	struct esd_information  *esd_info;
 

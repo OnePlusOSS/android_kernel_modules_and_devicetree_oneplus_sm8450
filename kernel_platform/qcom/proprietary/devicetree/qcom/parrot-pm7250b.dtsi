@@ -170,10 +170,16 @@
 &thermal_zones {
 	socd {
 		cooling-maps {
+
+//#ifdef OPLUS_FEATURE_THERMAL
+/* DON'T PAUSE CPUS, remove this policy
 			socd_apc1 {
 				trip = <&socd_trip>;
 				cooling-device = <&APC1_pause 1 1>;
 			};
+*/
+//#endif /* OPLUS_FEATURE_THERMAL */
+
 
 			socd_cdsp1 {
 				trip = <&socd_trip>;

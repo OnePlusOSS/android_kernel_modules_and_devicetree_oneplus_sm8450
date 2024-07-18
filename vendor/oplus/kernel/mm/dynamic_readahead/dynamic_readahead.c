@@ -132,7 +132,7 @@ static int __init dynamic_readahead_init(void)
 
 	if (!enable) {
 		pr_err("oplus_bsp_dynamic_readahead is disabled in cmdline\n");
-		return -EINVAL;
+		return 0;
 	}
 
 	for_each_zone(zone) {

@@ -1451,6 +1451,16 @@ int charger_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 	return NOTIFY_DONE;
 }
 
+static void oplus_check_charger_out_func(struct work_struct *work)
+{
+	if ((oplus_vooc_get_fastchg_started() == true) ||
+	    (oplus_vooc_get_fastchg_to_normal() == true) ||
+	    (oplus_vooc_get_fastchg_to_warm() == true) ||
+	    (oplus_vooc_get_fastchg_dummy_started() == true))
+		oplus_voocphy_chg_out_check_event_handle(true);
+	return;
+}
+
 void mtk_charger_int_handler(void)
 {
 #ifdef OPLUS_FEATURE_CHG_BASIC
@@ -1487,6 +1497,19 @@ void mtk_charger_int_handler(void)
 			if (g_oplus_chip)
 				g_oplus_chip->usbtemp_check = oplus_usbtemp_condition();
 #endif
+
+#ifdef OPLUS_FEATURE_CHG_BASIC
+			if (oplus_chg_get_voocphy_support() == AP_SINGLE_CP_VOOCPHY ||
+			    oplus_chg_get_voocphy_support() == AP_DUAL_CP_VOOCPHY) {
+				if (oplus_vooc_get_fastchg_started() == true &&
+				    g_oplus_chip->is_abnormal_adapter != true) {
+					chg_err("!!!charger out but fastchg still true, need check charger out\n");
+					schedule_delayed_work(&pinfo->check_charger_out_work,
+					                      round_jiffies_relative(msecs_to_jiffies(3000)));
+				}
+			}
+#endif
+
 			if (mtkhv_flashled_pinctrl.hv_flashled_support) {
 				mtkhv_flashled_pinctrl.bc1_2_done = false;
 				if(mt6360_get_vbus_rising() != true) {
@@ -8031,6 +8054,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	_wake_up_charger(info);
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	INIT_DELAYED_WORK(&pinfo->step_charging_work, mt6360_step_charging_work);
+	INIT_DELAYED_WORK(&pinfo->check_charger_out_work, oplus_check_charger_out_func);
 	chg_err("oplus_chg_wake_update_work!\n");
 	oplus_chg_wake_update_work();
 #endif

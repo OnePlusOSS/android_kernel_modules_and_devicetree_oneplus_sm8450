@@ -56,6 +56,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 	struct test_item_info *p_test_item_info = NULL;
 	struct st_auto_test_operations *gd_test_ops = NULL;
 	struct com_test_data *com_test_data_p = NULL;
+	int support_item = 0;
 
 	com_test_data_p = &ts->com_test_data;
 
@@ -93,6 +94,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST1, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -109,6 +111,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST2, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -125,6 +128,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST3, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -141,6 +145,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST4, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -157,6 +162,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST5, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -173,6 +179,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST6, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -189,6 +196,7 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST7, ret);
 			error_count++;
 		}
+		support_item++;
 	}
 
 	tp_kfree((void **)&p_test_item_info);
@@ -207,6 +215,9 @@ static int st_test_item(struct seq_file *s, struct touchpanel_data *ts,
 	}
 
 END:
+	if (!support_item) {
+		error_count++;
+	}
 	return error_count;
 }
 

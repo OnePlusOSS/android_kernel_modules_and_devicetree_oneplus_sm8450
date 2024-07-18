@@ -10,9 +10,6 @@
 
 struct touchpanel_event {
     int touchpanel_id;
-#ifndef CONFIG_OPLUS_MTK_DRM_GKI_NOTIFY
-    struct timeval time;
-#endif
     int x;
     int y;
     int fid;       /* Finger ID */

@@ -87,6 +87,7 @@ struct vphy_chip {
 	bool led_on;
 	bool is_pd_svooc_adapter;
 	bool is_abnormal_pd_svooc_adapter;
+	int adapter_sid;
 	bool is_wired_present;
 	int cool_down;
 	int fastchg_notify_event;
@@ -115,6 +116,7 @@ bool oplus_chglib_get_led_on(struct device *dev);
 bool oplus_chglib_get_switch_hw_status(struct device *dev);
 bool oplus_chglib_is_pd_svooc_adapter(struct device *dev);
 bool oplus_chglib_is_abnormal_pd_svooc_adapter(struct device *dev);
+int oplus_chglib_get_adapter_sid_power(struct device *dev);
 bool oplus_chglib_is_wired_present(struct device *dev);
 bool oplus_chglib_is_switch_temp_range(void);
 int oplus_chglib_get_battery_btb_temp_cal(void);

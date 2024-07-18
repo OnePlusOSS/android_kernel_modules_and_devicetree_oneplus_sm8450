@@ -32,6 +32,11 @@ int get_systemserver_pid(void)
 	return systemserver_pid;
 }
 
+void set_timer_started(bool enable)
+{
+	timer_started = enable;
+}
+
 static ssize_t powerkey_monitor_param_proc_read(struct file *file,
 	char __user *buf, size_t count, loff_t *off)
 {
@@ -77,10 +82,15 @@ static bool handle_param_setup(char *key, char *value)
 			g_black_data.is_panic = g_bright_data.is_panic = is_panic;
 	} else if (!strcmp(key, "systemserver_pid")) {
 		int s_pid;
+		POWER_MONITOR_DEBUG_PRINTK("systemserver_pid changed\n");
 		if (sscanf(value, "%d", &s_pid) == 1)
 			systemserver_pid = s_pid;
 	} else if (!strcmp(key, "boot-completed")) {
 		int is_boot_completed;
+		POWER_MONITOR_DEBUG_PRINTK("boot-completed theia: del g_recovery_data timer when reboot\n");
+		del_timer(&g_bright_data.timer);
+		del_timer(&g_black_data.timer);
+		del_timer(&g_recovery_data.timer);
 		if (sscanf(value, "%d", &is_boot_completed) == 1)
 			g_system_boot_completed = !!is_boot_completed;
 	} else {
@@ -231,7 +241,7 @@ void record_stage(const char *buf)
 	if (!timer_started)
 		return;
 
-	POWER_MONITOR_DEBUG_PRINTK("%s: buf:%s flow_buf:%s flow_buf_curr:0x%s flow_index:%x\n", __func__, buf, flow_buf, flow_buf_curr, flow_index);
+	POWER_MONITOR_DEBUG_PRINTK("%s: buf:%s\n", __func__, buf);
 
 	spin_lock_irqsave(&record_stage_spinlock, flag);
 	memset(flow_buf_curr, 0, STAGE_BRIEF_SIZE);

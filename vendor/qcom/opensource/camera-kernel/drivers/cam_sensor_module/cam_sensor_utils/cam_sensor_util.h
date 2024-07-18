@@ -74,6 +74,8 @@ int cam_sensor_util_power_down_except_sensor(struct cam_sensor_power_ctrl_t *ctr
 		struct cam_hw_soc_info *soc_info);
 int cam_sensor_util_power_down_only_sensor(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info);
+int cam_sensor_core_power_up_vio(struct cam_sensor_power_setting *power_setting,
+		struct cam_hw_soc_info *soc_info, int32_t vreg_idx);
 #endif
 int msm_camera_fill_vreg_params(struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_setting,

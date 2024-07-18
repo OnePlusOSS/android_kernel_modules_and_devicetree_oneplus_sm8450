@@ -505,13 +505,8 @@ static int enter_factory_mode(struct chip_data_ft3518 *ts_data)
 		sys_delay(50);
 	}
 
-	if (i >= ENTER_WORK_FACTORY_RETRIES) {
 		FTS_TEST_SAVE_ERR("Enter factory mode fail\n");
 		return -EIO;
-	}
-
-	fts_special_operation_for_samsung(ts_data);
-	return 0;
 }
 
 static int get_channel_num(struct chip_data_ft3518 *ts_data)
@@ -1813,6 +1808,48 @@ test_err:
 	}
 }
 
+int ft3518_rst_autotest(struct seq_file *s, void *chip_data,
+                                  struct auto_testdata *focal_testdata, struct test_item_info *p_test_item_info)
+{
+	int ret = 0;
+	u8 val = 0;
+	u8 val2 = 0;
+	u8 val3 = 0;
+	struct chip_data_ft3518 *ts_data = (struct chip_data_ft3518 *)chip_data;
+
+	FTS_TEST_FUNC_ENTER();
+	FTS_TEST_SAVE_INFO("\n============ Test Item: Reset Test\n");
+
+	enter_work_mode();
+
+	fts_test_read_reg(FTS_REG_REPORT_RATE, &val);
+	val2 = val - 1;
+	fts_test_write_reg(FTS_REG_REPORT_RATE, val2);
+	ft3518_rstpin_reset((void*)ts_data);
+	fts_test_read_reg(FTS_REG_REPORT_RATE, &val3);
+	TPD_INFO("one: reset test: val = %d, val3 = %d", val, val3);
+
+	fts_test_read_reg(FTS_REG_REPORT_RATE, &val);
+	val2 = val - 1;
+	fts_test_write_reg(FTS_REG_REPORT_RATE, val2);
+	ft3518_rstpin_reset((void*)ts_data);
+	fts_test_read_reg(FTS_REG_REPORT_RATE, &val3);
+	TPD_INFO("two: reset test: val = %d, val3 = %d", val, val3);
+
+	if (val3 != val) {
+		FTS_TEST_SAVE_ERR("check reg to test rst failed.\n");
+		ret = -1;
+	}
+
+	if (!ret) {
+		FTS_TEST_SAVE_INFO("------Reset Test PASS\n");
+	} else {
+		FTS_TEST_SAVE_INFO("------Reset Test NG\n");
+	}
+
+	FTS_TEST_FUNC_EXIT();
+	return ret;
+}
 
 int ft3518_rawdata_autotest(struct seq_file *s, void *chip_data,
 			    struct auto_testdata *focal_testdata, struct test_item_info *p_test_item_info)

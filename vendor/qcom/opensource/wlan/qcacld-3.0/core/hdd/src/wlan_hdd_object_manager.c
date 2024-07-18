@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and/or distribute this software for
  * any purpose with or without fee is hereby granted, provided that the
@@ -125,6 +126,23 @@ void hdd_objmgr_update_tgt_max_vdev_psoc(struct hdd_context *hdd_ctx,
 	wlan_psoc_set_max_vdev_count(psoc, max_vdev);
 }
 
+static int hdd_check_internal_netdev_state(struct net_device *netdev)
+{
+	struct hdd_adapter *adapter;
+
+	if (!netdev)
+		return false;
+
+	adapter = netdev_priv(netdev);
+	if (!adapter)
+		return false;
+
+	if (test_bit(DEVICE_IFACE_OPENED, &adapter->event_flags))
+		return true;
+	else
+		return false;
+}
+
 int hdd_objmgr_create_and_store_pdev(struct hdd_context *hdd_ctx)
 {
 	QDF_STATUS status;
@@ -159,6 +177,7 @@ int hdd_objmgr_create_and_store_pdev(struct hdd_context *hdd_ctx)
 		reg_cap_ptr->high_5ghz_chan = HIGH_5GHZ_FREQ_NO_6GHZ;
 	}
 
+	priv->osif_check_netdev_state = hdd_check_internal_netdev_state;
 	pdev = wlan_objmgr_pdev_obj_create(psoc, priv);
 	if (!pdev) {
 		hdd_err("pdev obj create failed");

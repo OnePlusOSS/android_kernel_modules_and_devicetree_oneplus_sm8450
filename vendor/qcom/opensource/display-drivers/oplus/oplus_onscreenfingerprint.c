@@ -654,6 +654,8 @@ static int oplus_ofp_panel_cmd_set_nolock(void *dsi_panel, enum dsi_cmd_set_type
 	switch (type) {
 	case DSI_CMD_HBM_ON:
 		oplus_ofp_set_hbm_state(true);
+		/* add for onepulse feature */
+		oplus_hbm_pwm_state(panel, true);
 
 		/* do not use loading effect compensation mode to FOD sensing, it causes the luminance drop in FOD pattern */
 		OPLUS_OFP_TRACE_BEGIN("dsi_panel_seed_mode");
@@ -675,6 +677,8 @@ static int oplus_ofp_panel_cmd_set_nolock(void *dsi_panel, enum dsi_cmd_set_type
 
 	case DSI_CMD_HBM_OFF:
 		oplus_ofp_set_hbm_state(false);
+		/* add for onepulse feature */
+		oplus_hbm_pwm_state(panel, false);
 
 		/*
 		 if backlight level is in global hbm range before hbm on, reset the oplus_global_hbm_flags,
@@ -1590,7 +1594,10 @@ bool oplus_ofp_backlight_filter(void *dsi_panel, unsigned int bl_level)
 	if (hbm_enable != p_oplus_ofp_params->hbm_enable)
 		OFP_INFO("panel name = %s, is_secondary = %d, hbm_enable = %d, hbm_enable2 = %d\n",
 				panel->name, panel->is_secondary, hbm_enable, p_oplus_ofp_params->hbm_enable);
-
+	/* add for onepulse feature */
+	if (panel->oplus_priv.pwm_onepulse_support) {
+		panel->pwm_hbm_state = need_filter_backlight;
+	}
 	OPLUS_OFP_TRACE_END("oplus_ofp_backlight_filter");
 
 	OFP_DEBUG("end\n");
@@ -2059,6 +2066,11 @@ void oplus_ofp_aod_off_set_work_handler(struct work_struct *work_item)
 
 	if (!display) {
 		OFP_ERR("Invalid params\n");
+		return;
+	}
+
+	if (display->panel->power_mode == SDE_MODE_DPMS_OFF) {
+		OFP_INFO("Break aod off handle when panel already power off");
 		return;
 	}
 

@@ -580,19 +580,22 @@ void jankinfo_tasktrack_update_time(struct task_struct *task,
 		ti->delta[TRACE_SLEEPING_INBINDER] += time_in_ns;
 	} else if ((type == TRACE_SLEEPING) && is_infutex(nowtype)) {
 		ti->delta[TRACE_SLEEPING_INFUTEX] += time_in_ns;
-	} else if (type == TRACE_DISKSLEEP &&
-		time_in_ns >= CALL_STACK_THRESHOLD) {
-		cs = &ti->cs[winidx];
+	} else if (type == TRACE_DISKSLEEP || type == TRACE_DISKSLEEP_INIOWAIT) {
+		if (time_in_ns >= CALL_STACK_THRESHOLD) {
+			cs = &ti->cs[winidx];
 #ifdef JANK_DEBUG
-		jank_dbg("cs0: task=%s, delta=%llu, winidx=%d\n",
-				task->comm, time_in_ns, winidx);
-		trace_printk("cs0: task=%s, delta=%llu, winidx=%d\n",
-				task->comm, time_in_ns, winidx);
+			jank_dbg("cs0: task=%s, delta=%llu, winidx=%d\n",
+					task->comm, time_in_ns, winidx);
+			trace_printk("cs0: task=%s, delta=%llu, winidx=%d\n",
+					task->comm, time_in_ns, winidx);
 #endif
-		record_callstacks(task, cs, time_in_ns);
-	} else if (type == TRACE_DISKSLEEP_INIOWAIT && time_in_ns >= IOWAIT_THRESHOLD) {
-		record_target_iowait(task, type, time_in_ns);
-		gerrit_check_dummy();
+			record_callstacks(task, cs, time_in_ns);
+		}
+		if (type == TRACE_DISKSLEEP_INIOWAIT && time_in_ns >= IOWAIT_THRESHOLD) {
+			record_target_iowait(task, type, time_in_ns);
+			gerrit_check_dummy();
+		}
+
 	} else if (type == TRACE_RUNNING) {
 		if (cpumask_test_cpu(task_cpu(task), &silver_cpu)) {
 			ti->delta[TRACE_IN_MINCORE] += time_in_ns;
@@ -1221,14 +1224,12 @@ static int dump_callstack(struct seq_file *m, void *v)
 			if (!timestamp_is_valid(cs_timestamp, now))
 				continue;
 
-			seq_printf(m, "[%llu.%lu] [%d] ", (u64)ts.tv_sec, ts.tv_nsec, pid);
+			seq_printf(m, "%llu.%lu,%d;", (u64)ts.tv_sec, ts.tv_nsec, pid);
 
 			for (cs_id = 0; cs_id < cs_num; cs_id++) {
-				seq_printf(m, "[");
-
 				for (lv = 0; lv < CALL_STACK_LEVEL; lv++) {
 					if (lv && cs->func[cs_id][lv])
-						seq_printf(m, "<-");
+						seq_printf(m, ",");
 
 					if (cs->func[cs_id][lv]) {
 						seq_printf(m, "%pS", (void *)cs->func[cs_id][lv]);
@@ -1236,7 +1237,7 @@ static int dump_callstack(struct seq_file *m, void *v)
 						break;
 					}
 				}
-				seq_printf(m, "] ");
+				seq_printf(m, ";");
 			}
 
 			seq_puts(m, "\n");

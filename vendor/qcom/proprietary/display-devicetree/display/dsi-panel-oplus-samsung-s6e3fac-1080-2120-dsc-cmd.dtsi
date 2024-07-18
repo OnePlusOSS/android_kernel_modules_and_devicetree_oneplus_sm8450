@@ -95,7 +95,7 @@
 					//39 01 00 00 00 00 02 BF 02
 					//39 01 00 00 00 00 03 F0 A5 A5
 					/* Display On */
-					//05 01 00 00 14 00 01 29
+					05 00 00 00 14 00 01 29
 				];
 				qcom,mdss-dsi-timing-switch-command = [
 					/* 120hz Transition */
@@ -279,7 +279,7 @@
 					//39 01 00 00 00 00 02 BF 02
 					//39 01 00 00 00 00 03 F0 A5 A5
 					/* Display On */
-					//05 01 00 00 14 00 01 29
+					05 00 00 00 14 00 01 29
 				];
 				qcom,mdss-dsi-timing-switch-command = [
 					/* 90hz Transition */
@@ -463,7 +463,7 @@
 					//39 01 00 00 00 00 02 BF 02
 					//39 01 00 00 00 00 03 F0 A5 A5
 					/* Display On */
-					//05 01 00 00 14 00 01 29
+					05 00 00 00 14 00 01 29
 				];
 				qcom,mdss-dsi-timing-switch-command = [
 					/* 60hz Transition */

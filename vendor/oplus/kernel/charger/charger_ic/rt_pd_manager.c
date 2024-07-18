@@ -24,14 +24,20 @@
 #include <linux/version.h>
 #include <linux/qti_power_supply.h>
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0))
 #include "../../../../../../kernel/msm-5.4/drivers/usb/typec/tcpc/inc/tcpci.h"
 #include "../../../../../../kernel/msm-5.4/drivers/usb/typec/tcpc/inc/tcpm.h"
 #include "../../../../../../kernel/msm-5.4/drivers/usb/typec/tcpc/inc/tcpci_typec.h"
+#else
+#include "../../../../../../kernel_platform/msm-kernel/drivers/usb/typec/pd/inc/tcpci.h"
+#include "../../../../../../kernel_platform/msm-kernel/drivers/usb/typec/pd/inc/tcpm.h"
+#include "../../../../../../kernel_platform/msm-kernel/drivers/usb/typec/pd/inc/tcpci_typec.h"
+#endif
 #include "../oplus_charger.h"
 #include "oplus_sy6974b.h"
 #include "oplus_sy6970_reg.h"
-//#undef dev_info
-//#define dev_info dev_err
+#undef dev_info
+#define dev_info dev_err
 
 #define RT_PD_MANAGER_VERSION	"0.0.8_G"
 
@@ -39,6 +45,8 @@
 /* 10ms * 100 = 1000ms = 1s */
 #define USB_TYPE_POLLING_INTERVAL	10
 #define USB_TYPE_POLLING_CNT_MAX	200
+#define USB_TYPE_POLLING_CNT            10
+
 #define UNIT_TRANS_1000			1000
 
 #define PORT_ERROR 0
@@ -49,6 +57,12 @@
 extern void oplus_otg_enable_by_buckboost(void);
 extern void oplus_otg_disable_by_buckboost(void);
 extern void tcpc_late_sync(void);
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+extern void oplus_set_splitchg_request_dpdm(bool enable);
+extern void oplus_notify_pd_event(unsigned long evt);
+extern void oplus_chip_otg_enable(void);
+extern void oplus_chip_otg_disable(void);
+#endif
 
 enum dr {
 	DR_IDLE,
@@ -251,6 +265,10 @@ static inline void start_usb_host(struct rt_pd_manager_data *rpmd)
 
 static inline void stop_usb_peripheral(struct rt_pd_manager_data *rpmd)
 {
+	dev_err(rpmd->dev, "%s\n", __func__);
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+	oplus_set_splitchg_request_dpdm(false);
+#endif
 	extcon_set_state_sync(rpmd->extcon, EXTCON_USB, false);
 }
 
@@ -261,6 +279,7 @@ static inline void start_usb_peripheral(struct rt_pd_manager_data *rpmd)
 #endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)) */
 	union extcon_property_value val = {.intval = 0};
 
+	dev_err(rpmd->dev, "%s\n", __func__);
 	val.intval = tcpm_inquire_cc_polarity(rpmd->tcpc);
 	extcon_set_property(rpmd->extcon, EXTCON_USB,
 			    EXTCON_PROP_USB_TYPEC_POLARITY, val);
@@ -480,11 +499,21 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				    __func__, noti->vbus_state.mv);
 		/* enable/disable OTG power output */
 		if (noti->vbus_state.mv) {
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+			oplus_chip_otg_enable();
+#else
 			oplus_otg_enable_by_buckboost();
+#endif
+
 			otg_enable = true;
 		} else {
-			if (otg_enable)
+			if (otg_enable) {
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+				oplus_chip_otg_disable();
+#else
 				oplus_otg_disable_by_buckboost();
+#endif
+			}
 			otg_enable = false;
 		}
 		break;
@@ -511,9 +540,11 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 					      USB_TYPE_POLLING_INTERVAL));
 			typec_set_data_role(rpmd->typec_port, TYPEC_DEVICE);
 			typec_set_pwr_role(rpmd->typec_port, TYPEC_SINK);
-			typec_set_pwr_opmode(rpmd->typec_port,
-					     noti->typec_state.rp_level -
-					     TYPEC_CC_VOLT_SNK_DFT);
+			if (((noti->typec_state.rp_level - TYPEC_CC_VOLT_SNK_DFT) >= TYPEC_PWR_MODE_USB) &&
+			    ((noti->typec_state.rp_level - TYPEC_CC_VOLT_SNK_DFT) <= TYPEC_PWR_MODE_PD))
+				typec_set_pwr_opmode(rpmd->typec_port,
+							noti->typec_state.rp_level -
+							TYPEC_CC_VOLT_SNK_DFT);
 			typec_set_vconn_role(rpmd->typec_port, TYPEC_SINK);
 		} else if ((old_state == TYPEC_ATTACHED_SNK ||
 			    old_state == TYPEC_ATTACHED_NORP_SRC ||
@@ -745,10 +776,18 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 				    __func__, noti->pd_state.connected);
 		switch (noti->pd_state.connected) {
 		case PD_CONNECT_NONE:
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+			oplus_notify_pd_event(PD_CONNECT_NONE);
+#else
 			oplus_set_pd_active(QTI_POWER_SUPPLY_PD_INACTIVE);
+#endif
 			break;
 		case PD_CONNECT_HARD_RESET:
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+			oplus_notify_pd_event(PD_CONNECT_HARD_RESET);
+#else
 			oplus_set_pd_active(QTI_POWER_SUPPLY_PD_INACTIVE);
+#endif
 			break;
 		case PD_CONNECT_PE_READY_SNK:
 		case PD_CONNECT_PE_READY_SNK_PD30:
@@ -760,7 +799,11 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			smblib_set_prop(rpmd,
 				POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED,
 					&val);
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+			oplus_notify_pd_event(noti->pd_state.connected);
+#else
 			oplus_set_pd_active(QTI_POWER_SUPPLY_PD_ACTIVE);
+#endif
 			oplus_get_adapter_svid();
 			if (g_oplus_chip
 					&& g_oplus_chip->chg_ops
@@ -796,7 +839,11 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			smblib_set_prop(rpmd,
 				POWER_SUPPLY_PROP_PD_USB_SUSPEND_SUPPORTED,
 					&val);
+#ifdef OPLUS_CHG_SEPARATE_MUSE
+			oplus_notify_pd_event(PD_CONNECT_PE_READY_SNK_APDO);
+#else
 			oplus_set_pd_active(QTI_POWER_SUPPLY_PD_PPS_ACTIVE);
+#endif
 			oplus_get_adapter_svid();
 			if (g_oplus_chip
 					&& g_oplus_chip->chg_ops

@@ -53,6 +53,8 @@
 #define OEM_MISC_CTL_DATA_PAIR(cmd, enable) ((enable ? 0x3 : 0x1) << cmd)
 #define FLASH_SCREEN_CTRL_OTA		0X01
 #define FLASH_SCREEN_CTRL_DTSI	0X02
+#define RESET_CURRENT_LIMIT_TIMES 3000
+#define RESET_CURRENT_LIMIT_VOLT 2000
 
 #define OPLUS_USBTEMP_HIGH_CURR 1
 #define OPLUS_USBTEMP_LOW_CURR 0
@@ -1948,8 +1950,18 @@ static void battery_chg_update_usb_type_work(struct work_struct *work)
 			printk(KERN_ERR "!!! test usb_psy_desc.type: [%d]\n", usb_psy_desc.type);
 		}
 	}
-	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_UNKNOWN)
+	if (pst->prop[USB_ADAP_TYPE] != POWER_SUPPLY_USB_TYPE_UNKNOWN) {
 		oplus_chg_wake_update_work();
+		if (g_oplus_chip
+			&& oplus_chg_get_charger_voltage() >= 0
+			&& oplus_chg_get_charger_voltage() < RESET_CURRENT_LIMIT_VOLT
+			&& oplus_chg_get_voocphy_support() == ADSP_VOOCPHY
+			&& oplus_vooc_get_fastchg_dummy_started() == true) {
+				schedule_delayed_work(&bcdev->update_input_current_work,
+						round_jiffies_relative(msecs_to_jiffies(RESET_CURRENT_LIMIT_TIMES)));
+				pr_err("update_input_current_work\n");
+		}
+	}
 }
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
@@ -2096,6 +2108,18 @@ static void oplus_plugin_irq_work(struct work_struct *work)
 	if (chip->support_abnormal_adapter) {
 		oplus_chg_check_break(bcdev->usb_online);
 	}
+}
+
+static void oplus_update_input_current_work(struct work_struct *work)
+{
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip) {
+		chg_err("chip is NULL!\n");
+		return;
+	}
+
+	chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;
 }
 #endif
 
@@ -5003,6 +5027,27 @@ static void oplus_usbtemp_recover_work(struct work_struct *work)
 	oplus_usbtemp_recover_func(g_oplus_chip);
 }
 
+#define ICHARGING_MIN_MA -50
+static void zy0603_reset_fg_balance_work(struct work_struct *work)
+{
+	int rc = 0;
+	struct battery_chg_dev *bcdev = NULL;
+	struct psy_state *pst = NULL;
+
+	if (!g_oplus_chip) {
+		chg_err("g_oplus_chip is NULL!\n");
+		return;
+	}
+	bcdev = g_oplus_chip->pmic_spmi.bcdev_chip;
+	pst = &bcdev->psy_list[PSY_TYPE_BATTERY];
+
+	if (g_oplus_chip->icharging > ICHARGING_MIN_MA)
+		return;
+	rc = write_property_id(bcdev, pst, BATT_ZY0603_RESET_FG_BALANCE, 1);
+	if (rc)
+		chg_err("zy0603_reset_fg_balance fail, rc=%d\n", rc);
+}
+
 static int g_tbatt_temp = 0;
 
 #define USBTEMP_BATTTEMP_GAP_HIGH 19
@@ -5187,6 +5232,10 @@ static void oplus_cid_status_change_work(struct work_struct *work)
 
 	cid_status = pst->prop[USB_CID_STATUS];
 	printk(KERN_ERR "%s: !!!cid_status[%d]\n", __func__, cid_status);
+	if (cid_status == 1) {
+		cancel_delayed_work(&bcdev->reset_fg_balance_work);
+		schedule_delayed_work(&bcdev->reset_fg_balance_work, msecs_to_jiffies(10000));
+	}
 	if (cid_status == 0) {
 		bcdev->pre_current = -1;
 		chip->usbtemp_check = false;
@@ -9839,6 +9888,7 @@ static int battery_chg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&bcdev->reset_turn_on_chg_work, oplus_reset_turn_on_chg_work);
 	INIT_DELAYED_WORK(&bcdev->get_real_chg_type_work, oplus_get_real_chg_type_work);
 	INIT_DELAYED_WORK(&bcdev->plugin_irq_work, oplus_plugin_irq_work);
+	INIT_DELAYED_WORK(&bcdev->update_input_current_work, oplus_update_input_current_work);
 #endif
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	INIT_DELAYED_WORK(&bcdev->vchg_trig_work, oplus_vchg_trig_work);
@@ -9848,6 +9898,7 @@ static int battery_chg_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&bcdev->status_keep_clean_work, oplus_chg_wls_status_keep_clean_work);
 	INIT_DELAYED_WORK(&bcdev->usb_enum_check_work, usb_enum_check);
 	INIT_DELAYED_WORK(&bcdev->mcu_en_init_work, oplus_chg_mcu_en_init_work);
+	INIT_DELAYED_WORK(&bcdev->reset_fg_balance_work, zy0603_reset_fg_balance_work);
 	bcdev->status_wake_lock = wakeup_source_register(bcdev->dev, "status_wake_lock");
 	bcdev->status_wake_lock_on = false;
 #endif

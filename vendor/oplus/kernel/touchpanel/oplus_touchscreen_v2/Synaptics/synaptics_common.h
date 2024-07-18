@@ -16,11 +16,13 @@
 #include <linux/proc_fs.h>
 #include <linux/of_gpio.h>
 #include <linux/delay.h>
+#include <linux/seq_file.h>
 
 #include "../touchpanel_common.h"
 #include "../touch_comon_api/touch_comon_api.h"
 #include "../touchpanel_autotest/touchpanel_autotest.h"
-
+#include "../touchpanel_healthinfo/touchpanel_healthinfo.h"
+#include "../touchpanel_healthinfo/touchpanel_exception.h"
 
 #include "synaptics_firmware_v2.h"
 
@@ -35,6 +37,7 @@
 #define MAX_LIMIT_NAME_SIZE 16
 
 /*********PART3:Struct Area**********************/
+#define SIMULATE_DEBUG_INFO 0xff
 typedef enum {
 	BASE_NEGATIVE_FINGER = 0x02,
 	BASE_MUTUAL_SELF_CAP = 0x04,
@@ -42,6 +45,22 @@ typedef enum {
 	BASE_RXABS_BASELINE = 0x10,
 	BASE_TXABS_BASELINE = 0x20,
 } BASELINE_ERR;
+
+typedef enum {
+	BASE_V2_NO_ERROR = 0x00,
+	BASE_V2_CLASSIFIER_BL = 0x01,
+	BASE_V2_ABS_POSITIVITY_TX = 0x02,
+	BASE_V2_ABS_POSITIVITY_RX = 0x03,
+	BASE_V2_ENERGY_RATIO = 0x04,
+	BASE_V2_BUMPINESS = 0x05,
+	BASE_V2_NEGTIVE_FINGER = 0x06,
+	BASE_V2_STD_ERROR = 0x07,
+	BASE_V2_CRITI_ERROR = 0x08,
+	BASE_V2_STD_CRITI = 0x09,
+	BASE_V2_METAL_PLATE = 0x0A,
+	BASE_V2_WATER_DROP = 0x0B,
+	BASE_V2_BIG_ABS_SHIFT = 0x0C,
+} BASELINE_ERR_V2; /* used by S3910 */
 
 typedef enum {
 	SHIELD_PALM = 0x01,

@@ -2049,6 +2049,7 @@ static int mp_get_timing_info(void *chip_data, struct auto_testdata *testdata)
 	ILI_INFO("all test %d item\n", i);
 	ILI_INFO("DDI Mode = %s\n", (core_mp->is_longv ? "Long V" : "Long H"));
 	ILI_INFO("ini_date = %d ini_ver = %d\n", core_mp->ini_date, core_mp->ini_ver);
+	tp_kfree((void **)&p_test_item_info);
 	return ret;
 }
 
@@ -2555,7 +2556,7 @@ static int mp_show_result(void *chip_data, struct auto_testdata *testdata,
 				/* result of each frame */
 				for (j = 0; j < get_frame_cont; j++) {
 					char frame_name[128] = {0};
-					snprintf(frame_name, 128, "Frame %d", (j + 1));
+					snprintf(frame_name, sizeof(frame_name), "Frame %d", (j + 1));
 					mp_compare_cdc_show_result(i, &tItems[i].buf[(j * core_mp->frame_len)], csv,
 								   &csv_len, TYPE_NO_JUGE,
 								   max_threshold, min_threshold, frame_name, CSV_FILE_SIZE);

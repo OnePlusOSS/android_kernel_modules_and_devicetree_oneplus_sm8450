@@ -34,6 +34,7 @@ static void synaptics_remove_proc_case_0(struct kunit *test)
 	int retval = 0;
 
 	proc_create_data_fake.return_val = NULL;
+	memset(&ts_fake, 0, sizeof(struct touchpanel_data));
 
     retval = synaptics_remove_proc(&ts_fake, &syna_ops_fake);
     KUNIT_EXPECT_EQ(test, 0u, remove_proc_entry_fake.call_count);

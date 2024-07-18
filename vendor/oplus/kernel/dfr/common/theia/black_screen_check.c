@@ -37,6 +37,7 @@ struct pwrkey_monitor_data g_black_data = {
 /* if last stage in this array, skip */
 static char black_last_skip_block_stages[][64] = {
 	{ "LIGHT_setScreenState_" }, /* quick press powerkey, power decide wakeup when black check, skip */
+	{ "POWERKEY_interceptKeyBeforeQueueing" }, /* don't wakeup in case heycast/powerlight */
 };
 
 /* if contain stage in this array, skip */
@@ -101,11 +102,13 @@ void send_black_screen_dcs_msg(void)
 	mLastPwkTime = ts;
 	BLACK_DEBUG_PRINTK("send_black_screen_dcs_msg mLastPwkTime is %lld ms\n", mLastPwkTime);
 	get_blackscreen_check_dcs_logmap(logmap);
-	theia_send_event(THEIA_EVENT_BLACK_SCREEN_HANG, THEIA_LOGINFO_EVENTS_LOG | THEIA_LOGINFO_KERNEL_LOG | THEIA_LOGINFO_ANDROID_LOG,
-		current->pid, logmap);
+	theia_send_event(THEIA_EVENT_PWK_LIGHT_UP_MONITOR, THEIA_LOGINFO_SYSTEM_SERVER_TRACES
+		 | THEIA_LOGINFO_EVENTS_LOG | THEIA_LOGINFO_KERNEL_LOG | THEIA_LOGINFO_ANDROID_LOG
+		 | THEIA_LOGINFO_DUMPSYS_SF | THEIA_LOGINFO_DUMPSYS_POWER,
+		get_systemserver_pid(), logmap);
 }
 
-static void delete_timer(char *reason, bool cancel)
+static void delete_timer_black(char *reason, bool cancel)
 {
 	del_timer(&g_bright_data.timer);
 	del_timer(&g_black_data.timer);
@@ -149,7 +152,7 @@ static ssize_t black_screen_cancel_proc_write(struct file *file, const char __us
 	}
 
 	snprintf(cancel_str, sizeof(cancel_str), "CANCELED_BL_%s", buffer);
-	delete_timer(cancel_str, true);
+	delete_timer_black(cancel_str, true);
 
 	return count;
 }
@@ -246,7 +249,8 @@ static void black_error_happen_work(struct work_struct *work)
 	BLACK_DEBUG_PRINTK("black_error_happen_work error_id = %s, error_count = %d\n",
 		bla_data->error_id, bla_data->error_count);
 
-	delete_timer("BL_SCREEN_ERROR_HAPPEN", false);
+	set_timer_started(true);
+	delete_timer_black("BL_SCREEN_ERROR_HAPPEN", false);
 }
 
 static void black_timer_func(struct timer_list *t)
@@ -254,6 +258,9 @@ static void black_timer_func(struct timer_list *t)
 	struct pwrkey_monitor_data *p = from_timer(p, t, timer);
 
 	BLACK_DEBUG_PRINTK("black_timer_func is called\n");
+
+	/* stop recored stage when happen work for alm:6864732 */
+	set_timer_started(false);
 
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)
 	if (g_black_data.active_panel == NULL || g_black_data.cookie == NULL) {
@@ -284,7 +291,7 @@ static void black_fb_notifier_callback(enum panel_event_notifier_tag tag,
 	case THEIA_PANEL_UNBLANK_EVENT:
 		g_black_data.blank = THEIA_PANEL_UNBLANK_VALUE;
 		if (g_black_data.status != BLACK_STATUS_CHECK_DEBUG) {
-			delete_timer("FINISH_FB", true);
+			delete_timer_black("FINISH_FB", true);
 			del_timer(&g_recovery_data.timer);
 			BLACK_DEBUG_PRINTK("black_fb_notifier_callback: del_timer g_recovery_data del in qcom\n");
 			BLACK_DEBUG_PRINTK("black_fb_notifier_callback: del timer, status:%d, blank:%d\n",
@@ -307,7 +314,7 @@ static int black_fb_notifier_callback(struct notifier_block *self,
 		g_black_data.blank = *(int *)data;
 		if (g_black_data.status != BLACK_STATUS_CHECK_DEBUG) {
 			if (g_black_data.blank == THEIA_PANEL_UNBLANK_VALUE) {
-				delete_timer("FINISH_FB", true);
+				delete_timer_black("FINISH_FB", true);
 				del_timer(&g_recovery_data.timer);
 				BLACK_DEBUG_PRINTK("black_fb_notifier_callback: del_timer g_recovery_data del in mtk\n");
 				BLACK_DEBUG_PRINTK("black_fb_notifier_callback: del timer, status:%d, blank:%d\n",
@@ -457,7 +464,7 @@ void black_screen_exit(void)
 	BLACK_DEBUG_PRINTK("%s called\n", __func__);
 
 	remove_proc_entry(PROC_BLACK_SWITCH, NULL);
-	delete_timer("FINISH_DRIVER_EXIT", true);
+	delete_timer_black("FINISH_DRIVER_EXIT", true);
 	cancel_work_sync(&g_black_data.error_happen_work);
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)
 	cancel_delayed_work_sync(&g_check_dt_work);

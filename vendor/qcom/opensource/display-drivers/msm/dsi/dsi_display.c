@@ -6233,7 +6233,7 @@ static int dsi_display_init(struct dsi_display *display)
 		DSI_ERR("component add failed, rc=%d\n", rc);
 
 #ifdef OPLUS_FEATURE_DISPLAY
-	DSI_ERR("component add success: %s\n", display->name);
+	DSI_INFO("component add success: %s\n", display->name);
 #endif /* OPLUS_FEATURE_DISPLAY */
 end:
 	return rc;

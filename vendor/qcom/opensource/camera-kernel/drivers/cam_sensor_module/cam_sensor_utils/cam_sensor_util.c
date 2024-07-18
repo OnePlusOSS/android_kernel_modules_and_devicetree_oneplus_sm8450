@@ -2151,7 +2151,14 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 
 					goto power_up_failed;
 				}
-
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+				rc = cam_sensor_core_power_up_vio(power_setting, soc_info, vreg_idx);
+				if (rc) {
+					CAM_ERR(CAM_SENSOR, "Reg Enable failed for %s",
+						soc_info->rgltr_name[vreg_idx]);
+						goto power_up_failed;
+				}
+#endif
 				rc =  cam_soc_util_regulator_enable(
 					soc_info->rgltr[vreg_idx],
 					soc_info->rgltr_name[vreg_idx],
@@ -2670,5 +2677,49 @@ int cam_sensor_util_power_down_only_sensor(struct cam_sensor_power_ctrl_t *ctrl,
 	ctrl->cam_pinctrl_status = 0;
 
 	return 0;
+}
+
+int cam_sensor_core_power_up_vio(struct cam_sensor_power_setting *power_setting,
+		struct cam_hw_soc_info *soc_info, int32_t vreg_idx)
+{
+	int rc = 0, i = 0;
+
+	CAM_DBG(CAM_SENSOR, "seq_type:%d config_val:%d",power_setting->seq_type, power_setting->config_val);
+	if(power_setting->seq_type == SENSOR_VIO && power_setting->config_val == 3){
+		for(i = 0 ; i < 2 ; i++) {
+			rc =  cam_soc_util_regulator_enable(
+				soc_info->rgltr[vreg_idx],
+				soc_info->rgltr_name[vreg_idx],
+				soc_info->rgltr_min_volt[vreg_idx],
+				soc_info->rgltr_max_volt[vreg_idx],
+				soc_info->rgltr_op_mode[vreg_idx],
+				soc_info->rgltr_delay[vreg_idx]);
+			if (rc) {
+				CAM_ERR(CAM_SENSOR,
+					"Reg Enable failed for %s",
+					soc_info->rgltr_name[vreg_idx]);
+					return rc;
+			}
+			usleep_range((power_setting->delay * 1000),
+				(power_setting->delay * 1000));
+
+			rc = cam_soc_util_regulator_disable(
+				soc_info->rgltr[vreg_idx],
+				soc_info->rgltr_name[vreg_idx],
+				soc_info->rgltr_min_volt[vreg_idx],
+				soc_info->rgltr_max_volt[vreg_idx],
+				soc_info->rgltr_op_mode[vreg_idx],
+				soc_info->rgltr_delay[vreg_idx]);
+			if (rc) {
+				CAM_ERR(CAM_SENSOR,
+					"Reg: %s disable failed",
+					soc_info->rgltr_name[vreg_idx]);
+					return rc;
+			}
+			usleep_range((power_setting->delay * 1000) + 2000,
+				(power_setting->delay * 1000) + 2000);
+		}
+	}
+	return rc;
 }
 #endif

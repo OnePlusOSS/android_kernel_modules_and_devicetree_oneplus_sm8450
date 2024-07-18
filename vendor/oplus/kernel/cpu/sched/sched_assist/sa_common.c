@@ -1046,7 +1046,9 @@ EXPORT_SYMBOL_GPL(unset_inherit_ux);
 
 bool im_mali(char *comm)
 {
-	return !strcmp(comm, "mali-event-hand") || !strcmp(comm, "mali-cmar-backe");
+	return !strcmp(comm, "mali-event-hand") || !strcmp(comm, "mali-cmar-backe") ||
+		!strcmp(comm, "mali-mem-purge") || !strcmp(comm, "mali-cpu-comman") ||
+		!strcmp(comm, "mali-compiler");
 }
 
 bool cgroup_check_set_sched_assist_boost(char *comm)

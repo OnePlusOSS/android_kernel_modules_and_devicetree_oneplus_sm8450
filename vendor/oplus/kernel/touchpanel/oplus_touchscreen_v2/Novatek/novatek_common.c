@@ -168,7 +168,7 @@ static ssize_t nvt_noflash_read(struct file *filp, char __user *buff,
 	}
 
 	memcpy(buf, &str[2], rw_len);
-
+	buf[strlen(buf)] = '\0';
 	if (spi_wr == 0) {    /*SPI write*/
 		while (retries < 20) {
 			ret = CTP_SPI_WRITE(ts->s_client, buf, rw_len);
@@ -284,8 +284,7 @@ void nvt_flash_proc_init(struct touchpanel_data *ts, const char *name)
 }
 EXPORT_SYMBOL(nvt_flash_proc_init);
 
-#define LEN_DOZE_FDM_ROW_DATA 2
-#define LEN_TEST_ITEM_FIELD 16
+/*#define LEN_TEST_ITEM_FIELD 16
 void nvt_limit_read_std(struct seq_file *s, struct touchpanel_data *ts)
 {
 	int ret = 0, m = 0, i = 0, j = 0, item_cnt = 0;
@@ -294,6 +293,8 @@ void nvt_limit_read_std(struct seq_file *s, struct touchpanel_data *ts)
 	struct auto_test_item_header *item_head = NULL;
 	uint32_t *p_item_offset = NULL;
 	int32_t *p_data32 = NULL;
+
+	uint8_t fdm_x_channel = ts->hw_res.doze_x_num;
 
 	ret = request_firmware(&fw, ts->panel_data.test_limit_name, ts->dev);
 
@@ -411,10 +412,9 @@ void nvt_limit_read_std(struct seq_file *s, struct touchpanel_data *ts)
 				seq_printf(s, "%4d, ", p_data32[i]);
 				TPD_DEBUG("%d, ", p_data32[i]);
 			}
-		}
 
-		if (item_head->item_limit_type == LIMIT_TYPE_DOZE_FDM_DATA) {
-			TPD_INFO("common debug e LIMIT_TYPE_TOP_FLOOR_DATA\n");
+		} else if (item_head->item_limit_type == LIMIT_TYPE_DOZE_FDM_DATA) {
+			TPD_INFO("common debug e LIMIT_TYPE_DOZE_FDM_DATA\n");
 
 			if (item_head->item_bit == TYPE_FW_RAWDATA) {
 				seq_printf(s, "TYPE_FW_RAWDATA: \n");
@@ -453,12 +453,12 @@ void nvt_limit_read_std(struct seq_file *s, struct touchpanel_data *ts)
 			TPD_INFO("top data [%d]: \n", m);
 			seq_printf(s, "top data: \n");
 			p_data32 = (int32_t *)(fw->data + item_head->top_limit_offset);
-			TPD_INFO("size 1: %d * %d = %d \n", LEN_DOZE_FDM_ROW_DATA, ts->hw_res.rx_num,
-				 (LEN_DOZE_FDM_ROW_DATA * ts->hw_res.rx_num));
+			TPD_INFO("size 1: %d * %d = %d \n", fdm_x_channel, ts->hw_res.rx_num,
+				 (fdm_x_channel * ts->hw_res.rx_num));
 
-			for (i = 0; i < (LEN_DOZE_FDM_ROW_DATA * ts->hw_res.rx_num); i++) {
-				if (i % LEN_DOZE_FDM_ROW_DATA == 0) {
-					seq_printf(s, "\n[%2d] ", (i / LEN_DOZE_FDM_ROW_DATA));
+			for (i = 0; i < (fdm_x_channel * ts->hw_res.rx_num); i++) {
+				if (i % fdm_x_channel == 0) {
+					seq_printf(s, "\n[%2d] ", (i / fdm_x_channel));
 				}
 
 				seq_printf(s, "%4d, ", p_data32[i]);
@@ -467,14 +467,98 @@ void nvt_limit_read_std(struct seq_file *s, struct touchpanel_data *ts)
 
 			seq_printf(s, "\nfloor data: \n");
 			p_data32 = (int32_t *)(fw->data + item_head->floor_limit_offset);
-			TPD_INFO("size 2: %d * %d = %d \n", LEN_DOZE_FDM_ROW_DATA, ts->hw_res.rx_num,
-				 (LEN_DOZE_FDM_ROW_DATA * ts->hw_res.rx_num));
+			TPD_INFO("size 2: %d * %d = %d \n", fdm_x_channel, ts->hw_res.rx_num,
+				 (fdm_x_channel * ts->hw_res.rx_num));
 
-			for (i = 0; i < (LEN_DOZE_FDM_ROW_DATA * ts->hw_res.rx_num); i++) {
-				if (i % LEN_DOZE_FDM_ROW_DATA == 0) {
-					seq_printf(s, "\n[%2d] ", (i / LEN_DOZE_FDM_ROW_DATA));
+			for (i = 0; i < (fdm_x_channel * ts->hw_res.rx_num); i++) {
+				if (i % fdm_x_channel == 0) {
+					seq_printf(s, "\n[%2d] ", (i / fdm_x_channel));
 				}
 
+				seq_printf(s, "%4d, ", p_data32[i]);
+				TPD_DEBUG("%d, ", p_data32[i]);
+			}
+
+		} else if (item_head->item_limit_type == LIMIT_TYPE_TOP_FLOOR_PEN_X_DATA) {
+			TPD_INFO("common debug e LIMIT_TYPE_TOP_FLOOR_PEN_X_DATA\n");
+
+			if (item_head->item_bit == TYPE_PEN_X_TIP) {
+				seq_printf(s, "TYPE_PEN_X_TIP: \n");
+
+			} else if (item_head->item_bit == TYPE_PEN_X_RING) {
+				seq_printf(s, "TYPE_PEN_X_RING_: \n");
+
+			} else if (item_head->item_bit == TYPE_PEN_X_TIP_NOISE) {
+				seq_printf(s, "TYPE_PEN_X_TIP_NOISE: \n");
+
+			} else if (item_head->item_bit == TYPE_PEN_X_RING_NOISE) {
+				seq_printf(s, "TYPE_PEN_X_RING_NOISE: \n");
+			}
+
+			TPD_INFO("top data [%d]: \n", m);
+			seq_printf(s, "top data: \n");
+			p_data32 = (int32_t *)(fw->data + item_head->top_limit_offset);
+			TPD_INFO("size: %d * %d = %d \n", ts->hw_res.tx_num, ts->hw_res.pen_rx_num,
+				 (ts->hw_res.tx_num * ts->hw_res.pen_rx_num));
+
+			for (i = 0; i < (ts->hw_res.tx_num * ts->hw_res.pen_rx_num); i++) {
+				if (i % ts->hw_res.tx_num == 0) {
+					seq_printf(s, "\n[%2d] ", (i / ts->hw_res.tx_num));
+				}
+
+				seq_printf(s, "%4d, ", p_data32[i]);
+				TPD_DEBUG("%d, ", p_data32[i]);
+			}
+
+			seq_printf(s, "\nfloor data: \n");
+			p_data32 = (int32_t *)(fw->data + item_head->floor_limit_offset);
+
+			for (i = 0; i < (ts->hw_res.tx_num * ts->hw_res.pen_rx_num); i++) {
+				if (i % ts->hw_res.tx_num == 0) {
+					seq_printf(s, "\n[%2d] ", (i / ts->hw_res.tx_num));
+				}
+
+				seq_printf(s, "%4d, ", p_data32[i]);
+				TPD_DEBUG("%d, ", p_data32[i]);
+			}
+
+		} else if (item_head->item_limit_type == LIMIT_TYPE_TOP_FLOOR_PEN_Y_DATA) {
+			TPD_INFO("common debug e LIMIT_TYPE_TOP_FLOOR_PEN_X_DATA\n");
+
+			if (item_head->item_bit == TYPE_PEN_Y_TIP) {
+				seq_printf(s, "TYPE_PEN_Y_TIP: \n");
+
+			} else if (item_head->item_bit == TYPE_PEN_Y_RING) {
+				seq_printf(s, "TYPE_PEN_Y_RING: \n");
+
+			} else if (item_head->item_bit == TYPE_PEN_Y_TIP_NOISE) {
+				seq_printf(s, "TYPE_PEN_Y_TIP_NOISE: \n");
+			} else if (item_head->item_bit == TYPE_PEN_Y_RING_NOISE) {
+				seq_printf(s, "TYPE_PEN_Y_RING_NOISE: \n");
+			}
+
+			TPD_INFO("top data [%d]: \n", m);
+			seq_printf(s, "top data: \n");
+			p_data32 = (int32_t *)(fw->data + item_head->top_limit_offset);
+			TPD_INFO("size: %d * %d = %d \n", ts->hw_res.pen_tx_num, ts->hw_res.rx_num,
+				 (ts->hw_res.pen_tx_num * ts->hw_res.rx_num));
+
+			for (i = 0; i < (ts->hw_res.pen_tx_num * ts->hw_res.rx_num); i++) {
+				if (i % ts->hw_res.pen_tx_num == 0) {
+					seq_printf(s, "\n[%2d] ", (i / ts->hw_res.pen_tx_num));
+				}
+
+				seq_printf(s, "%4d, ", p_data32[i]);
+				TPD_DEBUG("%d, ", p_data32[i]);
+			}
+
+			seq_printf(s, "\nfloor data: \n");
+			p_data32 = (int32_t *)(fw->data + item_head->floor_limit_offset);
+
+			for (i = 0; i < (ts->hw_res.pen_tx_num * ts->hw_res.rx_num); i++) {
+				if (i % ts->hw_res.pen_tx_num == 0) {
+					seq_printf(s, "\n[%2d] ", (i / ts->hw_res.pen_tx_num));
+				}
 				seq_printf(s, "%4d, ", p_data32[i]);
 				TPD_DEBUG("%d, ", p_data32[i]);
 			}
@@ -500,6 +584,8 @@ void nvt_limit_read_std(struct seq_file *s, struct touchpanel_data *ts)
 
 	release_firmware(fw);
 }
+EXPORT_SYMBOL(nvt_limit_read_std);*/
+
 /************ nvt auto test content*************************/
 
 

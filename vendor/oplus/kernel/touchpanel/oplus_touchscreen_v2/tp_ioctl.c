@@ -11,78 +11,10 @@
 
 #include "touchpanel_common.h"
 #include "touch_comon_api/touch_comon_api.h"
+#include "touchpanel_prevention/touchpanel_prevention.h"
 #include "tp_ioctl.h"
 #include "message_list.h"
-
-struct tp_ioc_en {
-	u8 __user *buf;
-	u32 size;
-};
-
-struct tp_ioc_buf {
-	u8 __user *buf;
-	u8 __user *msec; // s64 ktime_to_ms
-	u8 __user *size;
-};
-
-#define HIDL_PROPERTY_READ_BOOL 1
-#define HIDL_PROPERTY_READ_U32 2
-#define HIDL_PROPERTY_COUNT_U32_ELEMS 3
-#define HIDL_PROPERTY_READ_U32_ARRAY 4
-#define HIDL_PROPERTY_READ_STRING_INDEX 5
-#define HIDL_PROPERTY_COUNT_U8_ELEMS 6
-#define HIDL_PROPERTY_READ_U8_ARRAY 7
-
-struct tp_ioc_dts_str {
-	u32 type;
-	char __user *propname; //
-	void __user *out_values;
-	int32_t __user *ret;
-	u32 index;
-	u32 name_size;
-	u32 size;
-};
-
-#define TP_IOC_VERSION  0x01
-#define TP_IOC_INIT	(_IOR(TP_IOC_VERSION, 0, struct tp_ioc_en))
-#define TP_IOC_EN	(_IOW(TP_IOC_VERSION, 1, u8))
-#define TP_IOC_INT	(_IOWR(TP_IOC_VERSION, 2, struct tp_ioc_buf))
-#define TP_IOC_REF	(_IOWR(TP_IOC_VERSION, 3, struct tp_ioc_buf))
-#define TP_IOC_DIFF	(_IOWR(TP_IOC_VERSION, 4, struct tp_ioc_buf))
-#define TP_IOC_RAW	(_IOWR(TP_IOC_VERSION, 5, struct tp_ioc_buf))
-#define TP_IOC_POINT	(_IOW(TP_IOC_VERSION, 6, struct tp_ioc_buf))
-#define TP_IOC_DTS	(_IOR(TP_IOC_VERSION, 7, struct tp_ioc_dts_str))
-#define TP_IOC_BUS	(_IOWR(TP_IOC_VERSION, 8, struct tp_ioc_buf))
-#define TP_IOC_GPIO	(_IOWR(TP_IOC_VERSION, 9, struct tp_ioc_buf))
-
-
-struct touch_point_report {
-	uint8_t id;
-	uint8_t report_bit;
-	uint16_t x;
-	uint16_t y;
-	uint8_t press;
-	uint8_t touch_major;
-	uint8_t width_major;
-	uint8_t reserved;
-};
-
-struct buf_head {
-	uint8_t type;
-	uint8_t extern_msg[7];
-};
-
-#define MSG_BUFF_SIZE	(256)
-#define IO_BUF_SIZE_256	(8)
-
-
-#define REPORT_X (0x01)
-#define REPORT_Y (0x02)
-#define REPORT_PRESS (0x04)
-#define REPORT_TMAJOR (0x08)
-#define REPORT_WMAJOR (0x10)
-#define REPORT_UP (0x80)
-#define REPORT_DOWN_ALL (0x7F)
+#include "touch_pen/touch_pen_core.h"
 
 void touch_misc_state_change(void *p_device, enum IOC_STATE_TYPE type, int state)
 {
@@ -108,7 +40,7 @@ static int touch_misc_open(struct inode *inode, struct file *filp)
 		return -EBUSY;
 	}
 	ts->misc_opened = true;
-	TPD_INFO("%s: ts is %d\n", __func__, ts);
+	TPD_INFO("%s: ts is %p\n", __func__, ts);
 	return 0;
 }
 
@@ -121,7 +53,7 @@ static int touch_misc_release(struct inode *inode, struct file *filp)
 		ts->misc_opened = false;
 		clear_message_list(&ts->msg_list);
 	}
-	TPD_INFO("%s: ts is %d\n", __func__, ts);
+	TPD_INFO("%s: ts is %p\n", __func__, ts);
 	filp->private_data = NULL;
 	return 0;
 }
@@ -194,7 +126,8 @@ static void report_point(struct touchpanel_data *ts, struct touch_point_report *
 		if ((points[i].report_bit)&REPORT_WMAJOR) {
 			input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR, points[i].width_major);
 		}
-		TPD_DETAIL("id %d, x%d,y%d,press%d\n", points[i].id, points[i].x, points[i].y, points[i].press);
+		TP_SPECIFIC_PRINT(ts->tp_index, ts->point_num,
+			  "Touchpanel id %d :Down[%4d %4d %4d]\n", points[i].id, points[i].x, points[i].y, points[i].press);
 	}
 
 	if (0 == down_num) {
@@ -205,6 +138,12 @@ static void report_point(struct touchpanel_data *ts, struct touch_point_report *
 	obj_attention = get_point_info_from_point_report(points_info, points, num);
 	mutex_unlock(&ts->report_mutex);
 
+	if (ts->health_monitor_support) {
+		ts->monitor_data.touch_points = points_info;
+		ts->monitor_data.touch_num = down_num;
+		ts->monitor_data.direction = (ts->grip_info != NULL) ? ts->grip_info->touch_dir : ts->limit_enable;
+		tp_healthinfo_report(&ts->monitor_data, HEALTH_TOUCH, &obj_attention);
+	}
 }
 
 static void report_point_ext(struct touchpanel_data *ts, struct touch_point_report *points, int num)
@@ -246,6 +185,15 @@ static void report_point_ext(struct touchpanel_data *ts, struct touch_point_repo
 		TPD_DETAIL("id %hhu, x%hu,y%hu,press%hhu\n", points[i].id, points[i].x, points[i].y, points[i].press);
 	}
 
+	for (i = 0; i < num; i++) {
+		if ((points[i].report_bit)&REPORT_KEYUP) {
+			input_report_key(ts->input_dev, BTN_TOUCH, 0);
+			input_report_key(ts->input_dev, BTN_TOOL_FINGER, 0);
+
+			TPD_DETAIL("id %d key up\n", points[i].id);
+			break;
+		}
+	}
 	if (0 == num) {
 		input_report_key(ts->input_dev, BTN_TOUCH, 0);
 		input_report_key(ts->input_dev, BTN_TOOL_FINGER, 0);
@@ -253,6 +201,13 @@ static void report_point_ext(struct touchpanel_data *ts, struct touch_point_repo
 	input_sync(ts->input_dev);
 	obj_attention = get_point_info_from_point_report(points_info, points, num);
 	mutex_unlock(&ts->report_mutex);
+
+	if (ts->health_monitor_support) {
+		ts->monitor_data.touch_points = points_info;
+		ts->monitor_data.touch_num = down_num;
+		ts->monitor_data.direction = (ts->grip_info != NULL) ? ts->grip_info->touch_dir : ts->limit_enable;
+		tp_healthinfo_report(&ts->monitor_data, HEALTH_TOUCH, &obj_attention);
+	}
 }
 
 
@@ -299,6 +254,7 @@ static long ioc_int(struct touchpanel_data *ts, unsigned long arg)
 	if (copy_from_user(&ioc_buf,
 			   (struct tp_ioc_buf *)arg,
 			   sizeof(struct tp_ioc_buf))) {
+		TPD_DETAIL("%s: copy_from_user ioc_buf failed", __func__);
 		ret = -EFAULT;
 		goto IOC_INT_RETURN;
 	}
@@ -306,11 +262,13 @@ static long ioc_int(struct touchpanel_data *ts, unsigned long arg)
 	if (copy_from_user(&size,
 			   ioc_buf.size,
 			   sizeof(int32_t))) {
+		TPD_DETAIL("%s: copy_from_user size failed", __func__);
 		ret = -EFAULT;
 		goto IOC_INT_RETURN;
 	}
 
-	if (size <= 0) {
+	if (size < 0) {
+		TPD_DETAIL("%s: size < 0, goto return", __func__);
 		ret = -EFAULT;
 		goto IOC_INT_RETURN;
 	}
@@ -318,6 +276,7 @@ static long ioc_int(struct touchpanel_data *ts, unsigned long arg)
 	buf = kzalloc(MSG_BUFF_SIZE, GFP_KERNEL);
 
 	if (buf == NULL) {
+		TPD_DETAIL("%s: kzalloc MSG_BUFF_SIZE failed", __func__);
 		ret = -EFAULT;
 		goto IOC_INT_RETURN;
 	}
@@ -325,6 +284,7 @@ static long ioc_int(struct touchpanel_data *ts, unsigned long arg)
 	if (copy_from_user(buf,
 			   ioc_buf.buf,
 			   size)) {
+		TPD_DETAIL("%s: copy_from_user buf failed", __func__);
 		ret = -EFAULT;
 		goto IOC_INT_RETURN;
 	}
@@ -339,6 +299,7 @@ static long ioc_int(struct touchpanel_data *ts, unsigned long arg)
 	msg = get_message(ts->msg_list, 0);
 	if (msg == NULL) {
 		ret = 0;
+		TPD_DETAIL("%s: get_message failed", __func__);
 		goto IOC_INT_RETURN;
 	}
 	memset(buf, 0, MSG_BUFF_SIZE);
@@ -394,7 +355,7 @@ IOC_INT_RETURN:
 static long ioc_point_report(struct touchpanel_data *ts, unsigned long arg)
 {
 	struct tp_ioc_buf ioc_buf;
-	int32_t size;
+	uint8_t size;
 	u8 *buf = NULL;
 	int ret = 0;
 
@@ -407,15 +368,11 @@ static long ioc_point_report(struct touchpanel_data *ts, unsigned long arg)
 
 	if (copy_from_user(&size,
 			   ioc_buf.size,
-			   sizeof(int32_t))) {
+			   sizeof(uint8_t))) {
 		ret = -EFAULT;
 		goto IOC_POINT_REPORT_RETURN;
 	}
 
-	if (size <= 0) {
-		ret = -EFAULT;
-		goto IOC_POINT_REPORT_RETURN;
-	}
 	buf = kzalloc(size, GFP_KERNEL);
 
 	if (buf == NULL) {
@@ -429,7 +386,7 @@ static long ioc_point_report(struct touchpanel_data *ts, unsigned long arg)
 		ret = -EFAULT;
 		goto IOC_POINT_REPORT_RETURN;
 	}
-	TPD_DETAIL("ioc_int size is %d.\n", size);
+	TPD_DEBUG("ioc_point size is %d.\n", size);
 
 	if (buf[0]==TYPE_REPORT) {
 		size = size - sizeof(struct buf_head);
@@ -462,28 +419,33 @@ static long ioc_dts_read(struct touchpanel_data *ts, unsigned long arg)
 			   (struct tp_ioc_dts_str *)arg,
 			   sizeof(struct tp_ioc_dts_str))) {
 		ret = -EFAULT;
+		TPD_DETAIL("%s: copy_from_user dts_str failed", __func__);
 		goto IOC_DTS_READ_RETURN;
 	}
 
-	if (dts_str.name_size <= 0) {
+	if ((int)dts_str.name_size <= 0) {
 		ret = -EFAULT;
+		TPD_DETAIL("%s: dts_str.name_size <= 0, goto return", __func__);
 		goto IOC_DTS_READ_RETURN;
 	}
 
 	name = kzalloc(dts_str.name_size, GFP_KERNEL);
 	if (name == NULL) {
 		ret = -EFAULT;
+		TPD_DETAIL("%s: kzalloc dts_str.name_size failed", __func__);
 		goto IOC_DTS_READ_RETURN;
 	}
 	if (copy_from_user(name,
 			   dts_str.propname,
 			   dts_str.name_size)) {
 		ret = -EFAULT;
+		TPD_DETAIL("%s: copy_from_user name failed", __func__);
 		goto IOC_DTS_READ_RETURN;
 	}
 
-	if (dts_str.size <= 0) {
+	if ((int)dts_str.size < 0) {
 		ret = -EFAULT;
+		TPD_DETAIL("%s: dts_str.size < 0, goto return", __func__);
 		goto IOC_DTS_READ_RETURN;
 	}
 
@@ -491,6 +453,7 @@ static long ioc_dts_read(struct touchpanel_data *ts, unsigned long arg)
 		out_value = kzalloc(dts_str.size, GFP_KERNEL);
 		if (out_value == NULL) {
 			ret = -EFAULT;
+			TPD_DETAIL("%s: kzalloc dts_str.size failed", __func__);
 			goto IOC_DTS_READ_RETURN;
 		}
 		memset(out_value, 0, dts_str.size);
@@ -598,11 +561,11 @@ static long touch_misc_ioctl(struct file *filp,
 
 	switch (cmd) {
 	case TP_IOC_INIT:
-		TPD_DETAIL("TP_IOC_INIT  start!!!!");
+		TPD_DEBUG("TP_IOC_INIT  start!!!!");
 		ret = ioc_init(ts, arg);
 		break;
 	case TP_IOC_EN:
-		TPD_DETAIL("TP_IOC_EN  start!!!!");
+		TPD_DEBUG("TP_IOC_EN  start!!!!");
 		if (copy_from_user(&ts->en_touch_event_helper,
 				   (struct tp_ioc_en *)arg,
 				   sizeof(u8))) {
@@ -610,7 +573,7 @@ static long touch_misc_ioctl(struct file *filp,
 		}
 		break;
 	case TP_IOC_INT:
-		TPD_DETAIL("TP_IOC_INT  start!!!!");
+		TPD_DEBUG("TP_IOC_INT  start!!!!");
 		ret = ioc_int(ts, arg);
 		break;
 	case TP_IOC_REF:
@@ -625,6 +588,12 @@ static long touch_misc_ioctl(struct file *filp,
 	case TP_IOC_DTS:
 		TPD_DETAIL("TP_IOC_DTS  start!!!!");
 		ret = ioc_dts_read(ts, arg);
+		break;
+	case PEN_IOC_CMD_UPLK:
+		ret = touch_pen_uplink_msg_ioctl(ts, arg);
+		break;
+	case PEN_IOC_CMD_DOWNLK:
+		ret = touch_pen_downlink_msg_ioctl(ts, arg);
 		break;
 	default:
 		ret = -EOPNOTSUPP;
@@ -649,37 +618,11 @@ void init_touch_misc_device(void *p_device)
 	struct touchpanel_data *ts = (struct touchpanel_data *)p_device;
 	char *namep;
 	struct device_node *np;
-	/*int rc = 0;*/
 	np = ts->dev->of_node;
 
-	// read dts set
-	/*ts->ioc_init_size = of_property_count_u8_elems(np, "ioc_init_buf");
-
-	if (ts->ioc_init_size <= 0) {
-		TPD_INFO("No ioc buf in dts !\n");
-		return;
-
-	} else {
-		TPD_INFO("The ioc buf len %d!\n", ts->ioc_init_size);
-		ts->ioc_init_buf = kzalloc(ts->ioc_init_size, GFP_KERNEL);
-
-		if (ts->ioc_init_buf == NULL) {
-			return;
-		}
-		rc = of_property_read_u8_array(np, "ioc_init_buf",
-					       (u8 *)ts->ioc_init_buf,
-					       ts->ioc_init_size);
-
-		if (rc) {
-			TPD_INFO("Can not get the ioc init config in dts!\n");
-			kfree(ts->ioc_init_buf);
-			ts->ioc_init_buf = NULL;
-			ts->ioc_init_size = 0;
-			return;
-		}
-	}
-	TPD_INFO("ioc_init_size is %d.\n", ts->ioc_init_size);*/
-	if (!of_property_read_bool(np, "enable_touch_helper")) {
+	if (!of_property_read_bool(np, "enable_touch_helper") &&
+		!of_property_read_bool(np, "pen_support_opp")) {
+		TPD_INFO("%s: not support tp misc", __func__);
 		return;
 	}
 
@@ -701,8 +644,20 @@ void init_touch_misc_device(void *p_device)
 	ts->misc_device.fops = &touch_misc_fops;
 
 	ts->misc_device.name = namep;
+	touch_pen_init(ts);
 	TPD_INFO("%s: ts misc register ok", __func__);
 	misc_register(&ts->misc_device);
 
+}
+
+void uninit_touch_misc_device(void *p_device)
+{
+	struct touchpanel_data *ts = (struct touchpanel_data *)p_device;
+
+	kfree(ts->misc_device.name);
+	delete_message_list(&ts->msg_list);
+	touch_pen_uninit(ts);
+	misc_deregister(&ts->misc_device);
+	TPD_INFO("uninit_touch_misc_device ok");
 }
 

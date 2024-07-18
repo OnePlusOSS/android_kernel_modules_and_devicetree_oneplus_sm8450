@@ -6320,12 +6320,12 @@ int __init tp_driver_init_gt9886(void)
 	TPD_INFO("%s is called\n", __func__);
 
 	if (!tp_judge_ic_match(TPD_DEVICE)) {
-		return -1;
+		return 0;
 	}
 
 	if (i2c_add_driver(&tp_i2c_driver) != 0) {
 		TPD_INFO("unable to add i2c driver.\n");
-		return -1;
+		return 0;
 	}
 
 	return 0;

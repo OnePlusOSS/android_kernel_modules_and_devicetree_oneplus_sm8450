@@ -215,7 +215,7 @@ static ssize_t focal_fw_version_show(struct device *dev,
 			num_read_chars = snprintf(buf, PAGE_SIZE, "get tp fw version fail!\n");
 
 		} else {
-			num_read_chars = snprintf(buf, PAGE_SIZE, "%02X\n", fw_version);
+			num_read_chars = snprintf(buf, PAGE_SIZE, "%02X\n", (unsigned int)fw_version);
 		}
 	}
 
@@ -236,21 +236,21 @@ static ssize_t focal_rw_reg_show(struct device *dev,
 
 	if (!g_rwreg_result.op) {
 		if (g_rwreg_result.result == 0) {
-			count = sprintf(buf, "Read %02X: %02X\n", g_rwreg_result.reg,
-					g_rwreg_result.value);
+			count = sprintf(buf, "Read %02X: %02X\n", (unsigned int)g_rwreg_result.reg,
+					(unsigned int)g_rwreg_result.value);
 
 		} else {
-			count = sprintf(buf, "Read %02X failed, ret: %d\n", g_rwreg_result.reg,
+			count = sprintf(buf, "Read %02X failed, ret: %d\n", (unsigned int)g_rwreg_result.reg,
 					g_rwreg_result.result);
 		}
 
 	} else {
 		if (g_rwreg_result.result == 0) {
-			count = sprintf(buf, "Write %02X, %02X success\n", g_rwreg_result.reg,
-					g_rwreg_result.value);
+			count = sprintf(buf, "Write %02X, %02X success\n", (unsigned int)g_rwreg_result.reg,
+					(unsigned int)g_rwreg_result.value);
 
 		} else {
-			count = sprintf(buf, "Write %02X failed, ret: %d\n", g_rwreg_result.reg,
+			count = sprintf(buf, "Write %02X failed, ret: %d\n", (unsigned int)g_rwreg_result.reg,
 					g_rwreg_result.result);
 		}
 	}
@@ -561,7 +561,7 @@ static ssize_t focal_debug_write(struct file *filp, const char __user *buff,
 		break;
 
 	case PROC_HW_RESET:
-		snprintf(tmp, sizeof(tmp), "%s", writebuf + 1);
+		snprintf(tmp, sizeof(tmp), "%s", (char *)writebuf + 1);
 		tmp[buflen - 1] = '\0';
 
 		if (strncmp(tmp, "focal_driver", 12) == 0) {
@@ -755,6 +755,7 @@ int focal_create_apk_debug_channel(struct touchpanel_data *ts)
 
 	return ret;
 }
+EXPORT_SYMBOL(focal_create_apk_debug_channel);
 /**********************End of apk debug file and it's operation callbacks******************************/
 /*******Part1:Call Back Function implement*******/
 
@@ -849,7 +850,7 @@ static ssize_t fts_debug_write(struct file *filp, const char __user *buff,
 		break;
 
 	case PROC_HW_RESET:
-		snprintf(tmp, PROC_BUF_SIZE, "%s", writebuf + 1);
+		snprintf(tmp, PROC_BUF_SIZE, "%s", (char *)writebuf + 1);
 		tmp[((buflen - 1) > (PROC_BUF_SIZE - 1)) ? (PROC_BUF_SIZE - 1) :
 		    (buflen - 1)] = '\0';
 
@@ -1101,21 +1102,12 @@ static int fts_baseline_autotest_open(struct inode *inode, struct file *file)
 
 DECLARE_PROC_OPS(fts_auto_test_proc_fops, fts_baseline_autotest_open, seq_read, NULL, single_release);
 
-/*int fts_create_proc(struct touchpanel_data *ts,
+int fts_create_proc(struct touchpanel_data *ts,
 		    struct fts_proc_operations *syna_ops)
 {
 	int ret = 0;
-	struct proc_dir_entry *prEntry_tmp = NULL;
 
 	g_syna_ops = syna_ops;
-	prEntry_tmp = proc_create_data("baseline_test", 0666, ts->prEntry_tp,
-				       &fts_auto_test_proc_fops, ts);
-
-	if (prEntry_tmp == NULL) {
-		ret = -ENOMEM;
-		TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
-	}
-
 	proc.proc_entry = proc_create_data(PROC_NAME, 0777, NULL, &ftxxxx_proc_fops,
 					   ts);
 
@@ -1127,7 +1119,7 @@ DECLARE_PROC_OPS(fts_auto_test_proc_fops, fts_baseline_autotest_open, seq_read, 
 	return ret;
 }
 EXPORT_SYMBOL(fts_create_proc);
-*/
+
 #define LEN_DOZE_FDM_ROW_DATA 2
 #define NUM_MODE 2
 #define LEN_TEST_ITEM_FIELD 16
@@ -1452,6 +1444,26 @@ static int focal_test_item(struct seq_file *s, struct touchpanel_data *ts,
 		ret = fts_test_ops->test7(s, ts->chip_data, p_focal_testdata, p_test_item_info);
 		if (ret < 0) {
 			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST7, ret);
+			error_count++;
+		}
+	}
+
+	if (!fts_test_ops->test8) {
+		TPD_INFO("test%d not support\n", TYPE_TEST8);
+	} else {
+		ret = fts_test_ops->test8(s, ts->chip_data, p_focal_testdata, p_test_item_info);
+		if (ret < 0) {
+			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST8, ret);
+			error_count++;
+		}
+	}
+
+	if (!fts_test_ops->test9) {
+		TPD_INFO("test%d not support\n", TYPE_TEST9);
+	} else {
+		ret = fts_test_ops->test9(s, ts->chip_data, p_focal_testdata, p_test_item_info);
+		if (ret < 0) {
+			TPD_INFO("test%d failed! ret is %d\n", TYPE_TEST9, ret);
 			error_count++;
 		}
 	}

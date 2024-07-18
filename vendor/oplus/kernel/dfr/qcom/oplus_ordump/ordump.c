@@ -97,5 +97,5 @@ __MODULE_PARM_TYPE(lbaooo, "unsigned long");
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("OPLUS RDUMP module");
-MODULE_AUTHOR("Nick.Chen@BSP.Kernel.Stability");
+MODULE_AUTHOR("Nick.Chen");
 

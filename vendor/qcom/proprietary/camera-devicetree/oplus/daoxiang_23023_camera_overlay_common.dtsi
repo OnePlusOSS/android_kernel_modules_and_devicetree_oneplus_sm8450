@@ -135,6 +135,73 @@
 		vin-supply = <&BOB>;
 	};
 
+   cam_csiphy1: qcom,csiphy1@ace6000 {
+	cell-index = <1>;
+	compatible = "qcom,csiphy-v2.1.3-imx890_daoxiang", "qcom,csiphy";
+	reg = <0xace6000 0x2000>;
+	reg-names = "csiphy";
+	reg-cam-base = <0xe6000>;
+	interrupt-names = "CSIPHY1";
+	interrupts = <GIC_SPI 478 IRQ_TYPE_EDGE_RISING>;
+	regulator-names = "gdscr", "csi-vdd-1p2", "csi-vdd-0p9";
+	gdscr-supply = <&cam_cc_titan_top_gdsc>;
+	csi-vdd-1p2-supply = <&L10C>;
+	csi-vdd-0p9-supply = <&L5B>;
+	rgltr-cntrl-support;
+	rgltr-enable-sync = <1>;
+	rgltr-min-voltage = <0 1200000 880000>;
+	rgltr-max-voltage = <0 1248000 912000>;
+	rgltr-load-current = <0 59400 147000>;
+	shared-clks = <1 0 0 0>;
+	clock-names = "cphy_rx_clk_src",
+		"csiphy1_clk",
+		"csi1phytimer_clk_src",
+		"csi1phytimer_clk";
+	clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+		<&clock_camcc CAM_CC_CSIPHY1_CLK>,
+		<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK_SRC>,
+		<&clock_camcc CAM_CC_CSI1PHYTIMER_CLK>;
+	src-clock-name = "csi1phytimer_clk_src";
+	clock-cntl-level = "lowsvs", "nominal";
+	clock-rates =
+		<400000000 0 400000000 0>,
+		<480000000 0 400000000 0>;
+	status = "ok";
+    };
+
+    cam_csiphy2: qcom,csiphy2@ace8000 {
+	cell-index = <2>;
+	compatible = "qcom,csiphy-v2.1.3-imx355_daoxiang", "qcom,csiphy";
+	reg = <0xace8000 0x2000>;
+	reg-names = "csiphy";
+	reg-cam-base = <0xe8000>;
+	interrupt-names = "CSIPHY2";
+	interrupts = <GIC_SPI 479 IRQ_TYPE_EDGE_RISING>;
+	regulator-names = "gdscr", "csi-vdd-1p2", "csi-vdd-0p9";
+	gdscr-supply = <&cam_cc_titan_top_gdsc>;
+	csi-vdd-1p2-supply = <&L10C>;
+	csi-vdd-0p9-supply = <&L5B>;
+	rgltr-cntrl-support;
+	rgltr-enable-sync = <1>;
+	rgltr-min-voltage = <0 1200000 880000>;
+	rgltr-max-voltage = <0 1248000 912000>;
+	rgltr-load-current = <0 59400 147000>;
+	shared-clks = <1 0 0 0>;
+	clock-names = "cphy_rx_clk_src",
+		"csiphy2_clk",
+		"csi2phytimer_clk_src",
+		"csi2phytimer_clk";
+	clocks = <&clock_camcc CAM_CC_CPHY_RX_CLK_SRC>,
+		<&clock_camcc CAM_CC_CSIPHY2_CLK>,
+		<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK_SRC>,
+		<&clock_camcc CAM_CC_CSI2PHYTIMER_CLK>;
+	src-clock-name = "csi2phytimer_clk_src";
+	clock-cntl-level = "lowsvs", "nominal";
+	clock-rates =
+		<400000000 0 400000000 0>,
+		<480000000 0 400000000 0>;
+	status = "ok";
+    };
 };
 
 &i2c_freq_400Khz_cci1 {
@@ -172,7 +239,7 @@
 		is_aon_af = <1>;
 		aon_af_slave = <24>;
 		actuator,name = "dw9827c";
-                is_af_parklens = <1>;
+		is_af_parklens = <0>;
 	};
 
 	ois_rear: qcom,ois@0{

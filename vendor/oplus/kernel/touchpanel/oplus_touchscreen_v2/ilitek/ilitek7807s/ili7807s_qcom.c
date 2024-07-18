@@ -2152,8 +2152,7 @@ int ili_report_handler(void)
 		if (ret == DO_SPI_RECOVER) {
 			ili_ic_get_pc_counter(DO_SPI_RECOVER);
 
-			if (ilits->actual_tp_mode == P5_X_FW_GESTURE_MODE && ilits->gesture
-					&& !ilits->prox_near) {
+			if (ilits->actual_tp_mode == P5_X_FW_GESTURE_MODE && ilits->gesture) {
 				ILI_ERR("Gesture failed, doing gesture recovery\n");
 
 				if (ili_gesture_recovery() < 0) {
@@ -2383,13 +2382,13 @@ int ili_core_spi_setup(int num)
 		TP_SPI_CLK_15M
 	};
 
-	if (num > ARRAY_SIZE(freq)) {
+	if ((num >= ARRAY_SIZE(freq)) || (num < 0)) {
 		ILI_ERR("Invaild clk freq set default value\n");
 		num = 7;
 		/*return -1;*/
 	}
 
-	ILI_INFO("spi clock = %d\n", freq[num]);
+	ILI_INFO("spi clock = %u\n", freq[num]);
 	ilits->spi->chip_select =
 		0; /*modify reg=0 for more tp vendor share same spi interface*/
 	ilits->spi->mode = SPI_MODE_0;
@@ -2565,8 +2564,6 @@ static int ilitek_reset(void *chip_data)
 	if (ret < 0) {
 		ILI_ERR("Failed to upgrade firmware, ret = %d\n", ret);
 	}
-
-	ili_reset_ctrl(TP_HW_RST_ONLY);
 
 	mutex_unlock(&chip_info->touch_mutex);
 	return 0;
@@ -2896,7 +2893,7 @@ static fw_update_state ilitek_fw_update(void *chip_data,
 
 	if (ret < 0) {
 		ILI_ERR("Failed to upgrade firmware, ret = %d\n", ret);
-		return ret;
+		return FW_UPDATE_ERROR;
 	}
 
 	return FW_UPDATE_SUCCESS;
@@ -2990,6 +2987,21 @@ static bool ilitek_irq_throw_away(void *chip_data)
 		return true;
 	}
 
+	/*ignore first irq after hw rst pin reset*/
+	if (ilits->ignore_first_irq) {
+		ILI_INFO("ignore_first_irq\n");
+		ilits->ignore_first_irq = false;
+		return true;
+	}
+
+	if (!chip_info->fw_update_stat || !ilits->report
+			|| atomic_read(&ilits->tp_reset) ||
+			atomic_read(&ilits->fw_stat) || atomic_read(&ilits->tp_sw_mode) ||
+			atomic_read(&ilits->mp_stat) || atomic_read(&ilits->tp_sleep) ||
+			atomic_read(&ilits->esd_stat)) {
+		ILI_INFO("ignore interrupt !\n");
+		return true;
+	}
 	return false;
 }
 
@@ -3285,6 +3297,11 @@ static void ili_apk_debug_set(void *chip_data, bool on_off)
 {
 	struct ilitek_ts_data *chip_info;
 	chip_info = (struct ilitek_ts_data *)chip_data;
+
+	if (ilits->tp_suspend) {
+		ILI_INFO("TP is not resume\n");
+		return;
+	}
 
 	if (on_off) {
 		ili_set_tp_data_len(DATA_FORMAT_DEMO_DEBUG_INFO, false, NULL);
@@ -3678,11 +3695,17 @@ static void ilitek_free_global_data(void)
 		return;
 	}
 
-	ili_irq_disable();
-	devm_free_irq(ilits->dev, ilits->irq_num, NULL);
+	if (ilits->irq_num) {
+		ili_irq_disable();
+		devm_free_irq(ilits->dev, ilits->irq_num, NULL);
+	}
 	mutex_lock(&ilits->touch_mutex);
-	gpio_free(ilits->tp_int);
-	gpio_free(ilits->tp_rst);
+	if (ilits->tp_int) {
+		gpio_free(ilits->tp_int);
+	}
+	if (ilits->tp_rst) {
+		gpio_free(ilits->tp_rst);
+	}
 
 	if (ilits->ws) {
 		wakeup_source_unregister(ilits->ws);
@@ -3694,7 +3717,7 @@ static void ilitek_free_global_data(void)
 	ili_kfree((void **)&ilits->spi_tx);
 	ili_kfree((void **)&ilits->spi_rx);
 	mutex_unlock(&ilits->touch_mutex);
-	ili_kfree((void **)&ilits);
+	devm_kfree(ilits->dev, ilits);
 }
 
 
@@ -3949,7 +3972,7 @@ static int __init tp_driver_init_ili_7807s(void)
 
 	if (res < 0) {
 		ILI_ERR("Failed to add spi driver\n");
-		return -ENODEV;
+		return 0;
 	}
 
 	ILI_INFO("Succeed to add driver\n");

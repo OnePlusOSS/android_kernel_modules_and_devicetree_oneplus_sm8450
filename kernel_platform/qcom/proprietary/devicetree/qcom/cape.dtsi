@@ -2018,6 +2018,7 @@
 		iommus = <&apps_smmu 0xE0 0x0>;
 		qcom,iommu-dma = "fastmap";
 		dma-coherent;
+		qcom,iommu-faults = "non-fatal";
 
 		/* Multilevel clock scaling support for higher ufs clock freq */
 		multi-level-clk-scaling-support;

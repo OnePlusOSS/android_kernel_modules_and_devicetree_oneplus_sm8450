@@ -29,6 +29,7 @@
 #define PANEL_NAME_LENS 50
 #define RGB_COLOR_WEIGHT 3
 #define BPP_SHIFT 12
+#define REG_SIZE 256
 
 #define to_dsi_display(x) container_of(x, struct dsi_display, host)
 
@@ -113,6 +114,13 @@ int oplus_display_panel_get_panel_type(void *data);
 int oplus_display_panel_hbm_lightspot_check(void);
 int oplus_display_set_dither_status(void *buf);
 int oplus_display_get_dither_status(void *buf);
+/* Add for onepulse feature */
+inline bool oplus_panel_pwm_onepulse_is_enabled(struct dsi_panel *panel);
+void oplus_need_to_sync_te(struct dsi_panel *panel);
+int oplus_panel_update_pwm_pulse_lock(struct dsi_panel *panel, bool enabled);
+int oplus_display_panel_set_pwm_pulse(void *data);
+int oplus_display_panel_get_pwm_pulse(void *data);
+int oplus_panel_cmd_switch(struct dsi_panel *panel, enum dsi_cmd_set_type *type);
 int oplus_display_panel_get_oplus_max_brightness(void *buf);
 void oplus_display_panel_enable(void);
 int oplus_display_get_dp_support(void *buf);
@@ -138,7 +146,9 @@ inline bool oplus_panel_pwm_turbo_is_enabled(struct dsi_panel *panel);
 inline bool oplus_panel_pwm_turbo_switch_state(struct dsi_panel *panel);
 inline bool oplus_is_support_pwm_switch(struct dsi_panel *panel);
 int oplus_panel_send_pwm_turbo_dcs_unlock(struct dsi_panel *panel, bool enabled);
+int oplus_panel_send_hpwm_turbo_dcs_unlock(struct dsi_panel *panel, bool enabled);
 int oplus_panel_update_pwm_turbo_lock(struct dsi_panel *panel, bool enabled);
+int oplus_panel_update_pwm_turbo_unlock(struct dsi_panel *panel, bool enabled);
 int oplus_display_panel_set_pwm_turbo(void *data);
 int oplus_display_panel_get_pwm_turbo(void *buf);
 int oplus_display_pwm_turbo_kickoff(void);
@@ -149,15 +159,23 @@ int oplus_display_pwm_pulse_switch(void *dsi_panel, unsigned int bl_level);
 int oplus_panel_tx_cmd_update(struct dsi_panel *panel, enum dsi_cmd_set_type *type);
 int oplus_display_update_dbv(struct dsi_panel *panel);
 int oplus_display_panel_set_demua(void);
+int oplus_display_hpwm_to_onepulse_async_send_cmd(void);
+int oplus_panel_hpwm_onepulse_cmd_wq_send(void);
 int oplus_set_pulse_switch(struct dsi_panel *panel, bool enable);
 void oplus_apollo_async_bl_delay(struct dsi_panel *panel);
 int oplus_display_panel_get_panel_bpp(void *buf);
 int oplus_display_panel_get_panel_name(void *buf);
+bool oplus_is_support_hpwm_onepulse(void);
 
 /**
  * oplus_display_send_dcs_lock() - send dcs with lock
  */
 int oplus_display_send_dcs_lock(struct dsi_display *display,
 		enum dsi_cmd_set_type type);
+/**
+ * oplus_panel_cmd_reg_replace() - replace cmd regs
+ */
+int oplus_panel_cmd_reg_replace(struct dsi_panel *panel, enum dsi_cmd_set_type type,
+        u8 cmd, u8 *replace_reg, size_t replace_reg_len);
 #endif /*_OPLUS_DISPLAY_PANEL_COMMON_H_*/
 

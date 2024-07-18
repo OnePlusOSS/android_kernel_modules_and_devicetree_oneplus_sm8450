@@ -659,6 +659,7 @@ struct fts_ts_info {
 	ErrorList errors;
 	struct monitor_data             *monitor_data;
 	bool *is_usb_checked;
+	int gesture_state;
 };
 
 /* export declaration of functions in fts_proc.c */

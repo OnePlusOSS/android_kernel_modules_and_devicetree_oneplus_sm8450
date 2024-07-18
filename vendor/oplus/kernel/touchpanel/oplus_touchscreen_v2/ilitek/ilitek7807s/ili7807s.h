@@ -72,7 +72,7 @@
 #include "../ilitek_common.h"
 #include <soc/oplus/system/oplus_project.h>
 
-#define DRIVER_VERSION          "3.0.4.0.210730"
+#define DRIVER_VERSION          "3.0.4.0.220107"
 
 /* Options */
 #define TR_BUF_SIZE                 (2*K)  /* Buffer size of touch report */
@@ -172,7 +172,7 @@ extern bool ili_debug_en;
 #define CORE_VER_1460               0x01040600
 #define CORE_VER_1470               0x01040700
 
-#define MAX_HEX_FILE_SIZE           (160*K)
+#define MAX_HEX_FILE_SIZE           (256*K)
 #define ILI_FILE_HEADER             256
 #define DLM_START_ADDRESS           0x20610
 #define DLM_HEX_ADDRESS             0x10000

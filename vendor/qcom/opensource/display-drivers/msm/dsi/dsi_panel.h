@@ -187,11 +187,18 @@ struct dsi_panel_oplus_privite {
 	u32 oplus_pwm_switch_state;
 	bool pwm_power_on;
 	bool pwm_turbo_status;
-	int last_demua_status;
 	bool pwm_turbo_ignore_set_dbv_frame;
 	bool need_sync;
 	bool pwm_switch_support;
 	bool power_seq_adj;
+	/*  Add for onepulse feature */
+	bool pwm_onepulse_support;
+	bool pwm_onepulse_enabled;
+	bool hpwm_onepulse_support;
+	bool onepulse_skip_bl_cmd;
+	bool hpwm_to_onepulse_send_cmd_async_enabled;
+	struct workqueue_struct *oplus_panel_send_cmd_wq;
+	struct work_struct oplus_panel_send_cmd_queue_work;
 };
 
 struct dsi_panel_oplus_serial_number {
@@ -223,6 +230,9 @@ struct dsi_backlight_config {
 	u32 global_hbm_threshold;
 	bool global_hbm_scale_mapping;
 	u32 pwm_turbo_gamma_bl_threshold;
+	/*  Add for onepulse feature */
+	u32 pwm_bl_threshold;
+	u32 hpwm_onepulse_bl_threshold;
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 	/* current brightness value */
@@ -418,6 +428,11 @@ struct dsi_panel {
 	struct mutex oplus_ffc_lock;
 	unsigned int idle_delayms;
 	ktime_t te_timestamp;
+	/*  Add for onepulse feature */
+	u32 oplus_pwm_switch_state;
+	bool pwm_power_on;
+	bool pwm_hbm_state;
+	bool post_power_on;
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 #if defined(CONFIG_PXLW_IRIS)

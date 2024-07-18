@@ -104,6 +104,7 @@ struct oplus_vooc_config {
 	uint8_t *strategy_data;
 	uint32_t strategy_data_size;
 	int32_t *abnormal_adapter_cur_array;
+	int32_t *abnormal_over_80w_adapter_cur_array;
 	uint32_t vooc_curr_table_type;
 } __attribute__((packed));
 
@@ -137,6 +138,7 @@ struct oplus_chg_vooc {
 	struct work_struct err_handler_work;
 	struct work_struct abnormal_adapter_check_work;
 	struct work_struct comm_charge_disable_work;
+	struct work_struct turn_off_work;
 	struct delayed_work vooc_init_work;
 	struct delayed_work vooc_switch_check_work;
 	struct delayed_work check_charger_out_work;
@@ -206,15 +208,17 @@ struct oplus_chg_vooc {
 	bool wired_present;
 	int cc_detect;
 	int typec_state;
-	bool is_abnormal_adapter;
-	bool pre_is_abnormal_adapter;
+	int is_abnormal_adapter;
+	int pre_is_abnormal_adapter;
 	bool support_abnormal_adapter;
+	bool support_abnormal_over_80w_adapter;
 	bool adapter_model_factory;
 	bool mcu_vote_detach;
 	bool icon_debounce;
 	int abnormal_allowed_current_max;
 	int abnormal_adapter_dis_cnt;
 	int abnormal_adapter_cur_arraycnt;
+	int abnormal_over_80w_adapter_cur_arraycnt;
 	unsigned long long svooc_detect_time;
 	unsigned long long svooc_detach_time;
 	enum oplus_fast_chg_status fast_chg_status;
@@ -515,6 +519,8 @@ static unsigned int oplus_get_adapter_sid(struct oplus_chg_vooc *chip,
 	int i;
 	unsigned int sid, power;
 
+	chg_info("adapter id = 0x%08x\n", id);
+
 	for (i = 0; i < ARRAY_SIZE(adapter_id_table); i++) {
 		adapter_info = &adapter_id_table[i];
 		if (adapter_info->id_min > adapter_info->id_max)
@@ -645,6 +651,8 @@ static int oplus_vooc_cpa_switch_end(struct oplus_chg_vooc *chip)
 
 	if (!chip->cpa_support)
 		return 0;
+	if (chip->vooc_online || chip->vooc_online_keep)
+		return 0;
 
 	oplus_mms_get_item_data(chip->cpa_topic, CPA_ITEM_ALLOW, &data, true);
 	if (data.intval == CHG_PROTOCOL_VOOC)
@@ -739,8 +747,9 @@ static void oplus_vooc_set_vooc_charging(struct oplus_chg_vooc *chip,
 static void oplus_chg_clear_abnormal_adapter_var(struct oplus_chg_vooc *chip)
 {
 	chip->icon_debounce = false;
-	chip->is_abnormal_adapter = false;
+	chip->is_abnormal_adapter = 0;
 	chip->abnormal_adapter_dis_cnt = 0;
+	chg_info("oplus_chg_clear_abnormal_adapter_var\n");
 }
 
 static void oplus_set_fast_status(struct oplus_chg_vooc *chip,
@@ -752,12 +761,25 @@ static void oplus_set_fast_status(struct oplus_chg_vooc *chip,
 	}
 }
 
+#define ABNOMAL_ADAPTER_IS_ONEPULS_ADAPTER    0x01
+#define ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER   0x02
 static void oplus_select_abnormal_max_cur(struct oplus_chg_vooc *chip)
 {
 	struct oplus_vooc_config *config = &chip->config;
 	int index = chip->abnormal_adapter_dis_cnt;
 
-	if (chip->support_abnormal_adapter && index > 0) {
+	if (chip->support_abnormal_over_80w_adapter && index > 0 &&
+	    (chip->pre_is_abnormal_adapter & ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER) &&
+	    config->abnormal_over_80w_adapter_cur_array != NULL) {
+		if (index < chip->abnormal_over_80w_adapter_cur_arraycnt) {
+			chip->abnormal_allowed_current_max =
+				config->abnormal_over_80w_adapter_cur_array[index];
+		} else {
+			chip->abnormal_allowed_current_max =
+				config->abnormal_over_80w_adapter_cur_array[0];
+		}
+	} else if (chip->support_abnormal_adapter && index > 0 &&
+	    config->abnormal_adapter_cur_array != NULL) {
 		if (index < chip->abnormal_adapter_cur_arraycnt) {
 			chip->abnormal_allowed_current_max =
 				config->abnormal_adapter_cur_array[index];
@@ -767,11 +789,13 @@ static void oplus_select_abnormal_max_cur(struct oplus_chg_vooc *chip)
 		}
 	}
 
-	chg_info("abnormal info [%d %d %d %d %d]\n",
+	chg_info("abnormal info [%d %d %d %d %d %d %d]\n",
 		chip->pd_svooc,
 		chip->support_abnormal_adapter,
+		chip->support_abnormal_over_80w_adapter,
 		chip->abnormal_adapter_dis_cnt,
 		chip->abnormal_adapter_cur_arraycnt,
+		chip->abnormal_over_80w_adapter_cur_arraycnt,
 		chip->abnormal_allowed_current_max);
 }
 
@@ -783,6 +807,11 @@ static void oplus_vooc_set_sid(struct oplus_chg_vooc *chip, unsigned int sid)
 	if (chip->sid == sid && sid == 0)
 		return;
 	chip->sid = sid;
+
+	if (sid_to_adapter_power(sid) >= 80)
+		chip->is_abnormal_adapter |= ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER;
+	else
+		chip->is_abnormal_adapter &= ~ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER;
 
 	msg = oplus_mms_alloc_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM,
 				  VOOC_ITEM_SID);
@@ -1499,6 +1528,18 @@ static void oplus_vooc_switch_check_work(struct work_struct *work)
 	}
 
 	if (chip->abnormal_adapter_dis_cnt > 0 &&
+	    chip->support_abnormal_over_80w_adapter && (chip->pre_is_abnormal_adapter & ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER)) {
+		if (chip->abnormal_adapter_dis_cnt >= chip->abnormal_over_80w_adapter_cur_arraycnt) {
+			chg_info("abnormal over_80w adapter dis cnt >= vooc_max,return \n");
+			if (oplus_chg_vooc_get_switch_mode(chip->vooc_ic) !=
+			    VOOC_SWITCH_MODE_NORMAL) {
+				switch_normal_chg(chip->vooc_ic);
+				oplus_vooc_set_reset_sleep(chip->vooc_ic);
+			}
+			oplus_vooc_cpa_switch_end(chip);
+			return;
+		}
+	} else if (chip->abnormal_adapter_dis_cnt > 0 &&
 	    chip->support_abnormal_adapter &&
 	    chip->abnormal_adapter_dis_cnt >=
 		    chip->abnormal_adapter_cur_arraycnt) {
@@ -1703,7 +1744,17 @@ static void oplus_vooc_switch_request(struct oplus_chg_vooc *chip)
 		chg_info("vooc_online = %d, present is false, return\n", chip->vooc_online);
  		return;
  	}
-	if (chip->abnormal_adapter_dis_cnt > 0 && chip->support_abnormal_adapter &&
+	if (chip->abnormal_adapter_dis_cnt > 0 && chip->support_abnormal_over_80w_adapter &&
+	    (chip->pre_is_abnormal_adapter & ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER)) {
+		if (chip->abnormal_adapter_dis_cnt >= chip->abnormal_over_80w_adapter_cur_arraycnt) {
+			chg_info("abnormal over_80w adapter dis cnt >= vooc_max,return \n");
+			if (oplus_chg_vooc_get_switch_mode(chip->vooc_ic) != VOOC_SWITCH_MODE_NORMAL) {
+				oplus_vooc_switch_normal_chg(chip);
+				oplus_vooc_set_reset_sleep(chip->vooc_ic);
+			}
+			return;
+		}
+	} else if (chip->abnormal_adapter_dis_cnt > 0 && chip->support_abnormal_adapter &&
 	    chip->abnormal_adapter_dis_cnt >= chip->abnormal_adapter_cur_arraycnt) {
 		chg_info("abnormal adapter dis cnt >= vooc_max,return \n");
 		if (oplus_chg_vooc_get_switch_mode(chip->vooc_ic) != VOOC_SWITCH_MODE_NORMAL) {
@@ -1712,6 +1763,7 @@ static void oplus_vooc_switch_request(struct oplus_chg_vooc *chip)
 		}
 		return;
 	}
+
 	if (chip->fastchg_disable) {
 		chip->switch_retry_count = 0;
 		chg_info("fastchg disable, return\n");
@@ -2677,6 +2729,9 @@ static void oplus_vooc_fastchg_work(struct work_struct *work)
 		chip->switch_retry_count = 0;
 		if (config->vooc_version >= VOOC_VERSION_5_0)
 			chip->adapter_model_factory = true;
+		if ((sid_to_adapter_power(oplus_get_adapter_sid(chip, chip->adapter_id)) >= 80) &&
+		    chip->support_abnormal_over_80w_adapter)
+		    chip->is_abnormal_adapter |= ABNOMAL_ADAPTER_IS_OVER_80W_ADAPTER;
 		oplus_vooc_setup_watchdog_timer(chip, 25000);
 		oplus_select_abnormal_max_cur(chip);
 		chip->vooc_strategy_change_count = 0;
@@ -2727,7 +2782,7 @@ static void oplus_vooc_fastchg_work(struct work_struct *work)
 					config->data_width == 7);
 		}
 
-		if (chip->support_abnormal_adapter &&
+		if ((chip->support_abnormal_adapter || chip->support_abnormal_over_80w_adapter) &&
 		    chip->abnormal_adapter_dis_cnt > 0) {
 			ret_info = oplus_vooc_get_min_curr_level(
 				chip, ret_info, chip->abnormal_allowed_current_max,
@@ -2891,12 +2946,6 @@ static void oplus_vooc_fastchg_work(struct work_struct *work)
 		ret_info = VOOC_DEF_REPLY_DATA;
 		break;
 	default:
-		if (chip->adapter_model_factory) {
-			oplus_vooc_adapter_data(chip, data);
-			ret_info = VOOC_DEF_REPLY_DATA;
-			break;
-		}
-
 		if ((data & 0xf0) == 0x70) {
 			chg_info("receive 0x7x error data = 0x%x\n", data);
 			oplus_vooc_push_break_code(chip, TRACK_MCU_VOOCPHY_HEAD_ERROR);
@@ -2915,6 +2964,12 @@ static void oplus_vooc_fastchg_work(struct work_struct *work)
 			}
 			oplus_vooc_fastchg_exit(chip, true);
 			charger_delay_check = true;
+			ret_info = VOOC_DEF_REPLY_DATA;
+			break;
+		}
+
+		if (chip->adapter_model_factory) {
+			oplus_vooc_adapter_data(chip, data);
 			ret_info = VOOC_DEF_REPLY_DATA;
 			break;
 		}
@@ -2992,7 +3047,7 @@ out:
 		schedule_delayed_work(&chip->check_charger_out_work, 0);
 	}
 
-	if (chip->support_abnormal_adapter && data == VOOC_NOTIFY_FAST_ABSENT &&
+	if ((chip->support_abnormal_adapter || chip->support_abnormal_over_80w_adapter) && data == VOOC_NOTIFY_FAST_ABSENT &&
 	    chip->icon_debounce) {
 		chip->fastchg_force_exit = false;
 		chg_info("abnormal adapter check charger out\n");
@@ -3044,7 +3099,21 @@ static void oplus_vooc_wired_subs_callback(struct mms_subscribe *subs,
 			oplus_mms_get_item_data(chip->wired_topic,
 						WIRED_TIME_ABNORMAL_ADAPTER,
 						&data, false);
-			chip->is_abnormal_adapter = data.intval;
+			if (data.intval < 0) {
+				chg_err("get wrong data from WIRED_TIME_ABNORMAL_ADAPTER\n");
+				break;
+			}
+
+			if (data.intval > 0)
+				chip->is_abnormal_adapter |= ABNOMAL_ADAPTER_IS_ONEPULS_ADAPTER;
+			else
+				chip->is_abnormal_adapter &= ~ABNOMAL_ADAPTER_IS_ONEPULS_ADAPTER;
+			break;
+		case WIRED_ITEM_ONLINE_STATUS_ERR:
+			if (chip->vooc_online_keep && chip->wired_online) {
+				oplus_chg_clear_abnormal_adapter_var(chip);
+				schedule_work(&chip->turn_off_work);
+			}
 			break;
 		default:
 			break;
@@ -3226,7 +3295,7 @@ static void oplus_abnormal_adapter_check_work(struct work_struct *work)
 	if (!chip->common_chg_suspend_votable)
 		chip->common_chg_suspend_votable = find_votable("CHG_DISABLE");
 
-	if (!chip->support_abnormal_adapter) {
+	if (!(chip->support_abnormal_adapter || chip->support_abnormal_over_80w_adapter)) {
 		oplus_chg_clear_abnormal_adapter_var(chip);
 		return;
 	}
@@ -3241,12 +3310,12 @@ static void oplus_abnormal_adapter_check_work(struct work_struct *work)
 	WRITE_ONCE(chip->wired_present, !!data.intval);
 	if (!chip->wired_present) {
 		chip->svooc_detach_time = local_clock() / 1000000;
-		chip->pre_is_abnormal_adapter = chip->is_abnormal_adapter && (cc_detect == CC_DETECT_PLUGIN);
+		chip->pre_is_abnormal_adapter = (cc_detect == CC_DETECT_PLUGIN) ? chip->is_abnormal_adapter : 0;
 		chg_info("pre_is_abnormal_adapter = %d, is_abnormal_adapter = %d, cc_detect = %d.\n",
 				chip->pre_is_abnormal_adapter,
 				chip->is_abnormal_adapter,
 				cc_detect);
-		chip->is_abnormal_adapter = false;
+		chip->is_abnormal_adapter = 0;
 		if (mmi_chg == 0 || chip->mcu_vote_detach ||
 		    chip->fast_chg_status == CHARGER_STATUS_FAST_TO_WARM ||
 		    chip->fast_chg_status == CHARGER_STATUS_CURR_LIMIT ||
@@ -3256,7 +3325,7 @@ static void oplus_abnormal_adapter_check_work(struct work_struct *work)
 			    CHARGER_STATUS_FAST_BTB_TEMP_OVER ||
 		    chip->fast_chg_status == CHARGER_STATUS_SWITCH_TEMP_RANGE ||
 		    !chip->fastchg_ing)
-			chip->pre_is_abnormal_adapter = false;
+			chip->pre_is_abnormal_adapter = 0;
 
 		if (chip->pre_is_abnormal_adapter)
 			chip->icon_debounce = true;
@@ -3796,7 +3865,6 @@ static void oplus_comm_charge_disable_work(struct work_struct *work)
 	vote(chip->vooc_disable_votable, TIMEOUT_VOTER, false, 0, false);
 	vote(chip->vooc_disable_votable, CHG_FULL_VOTER, false, 0, false);
 	vote(chip->vooc_disable_votable, WARM_FULL_VOTER, false, 0, false);
-	vote(chip->vooc_disable_votable, SWITCH_RANGE_VOTER, false, 0, false);
 	vote(chip->vooc_disable_votable, BATT_TEMP_VOTER, false, 0, false);
 	vote(chip->vooc_disable_votable, CURR_LIMIT_VOTER, false, 0, false);
 
@@ -4845,12 +4913,15 @@ static int oplus_abnormal_adapter_pase_dt(struct oplus_chg_vooc *chip)
 	struct device_node *node = chip->dev->of_node;
 	int loop, rc;
 
-	chip->support_abnormal_adapter = false;
-	chip->abnormal_adapter_cur_arraycnt = of_property_count_elems_of_size(
-		node, "oplus,abnormal_adapter_current",
-		sizeof(*config->abnormal_adapter_cur_array));
+	do {
+		chip->support_abnormal_adapter = false;
+		chip->abnormal_adapter_cur_arraycnt = of_property_count_elems_of_size(
+			node, "oplus,abnormal_adapter_current",
+			sizeof(*config->abnormal_adapter_cur_array));
 
-	if (chip->abnormal_adapter_cur_arraycnt > 0) {
+		if (chip->abnormal_adapter_cur_arraycnt <= 0)
+			break;
+
 		chg_info("abnormal_adapter_cur_arraycnt[%d]\n",
 			 chip->abnormal_adapter_cur_arraycnt);
 		config->abnormal_adapter_cur_array = devm_kcalloc(
@@ -4860,7 +4931,7 @@ static int oplus_abnormal_adapter_pase_dt(struct oplus_chg_vooc *chip)
 		if (!config->abnormal_adapter_cur_array) {
 			chg_info(
 				"devm_kcalloc abnormal_adapter_current fail\n");
-			return 0;
+			break;
 		}
 		rc = of_property_read_u32_array(
 			node, "oplus,abnormal_adapter_current",
@@ -4868,7 +4939,8 @@ static int oplus_abnormal_adapter_pase_dt(struct oplus_chg_vooc *chip)
 			chip->abnormal_adapter_cur_arraycnt);
 		if (rc) {
 			chg_info("qcom,abnormal_adapter_current error\n");
-			return rc;
+			devm_kfree(chip->dev, config->abnormal_adapter_cur_array);
+			break;
 		}
 
 		for (loop = 0; loop < chip->abnormal_adapter_cur_arraycnt;
@@ -4877,7 +4949,45 @@ static int oplus_abnormal_adapter_pase_dt(struct oplus_chg_vooc *chip)
 				 config->abnormal_adapter_cur_array[loop]);
 		}
 		chip->support_abnormal_adapter = true;
-	}
+	} while (0);
+
+	do {
+		chip->support_abnormal_over_80w_adapter = false;
+		chip->abnormal_over_80w_adapter_cur_arraycnt = of_property_count_elems_of_size(
+			node, "oplus,abnormal_over_80w_adapter_current",
+			sizeof(*config->abnormal_over_80w_adapter_cur_array));
+
+		if (chip->abnormal_over_80w_adapter_cur_arraycnt <= 0)
+			break;
+		chg_info("abnormal_over_80w_adapter_cur_arraycnt[%d]\n",
+			 chip->abnormal_over_80w_adapter_cur_arraycnt);
+		config->abnormal_over_80w_adapter_cur_array = devm_kcalloc(
+			chip->dev, chip->abnormal_over_80w_adapter_cur_arraycnt,
+			sizeof(*config->abnormal_over_80w_adapter_cur_array),
+			GFP_KERNEL);
+		if (!config->abnormal_over_80w_adapter_cur_array) {
+			chg_info(
+				"devm_kcalloc abnormal_over_80w_adapter_current fail\n");
+			break;
+		}
+		rc = of_property_read_u32_array(
+			node, "oplus,abnormal_over_80w_adapter_current",
+			config->abnormal_over_80w_adapter_cur_array,
+			chip->abnormal_over_80w_adapter_cur_arraycnt);
+		if (rc) {
+			chg_info("qcom,abnormal_over_80w_adapter_current error\n");
+			devm_kfree(chip->dev, config->abnormal_over_80w_adapter_cur_array);
+			break;
+		}
+
+		for (loop = 0; loop < chip->abnormal_over_80w_adapter_cur_arraycnt;
+		     loop++) {
+			chg_info("abnormal_over_80w_adapter_current[%d]\n",
+				 config->abnormal_over_80w_adapter_cur_array[loop]);
+		}
+		chip->support_abnormal_over_80w_adapter = true;
+	} while (0);
+
 	chip->abnormal_allowed_current_max = config->max_curr_level;
 	oplus_chg_clear_abnormal_adapter_var(chip);
 	return 0;
@@ -5317,6 +5427,12 @@ static void oplus_turn_off_fastchg(struct oplus_chg_vooc *chip)
 	oplus_vooc_fastchg_exit(chip, true);
 }
 
+static void oplus_chg_vooc_turn_off_work(struct work_struct *work)
+{
+	struct oplus_chg_vooc *chip = container_of(work, struct oplus_chg_vooc, turn_off_work);
+	oplus_turn_off_fastchg(chip);
+}
+
 #if IS_ENABLED(CONFIG_OPLUS_DYNAMIC_CONFIG_CHARGER)
 #include "config/dynamic_cfg/oplus_vooc_cfg.c"
 #endif
@@ -5380,6 +5496,7 @@ static int oplus_vooc_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->err_handler_work, oplus_chg_vooc_err_handler_work);
 	INIT_WORK(&chip->comm_charge_disable_work,
 		  oplus_comm_charge_disable_work);
+	INIT_WORK(&chip->turn_off_work, oplus_chg_vooc_turn_off_work);
 
 	INIT_DELAYED_WORK(&chip->bcc_get_max_min_curr,
 			  oplus_vooc_bcc_get_curr_func);
@@ -5454,6 +5571,7 @@ static int oplus_vooc_remove(struct platform_device *pdev)
 
 static void oplus_vooc_shutdown(struct platform_device *pdev)
 {
+	int rc = 0;
 	struct oplus_chg_vooc *chip = platform_get_drvdata(pdev);
 
 	if (chip == NULL || chip->vooc_ic == NULL) {
@@ -5461,9 +5579,13 @@ static void oplus_vooc_shutdown(struct platform_device *pdev)
 		return;
 	}
 
-	oplus_vooc_set_shutdown_mode(chip->vooc_ic);
-	if (is_wired_charge_suspend_votable_available(chip) && chip->config.voocphy_support != ADSP_VOOCPHY) {
+	if (is_wired_charge_suspend_votable_available(chip) &&
+	    chip->config.voocphy_support != ADSP_VOOCPHY &&
+	    chip->wired_online) {
+		oplus_vooc_set_shutdown_mode(chip->vooc_ic);
 		vote(chip->wired_charge_suspend_votable, SHUTDOWN_VOTER, true, 1, false);
+		rc = set_chg_auto_mode(chip->vooc_ic, false);
+		chg_err("%s to quit auto mode rc= %d\n", rc == 0 ? "success" :"fail", rc);
 		msleep(1000);
 		vote(chip->wired_charge_suspend_votable, SHUTDOWN_VOTER, false, 0, false);
 	}
@@ -6318,7 +6440,6 @@ static bool oplus_check_afi_update_condition(struct oplus_chg_vooc *chip)
 				}
 				return false;
 			} else {
-				chg_err(" true 3: normal charger or others unkown\n");
 				return true;
 			}
 		}

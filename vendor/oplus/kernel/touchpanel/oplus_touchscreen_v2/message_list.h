@@ -15,6 +15,12 @@
 #include <linux/slab.h>
 
 
+extern unsigned int tp_debug;
+typedef enum log_level {
+	MSG_LOG_BASIC,    /*printk basic debug info*/
+	MSG_LOG_DETAIL,   /*printk detail log for stress test*/
+	MSG_LOG_DEBUG,    /*printk all msg list debug info*/
+} msg_debug_level;
 
 #define MESSAGE_LIST_DEBUG
 
@@ -22,7 +28,12 @@
 #define MESSAGE_DBG(fmt, arg...) do {} while (0)
 #define MESSAGE_LOG(fmt, arg...) do {} while (0)
 #else
-#define MESSAGE_DBG(fmt, arg...) pr_info("[MSG_LIST]"fmt, ##arg)
+#define MESSAGE_DBG(fmt, arg...)\
+	do{\
+		if (MSG_LOG_DEBUG == tp_debug)\
+			pr_info("[MSG_LIST]"fmt, ##arg);\
+	}while(0)
+
 #define MESSAGE_LOG(fmt, arg...) pr_err("[MSG_LIST]"fmt, ##arg)
 #endif
 
@@ -41,6 +52,7 @@ struct message_node {
 
 #define MAX_NAME_SIZE		(32)
 #define MAX_STATIC_SIZE		(32)
+#define MAX_BLOCK_BIT		(12)
 struct message_list {
 	char			*name;
 	int			size;

@@ -531,6 +531,7 @@ static int fts_fwupg_ecc_cal_tp(struct chip_data_ft3518 *ts_data, u32 saddr, u32
 
 static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 {
+	struct monitor_data *monitor_data = ts_data->monitor_data;
 	int ret = 0;
 	u32 start_addr = 0;
 	u8 cmd[4] = { 0 };
@@ -546,6 +547,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	ret = fts_fwupg_enter_into_boot(ts_data);
 
 	if (ret < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "Enter pramboot/bootloader failed");
 		TPD_INFO("enter into pramboot/bootloader fail,ret=%d", ret);
 		goto fw_reset;
 	}
@@ -557,6 +559,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	ret = touch_i2c_write_block(ts_data->client, cmd[0], 3, &cmd[1]);
 
 	if (ret < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "FTS_CMD_DATA_LEN failed");
 		TPD_INFO("data len cmd write fail");
 		goto fw_reset;
 	}
@@ -565,6 +568,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	ret = fts_fwupg_erase(ts_data, FTS_REASE_APP_DELAY);
 
 	if (ret < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "FTS_REASE_APP_DELAY failed");
 		TPD_INFO("erase cmd write fail");
 		goto fw_reset;
 	}
@@ -574,6 +578,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	ret = fts_flash_write_buf(ts_data, start_addr, buf, len, 1);
 
 	if (ret < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "Flash Write failed");
 		TPD_INFO("flash write fail");
 		goto fw_reset;
 	}
@@ -582,6 +587,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	ecc_in_tp = fts_fwupg_ecc_cal_tp(ts_data, start_addr, len);
 
 	if (ecc_in_tp < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "ECC Read failed");
 		TPD_INFO("ecc read fail");
 		goto fw_reset;
 	}
@@ -589,6 +595,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	TPD_INFO("ecc in tp:%x, host:%x", ecc_in_tp, ecc_in_host);
 
 	if (ecc_in_tp != ecc_in_host) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "ECC Check failed");
 		TPD_INFO("ecc check fail");
 		goto fw_reset;
 	}
@@ -598,6 +605,7 @@ static int fts_upgrade(struct chip_data_ft3518 *ts_data, u8 *buf, u32 len)
 	ret = touch_i2c_write_block(ts_data->client, cmd[0], 0, NULL);
 
 	if (ret < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "FTS_CMD_RESET failed");
 		TPD_INFO("reset to normal boot fail");
 	}
 
@@ -610,6 +618,7 @@ fw_reset:
 	ret = touch_i2c_write_block(ts_data->client, cmd[0], 0, NULL);
 
 	if (ret < 0) {
+		tp_healthinfo_report(monitor_data, HEALTH_FW_UPDATE, "FTS_CMD_RESET failed");
 		TPD_INFO("reset to normal boot fail");
 	}
 
@@ -1198,9 +1207,32 @@ static int fts_enable_black_gesture(struct chip_data_ft3518 *ts_data,
 	int config1 = 0xff;
 	int config2 = 0xff;
 	int config4 = 0xff;
-
+	int state = ts_data->gesture_state;
+	if (ts_data->black_gesture_indep) {
+		if (enable) {
+			SET_GESTURE_BIT(state, RIGHT2LEFT_SWIP, config1, 0)
+			SET_GESTURE_BIT(state, LEFT2RIGHT_SWIP, config1, 1)
+			SET_GESTURE_BIT(state, DOWN2UP_SWIP, config1, 2)
+			SET_GESTURE_BIT(state, UP2DOWN_SWIP, config1, 3)
+			SET_GESTURE_BIT(state, DOU_TAP, config1, 4)
+			SET_GESTURE_BIT(state, DOU_SWIP, config1, 5)
+			SET_GESTURE_BIT(state, SINGLE_TAP, config1, 7)
+			SET_GESTURE_BIT(state, CIRCLE_GESTURE, config2, 0)
+			SET_GESTURE_BIT(state, W_GESTURE, config2, 1)
+			SET_GESTURE_BIT(state, M_GESTRUE, config2, 2)
+			SET_GESTURE_BIT(state, RIGHT_VEE, config4, 1)
+			SET_GESTURE_BIT(state, LEFT_VEE, config4, 2)
+			SET_GESTURE_BIT(state, DOWN_VEE, config4, 3)
+			SET_GESTURE_BIT(state, UP_VEE, config4, 4)
+			SET_GESTURE_BIT(state, HEART, config4, 5)
+		} else {
+			config1 = 0;
+			config2 = 0;
+			config4 = 0;
+		}
+        }
 	TPD_INFO("MODE_GESTURE, write 0xD0=%d", enable);
-
+	TPD_INFO("%s: config1:%x, config2:%x config4:%x\n", __func__, config1, config2, config4);
 	if (enable) {
 		for (i = 0; i < 5 ; i++) {
 			ret = touch_i2c_write_byte(ts_data->client, FTS_REG_GESTURE_CONFIG1, config1);
@@ -1370,6 +1402,13 @@ static int fts_reset(void *chip_data)
 
 	TPD_INFO("%s:call\n", __func__);
 	fts_hw_reset(ts_data, RESET_TO_NORMAL_TIME);
+
+	return 0;
+}
+
+int ft3518_rstpin_reset(void *chip_data)
+{
+	fts_reset(chip_data);
 
 	return 0;
 }
@@ -1561,6 +1600,10 @@ static u32 fts_u32_trigger_reason(void *chip_data, int gesture_enable,
 		ret = touch_i2c_read_byte(ts_data->client, FTS_REG_GESTURE_EN);
 
 		if (ret == 0x01) {
+					if (ts_data->read_buffer_support) {
+						ret = touch_i2c_read_block(ts_data->client, cmd, FTS_POINTS_ONE, &buf[0]);
+						TPD_DEBUG("touch_i2c_read_block FTS_POINTS_ONE add once");
+				}
 			ret = touch_i2c_read_byte(ts_data->client, FTS_REG_POINTS_LB);
 			return IRQ_GESTURE;
 		}
@@ -1701,13 +1744,27 @@ static int fts_get_touch_points(void *chip_data, struct point_info *points,
 		}
 
 		touch_point++;
-		if (!ts_data->high_resolution_support) {
-			points[pointid].x = ((buf[2 + base] & 0x0F) << 8) + (buf[3 + base] & 0xFF);
-			points[pointid].y = ((buf[4 + base] & 0x0F) << 8) + (buf[5 + base] & 0xFF);
-			points[pointid].touch_major = buf[7 + base];
-			points[pointid].width_major = buf[7 + base];
-			points[pointid].z =  buf[6 + base];
-			event_flag = (buf[2 + base] >> 6);
+		if (!ts_data->high_resolution_support && !ts_data->high_resolution_support_x8) {
+		    points[pointid].x = ((buf[2 + base] & 0x0F) << 8) + (buf[3 + base] & 0xFF);
+		    points[pointid].y = ((buf[4 + base] & 0x0F) << 8) + (buf[5 + base] & 0xFF);
+		    points[pointid].touch_major = buf[7 + base];
+		    points[pointid].width_major = buf[7 + base];
+		    points[pointid].z =  buf[6 + base];
+		    event_flag = (buf[2 + base] >> 6);
+		} else if (ts_data->high_resolution_support_x8) {
+		    points[pointid].x = ((buf[2 + base] & 0x20) >> 5) +
+					((buf[2 + base] & 0x0F) << 11) +
+					((buf[3 + base] & 0xFF) << 3) +
+					((buf[6 + base] & 0xC0) >> 5);
+		    points[pointid].y = ((buf[2 + base] & 0x10) >> 4) +
+					((buf[4 + base] & 0x0F) << 11) +
+					((buf[5 + base] & 0xFF) << 3) +
+					((buf[6 + base] & 0x30) >> 3);
+		    points[pointid].touch_major = buf[7 + base];
+		    points[pointid].width_major = buf[7 + base];
+		    points[pointid].z =  buf[6 + base] & 0x0F;
+		    event_flag = (buf[2 + base] >> 6);
+
 		} else {
 			points[pointid].x = ((buf[2 + base] & 0x0F) << 10) + ((buf[3 + base] & 0xFF) << 2)
 					+ ((buf[6 + base] & 0xC0) >> 6);
@@ -2061,6 +2118,13 @@ static int fts_set_high_frame_rate(void *chip_data, int level, int time)
 	return ret;
 }
 
+static void fts_set_gesture_state(void *chip_data, int state)
+{
+	struct chip_data_ft3518 *ts_data = (struct chip_data_ft3518 *)chip_data;
+	TPD_INFO("%s:state:%d!\n", __func__, state);
+	ts_data->gesture_state = state;
+}
+
 static void fts_enable_gesture_mask(void *chip_data, uint32_t enable)
 {
 	int ret = 0;
@@ -2068,6 +2132,7 @@ static void fts_enable_gesture_mask(void *chip_data, uint32_t enable)
 	int config2 = 0;
 	int config4 = 0;
 	struct chip_data_ft3518 *ts_data = (struct chip_data_ft3518 *)chip_data;
+	int state = ts_data->gesture_state;
 
 	if (enable) {
 		config1 = 0xff;
@@ -2076,6 +2141,30 @@ static void fts_enable_gesture_mask(void *chip_data, uint32_t enable)
 	} else if (!enable) {
 
 	}
+	if (ts_data->black_gesture_indep) {
+		if (enable) {
+			SET_GESTURE_BIT(state, RIGHT2LEFT_SWIP, config1, 0)
+			SET_GESTURE_BIT(state, LEFT2RIGHT_SWIP, config1, 1)
+			SET_GESTURE_BIT(state, DOWN2UP_SWIP, config1, 2)
+			SET_GESTURE_BIT(state, UP2DOWN_SWIP, config1, 3)
+			SET_GESTURE_BIT(state, DOU_TAP, config1, 4)
+			SET_GESTURE_BIT(state, DOU_SWIP, config1, 5)
+			SET_GESTURE_BIT(state, SINGLE_TAP, config1, 7)
+			SET_GESTURE_BIT(state, CIRCLE_GESTURE, config2, 0)
+			SET_GESTURE_BIT(state, W_GESTURE, config2, 1)
+			SET_GESTURE_BIT(state, M_GESTRUE, config2, 2)
+			SET_GESTURE_BIT(state, RIGHT_VEE, config4, 1)
+			SET_GESTURE_BIT(state, LEFT_VEE, config4, 2)
+			SET_GESTURE_BIT(state, DOWN_VEE, config4, 3)
+			SET_GESTURE_BIT(state, UP_VEE, config4, 4)
+			SET_GESTURE_BIT(state, HEART, config4, 5)
+		} else {
+			config1 = 0;
+			config2 = 0;
+			config4 = 0;
+		}
+	}
+	TPD_INFO("%s: config1:%x, config2:%x config4:%x\n", __func__, config1, config2, config4);
 	ret = touch_i2c_write_byte(ts_data->client, FTS_REG_GESTURE_CONFIG1, config1);
 	if (ret < 0) {
 		TPD_INFO("%s: write FTS_REG_GESTURE_CONFIG1 enable(%x=%x) fail", __func__, FTS_REG_GESTURE_CONFIG1, config1);
@@ -2117,8 +2206,10 @@ static int ft3518_parse_dts(struct chip_data_ft3518 *ts_data, struct i2c_client 
 	np = dev->of_node;
 
 	ts_data->high_resolution_support = of_property_read_bool(np, "high_resolution_support");
-	TPD_INFO("%s:high_resolution_support is:%d\n", __func__, ts_data->high_resolution_support);
-
+	ts_data->high_resolution_support_x8 = of_property_read_bool(np, "high_resolution_support_x8");
+	TPD_INFO("%s:high_resolution_support is:%d %d\n", __func__, ts_data->high_resolution_support, ts_data->high_resolution_support_x8);
+	ts_data->read_buffer_support = of_property_read_bool(np, "read_buffer_support");
+	TPD_INFO("%s:read_buffer_support is:%d\n", __func__, ts_data->read_buffer_support);
 	return 0;
 }
 
@@ -2149,6 +2240,7 @@ static struct oplus_touchpanel_operations fts_ops = {
 	.sensitive_lv_set           = fts_sensitive_lv_set,
 	.enable_gesture_mask        = fts_enable_gesture_mask,
         .set_high_frame_rate        = fts_set_high_frame_rate,
+	.set_gesture_state          = fts_set_gesture_state,
 	/*todo
 	        .get_vendor                 = synaptics_get_vendor,
 	        .get_keycode                = synaptics_get_keycode,
@@ -2178,6 +2270,7 @@ static struct focal_auto_test_operations ft3518_test_ops = {
 	.test4 = ft3518_scap_cb_autotest,
 	.test5 = ft3518_scap_rawdata_autotest,
 	.test6 = ft3518_short_test,
+	.test7 = ft3518_rst_autotest,
 	.auto_test_endoperation = ft3518_auto_endoperation,
 };
 
@@ -2206,9 +2299,12 @@ static int fts_tp_probe(struct i2c_client *client,
 {
 	struct chip_data_ft3518 *ts_data;
 	struct touchpanel_data *ts = NULL;
+	u64 time_counter = 0;
 	int ret = -1;
 
 	TPD_INFO("%s  is called\n", __func__);
+
+	reset_healthinfo_time_counter(&time_counter);
 
 	/*step1:Alloc chip_info*/
 	ts_data = kzalloc(sizeof(struct chip_data_ft3518), GFP_KERNEL);
@@ -2260,13 +2356,17 @@ static int fts_tp_probe(struct i2c_client *client,
 	if (ret < 0) {
 		goto err_register_driver;
 	}
-
+	ts_data->black_gesture_indep = ts->black_gesture_indep_support;
+	ts_data->monitor_data = &ts->monitor_data;
 	/*step6:create synaptics related proc files*/
-//	fts_create_proc(ts, ts_data->syna_ops);
+	fts_create_proc(ts, ts_data->syna_ops);
 
 	/*step7:Chip Related function*/
 	focal_create_sysfs(client);
 
+	if (ts->health_monitor_support) {
+		tp_healthinfo_report(&ts->monitor_data, HEALTH_PROBE, &time_counter);
+	}
 	ts_data->probe_done = 1;
 	TPD_INFO("%s, probe normal end\n", __func__);
 
@@ -2350,12 +2450,12 @@ static int __init tp_driver_init_ft3518(void)
 	TPD_INFO("%s is called\n", __func__);
 
 	if (!tp_judge_ic_match(TPD_DEVICE)) {
-		return -1;
+		return 0;
 	}
 
 	if (i2c_add_driver(&tp_i2c_driver) != 0) {
 		TPD_INFO("unable to add i2c driver.\n");
-		return -1;
+		return 0;
 	}
 
 	return 0;

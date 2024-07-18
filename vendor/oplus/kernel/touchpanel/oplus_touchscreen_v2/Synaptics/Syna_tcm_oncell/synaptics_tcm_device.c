@@ -10,7 +10,7 @@
 #include "synaptics_tcm_oncell.h"
 
 #define CHAR_DEVICE_NAME "tcm"
-#define PLATFORM_DRIVER_NAME "synaptics_tcm"
+#define PLATFORM_DRIVER_NAME "synaptics_tcm_oncell"
 #define CONCURRENT true
 
 #define DEVICE_IOC_MAGIC 's'
@@ -34,13 +34,15 @@ static void device_capture_touch_report(struct device_hcd *device_hcd,
 	static unsigned int offset;
 	static unsigned int remaining_size;
 
-	if (count < 2)
+	if (count < 2) {
 		return;
+	}
 
 	data = &device_hcd->resp.buf[0];
 
-	if (data[0] != MESSAGE_MARKER)
+	if (data[0] != MESSAGE_MARKER) {
 		return;
+	}
 
 	id = data[1];
 	size = 0;
@@ -49,10 +51,10 @@ static void device_capture_touch_report(struct device_hcd *device_hcd,
 
 	switch (id) {
 	case REPORT_TOUCH:
-		if (count >= 4)
+		if (count >= 4) {
 			remaining_size = le2_to_uint(&data[2]);
 
-		else {
+		} else {
 			report = false;
 			goto exit;
 		}
@@ -72,8 +74,9 @@ static void device_capture_touch_report(struct device_hcd *device_hcd,
 		break;
 
 	case STATUS_CONTINUED_READ:
-		if (report == false)
+		if (report == false) {
 			goto exit;
+		}
 
 		if (count >= 2) {
 			idx = 2;
@@ -106,8 +109,9 @@ static void device_capture_touch_report(struct device_hcd *device_hcd,
 		}
 	}
 
-	if (remaining_size)
+	if (remaining_size) {
 		goto exit;
+	}
 
 	LOCK_BUFFER(tcm_info->report.buffer);
 
@@ -115,7 +119,9 @@ static void device_capture_touch_report(struct device_hcd *device_hcd,
 	tcm_info->report.buffer.buf_size = device_hcd->report.buf_size;
 	tcm_info->report.buffer.data_length = device_hcd->report.data_length;
 
-	device_hcd->report_touch(tcm_info);
+	if (device_hcd->report_touch) {
+		device_hcd->report_touch(tcm_info);
+	}
 
 	UNLOCK_BUFFER(tcm_info->report.buffer);
 
@@ -148,16 +154,18 @@ static int device_capture_touch_report_config(struct device_hcd *device_hcd,
 			return -EINVAL;
 		}
 
-		if (!size)
+		if (!size) {
 			return 0;
+		}
 
 		data = &device_hcd->out.buf[3];
 
 	} else {
 		size = count - 1;
 
-		if (!size)
+		if (!size) {
 			return 0;
+		}
 
 		data = &device_hcd->out.buf[1];
 	}
@@ -191,7 +199,7 @@ static int device_capture_touch_report_config(struct device_hcd *device_hcd,
 	return 0;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
 static long device_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #else
 #ifdef HAVE_UNLOCKED_IOCTL
@@ -235,20 +243,22 @@ static int device_ioctl(struct inode *inp, struct file *filp, unsigned int cmd,
 		break;
 
 	case DEVICE_IOC_RAW:
-		if (arg == 0)
+		if (arg == 0) {
 			device_hcd->raw_mode = false;
 
-		else if (arg == 1)
+		} else if (arg == 1) {
 			device_hcd->raw_mode = true;
+		}
 
 		break;
 
 	case DEVICE_IOC_CONCURRENT:
-		if (arg == 0)
+		if (arg == 0) {
 			device_hcd->concurrent = false;
 
-		else if (arg == 1)
+		} else if (arg == 1) {
 			device_hcd->concurrent = true;
+		}
 
 		break;
 
@@ -274,8 +284,9 @@ static ssize_t device_read(struct file *filp, char __user *buf,
 	struct device_hcd *device_hcd  = NULL;
 	struct syna_tcm_data *tcm_info = NULL;
 
-	if (count == 0)
+	if (count == 0) {
 		return 0;
+	}
 
 	device_hcd = filp->private_data;
 	tcm_info = device_hcd->tcm_info;
@@ -319,16 +330,18 @@ static ssize_t device_read(struct file *filp, char __user *buf,
 		goto exit;
 	}
 
-	if (!device_hcd->concurrent)
+	if (!device_hcd->concurrent) {
 		goto skip_concurrent;
+	}
 
 	if (device_hcd->report_touch == NULL) {
 		pr_err("Unable to report touch\n");
 		device_hcd->concurrent = false;
 	}
 
-	if (device_hcd->raw_mode)
+	if (device_hcd->raw_mode) {
 		device_capture_touch_report(device_hcd, count);
+	}
 
 skip_concurrent:
 	UNLOCK_BUFFER(device_hcd->resp);
@@ -348,8 +361,9 @@ static ssize_t device_write(struct file *filp, const char __user *buf,
 	struct device_hcd *device_hcd  = NULL;
 	struct syna_tcm_data *tcm_info = NULL;
 
-	if (count == 0)
+	if (count == 0) {
 		return 0;
+	}
 
 	device_hcd = filp->private_data;
 	tcm_info = device_hcd->tcm_info;
@@ -400,8 +414,9 @@ static ssize_t device_write(struct file *filp, const char __user *buf,
 		mutex_unlock(&tcm_info->reset_mutex);
 	}
 
-	if (device_hcd->out.buf[0] == CMD_ERASE_FLASH)
+	if (device_hcd->out.buf[0] == CMD_ERASE_FLASH) {
 		msleep(500);
+	}
 
 	if (retval < 0) {
 		pr_err("Failed to write command 0x%02x\n",
@@ -414,17 +429,19 @@ static ssize_t device_write(struct file *filp, const char __user *buf,
 	if (count && device_hcd->out.buf[0] == CMD_SET_TOUCH_REPORT_CONFIG) {
 		retval = device_capture_touch_report_config(device_hcd, count);
 
-		if (retval < 0)
+		if (retval < 0) {
 			pr_err("Failed to capture touch report config\n");
+		}
 	}
 
 	UNLOCK_BUFFER(device_hcd->out);
 
-	if (device_hcd->raw_mode)
+	if (device_hcd->raw_mode) {
 		retval = count;
 
-	else
+	} else {
 		retval = device_hcd->resp.data_length;
+	}
 
 	UNLOCK_BUFFER(device_hcd->resp);
 
@@ -447,8 +464,10 @@ static int device_open(struct inode *inode, struct file *filp)
 	if (device_hcd->ref_count < 1) {
 		device_hcd->ref_count++;
 		retval = 0;
-	} else
+
+	} else {
 		retval = -EACCES;
+	}
 
 	device_hcd->flag = 1;
 
@@ -464,8 +483,9 @@ static int device_release(struct inode *inode, struct file *filp)
 
 	mutex_lock(&device_hcd->extif_mutex);
 
-	if (device_hcd->ref_count)
+	if (device_hcd->ref_count) {
 		device_hcd->ref_count--;
+	}
 
 	mutex_unlock(&device_hcd->extif_mutex);
 
@@ -474,8 +494,9 @@ static int device_release(struct inode *inode, struct file *filp)
 
 static char *device_devnode(struct device *dev, umode_t *mode)
 {
-	if (!mode)
+	if (!mode) {
 		return NULL;
+	}
 
 	*mode = (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 
@@ -485,8 +506,9 @@ static char *device_devnode(struct device *dev, umode_t *mode)
 
 static int device_create_class(struct device_hcd *device_hcd)
 {
-	if (device_hcd->class != NULL)
+	if (device_hcd->class != NULL) {
 		return 0;
+	}
 
 	device_hcd->class = class_create(THIS_MODULE, PLATFORM_DRIVER_NAME);
 
@@ -502,7 +524,7 @@ static int device_create_class(struct device_hcd *device_hcd)
 
 static const struct file_operations device_fops = {
 	.owner = THIS_MODULE,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
 	.unlocked_ioctl = device_ioctl,
 #else
 #ifdef HAVE_UNLOCKED_IOCTL
@@ -528,11 +550,12 @@ static int device_init(struct syna_tcm_data *tcm_info)
 	struct device_hcd *device_hcd = NULL;
 
 	device_hcd = kzalloc(sizeof(*device_hcd), GFP_KERNEL);
-
 	if (!device_hcd) {
 		pr_err("Failed to allocate memory for device_hcd\n");
 		return -ENOMEM;
 	}
+        memset(device_hcd,0,sizeof(*device_hcd));
+	device_hcd->rmidev_major_num = 0;
 
 	mutex_init(&device_hcd->extif_mutex);
 	device_hcd->tp_index = tcm_info->tp_index;
@@ -545,7 +568,7 @@ static int device_init(struct syna_tcm_data *tcm_info)
 	INIT_BUFFER(device_hcd->report, false);
 
 	if (device_hcd->rmidev_major_num) {
-		dev_num = MKDEV(device_hcd->rmidev_major_num, 0);
+		dev_num = MKDEV(device_hcd->rmidev_major_num, device_hcd->tp_index);
 		retval = register_chrdev_region(dev_num, 1,
 						PLATFORM_DRIVER_NAME);
 
@@ -555,7 +578,7 @@ static int device_init(struct syna_tcm_data *tcm_info)
 		}
 
 	} else {
-		retval = alloc_chrdev_region(&dev_num, 0, 1,
+		retval = alloc_chrdev_region(&dev_num, device_hcd->tp_index, 1,
 					     PLATFORM_DRIVER_NAME);
 
 		if (retval < 0) {
@@ -630,8 +653,9 @@ int syna_remote_device_destory(struct syna_tcm_data *tcm_info)
 	struct device_hcd *device_hcd = NULL;
 	device_hcd = g_device_hcd[tcm_info->tp_index];
 
-	if (!device_hcd)
+	if (!device_hcd) {
 		return 0;
+	}
 
 	device_destroy(device_hcd->class, device_hcd->dev_num);
 

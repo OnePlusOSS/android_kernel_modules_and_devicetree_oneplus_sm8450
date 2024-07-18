@@ -46,7 +46,7 @@ ssize_t tp_test_write(void *data_start, size_t max_count,
 	}
 
 	if (*pos >= max_count) {
-		TPD_INFO("%s: pos:%ld is out of memory\n", *pos, __func__);
+		TPD_INFO("%s: pos:%ld is out of memory\n", __func__, *pos);
 		return -1;
 	}
 
@@ -663,7 +663,7 @@ int tp_auto_test(struct seq_file *s, void *v)
 	ts->com_test_data.result_cur_len = 0;
 
 	if (!ts->com_test_data.result_flag) {
-		ts->com_test_data.result_max_len = PAGE_SIZE * 15;/*60k*/
+		ts->com_test_data.result_max_len = PAGE_SIZE * 30; /*120k*/
 		ts->com_test_data.result_data = kvzalloc(ts->com_test_data.result_max_len,
 						GFP_KERNEL);
 
@@ -736,6 +736,7 @@ int tp_black_screen_test(struct file *file, char __user *buffer, size_t count,
 	TP_INFO(ts->tp_index, "%s %ld %lld\n", __func__, count, *ppos);
 
 	ts->gesture_test.message = kzalloc(msg_size, GFP_KERNEL);
+	memset(ts->gesture_test.message, 0, msg_size);
 
 	if (!ts->gesture_test.message) {
 		TP_INFO(ts->tp_index, "failed to alloc memory\n");
@@ -768,7 +769,7 @@ int tp_black_screen_test(struct file *file, char __user *buffer, size_t count,
 	ts->com_test_data.bs_result_cur_len = 0;
 
 	if (!ts->com_test_data.bs_result_flag) {
-		ts->com_test_data.bs_result_max_len = PAGE_SIZE * 15;/*60k*/
+		ts->com_test_data.bs_result_max_len = PAGE_SIZE * 30; /*120k*/
 		ts->com_test_data.bs_result_data = kvzalloc(ts->com_test_data.bs_result_max_len,
 						   GFP_KERNEL);
 
@@ -834,7 +835,7 @@ int tp_auto_test_result(struct seq_file *s, void *v)
 {
 	struct touchpanel_data *ts = s->private;
 
-	TP_INFO(ts->tp_index, "%s:s->size:%d,s->count:%d\n", __func__, s->size,
+	TP_INFO(ts->tp_index, "%s:s->size:%lu,s->count:%lu\n", __func__, s->size,
 		s->count);
 	mutex_lock(&ts->mutex);
 
@@ -870,7 +871,7 @@ int tp_black_screen_result(struct seq_file *s, void *v)
 {
 	struct touchpanel_data *ts = s->private;
 
-	TP_INFO(ts->tp_index, "%s:s->size:%d,s->count:%d\n", __func__, s->size,
+	TP_INFO(ts->tp_index, "%s:s->size:%lu,s->count:%lu\n", __func__, s->size,
 		s->count);
 
 	mutex_lock(&ts->mutex);

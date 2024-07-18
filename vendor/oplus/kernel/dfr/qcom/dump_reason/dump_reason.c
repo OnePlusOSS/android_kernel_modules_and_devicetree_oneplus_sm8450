@@ -8,6 +8,7 @@
 ** Version : 1.0
 ******************************************************************/
 
+#include <linux/stacktrace.h>
 #include <linux/string.h>
 #include <linux/kallsyms.h>
 #include <linux/soc/qcom/smem.h>
@@ -20,9 +21,51 @@
 
 #include "../dump_device_info/device_info.h"
 #include "dump_reason.h"
+#include <linux/slab.h>
+#include <linux/kernel.h>
+
+#define MAX_STACK_DEPTH 13
+#define MAX_SYMBOL_LEN	128
+#define MAX_PIDBUFFER_LEN	64
+#define IGNORE_STACK_DEPTH	3
+#define NULL_STACK_SIZE	3
 
 static char caller_function_name[KSYM_SYMBOL_LEN];
+static char pidbuffer[MAX_PIDBUFFER_LEN];
 static struct dump_info *dp_info;
+
+unsigned long entries[MAX_STACK_DEPTH];
+char *entries1[MAX_STACK_DEPTH];
+
+void dump_save_stack_trace(void)
+{
+	int n = 0;
+	unsigned int i;
+	printk(KERN_ERR "dump-reason-buffer-size: %d\n", DUMP_REASON_SIZE);
+	scnprintf(pidbuffer, MAX_PIDBUFFER_LEN, "PID: %d, Process Name: %-20s", current->pid, current->comm);
+	if ((strlen(dp_info->dump_reason) + strlen(pidbuffer) + strlen("\r\n") + strlen("Call stack:")) < DUMP_REASON_SIZE - 1) {
+		strncat(dp_info->dump_reason, "\r\n", sizeof("\r\n") - 1);
+		strncat(dp_info->dump_reason, pidbuffer, strlen(pidbuffer));
+		strncat(dp_info->dump_reason, "\r\n", sizeof("\r\n") - 1);
+		strncat(dp_info->dump_reason, "Call stack:", strlen("Call stack:"));
+		printk(KERN_ERR "dump-reason-pidbuffer:%s", pidbuffer);
+	}
+	n = stack_trace_save(entries, ARRAY_SIZE(entries), 1);
+	if (n <= 0) {
+		printk(KERN_ERR "Stack trace save failed: %d\n", n);
+		return;
+	}
+	for (i = IGNORE_STACK_DEPTH; i < MAX_STACK_DEPTH; i++) {
+		if (!entries1[i])
+			break;
+		scnprintf(entries1[i], MAX_SYMBOL_LEN, "%pS", (void *)entries[i]);
+		if (strlen(entries1[i]) > NULL_STACK_SIZE && (strlen(dp_info->dump_reason) + strlen(entries1[i]) + strlen("\r\n")) < DUMP_REASON_SIZE - 1) {
+			strncat(dp_info->dump_reason, "\r\n", sizeof("\r\n") - 1);
+			strncat(dp_info->dump_reason, entries1[i], strlen(entries1[i]));
+		}
+		kfree(entries1[i]);
+	}
+}
 
 char *parse_function_builtin_return_address(unsigned long function_address)
 {
@@ -45,9 +88,11 @@ void save_dump_reason_to_smem(char *info, char *function_name)
 
 	/* Make sure save_dump_reason_to_smem() is not
 	called infinite times by nested panic caller fns etc*/
-	if (flag > 1)
+	if (flag >= 1) {
+		pr_debug("%s: already save dump info \n", __func__);
 		return;
-
+	}
+	flag++;
 	dp_info = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_DUMP_INFO, &size);
 
 	if (IS_ERR_OR_NULL(dp_info)) {
@@ -72,6 +117,7 @@ void save_dump_reason_to_smem(char *info, char *function_name)
 
 		pr_debug("\r%s: dump_reason : %s strl=%d function caused panic :%s strl1=%d \n", __func__,
 				dp_info->dump_reason, strlinfo, function_name, strlfun);
+		dump_save_stack_trace();
 		save_dump_reason_to_device_info(dp_info->dump_reason);
 		flag++;
 	}
@@ -89,6 +135,18 @@ void dump_reason_init_smem(void)
 	if (ret < 0 && ret != -EEXIST) {
 		pr_err("%s:unable to allocate dp_info \n", __func__);
 		return;
+	}
+}
+
+void dump_reason_init_callstack(void)
+{
+	unsigned int i;
+	for (i = IGNORE_STACK_DEPTH; i < MAX_STACK_DEPTH; i++) {
+		entries1[i] = kmalloc(MAX_SYMBOL_LEN, GFP_KERNEL);
+		if (!entries1[i]) {
+			printk(KERN_ERR "dump call stack Memory allocation error i=%d\n", i);
+			break;
+		}
 	}
 }
 
@@ -113,6 +171,7 @@ static int __init dump_reason_init(void)
 {
 	dump_reason_init_smem();
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_block);
+	dump_reason_init_callstack();
 	return 0;
 }
 

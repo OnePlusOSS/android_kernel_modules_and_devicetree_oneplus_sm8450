@@ -524,6 +524,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 	if (str_equal(panel->oplus_priv.vendor_name, "NT37705")
 			|| str_equal(panel->oplus_priv.vendor_name, "TM_NT37705")
 			|| str_equal(panel->oplus_priv.vendor_name, "TM_NT37705_DVT")
+			|| str_equal(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05")
 			|| str_equal(panel->oplus_priv.vendor_name, "BOE_NT37705")
 			|| panel->oplus_priv.power_seq_adj) {
 		DSI_INFO("delay 10ms before reset panel");
@@ -581,6 +582,7 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	if ((str_equal(panel->oplus_priv.vendor_name, "BF092_AB241"))
 			|| (str_equal(panel->oplus_priv.vendor_name, "TM_NT37705"))
 			|| (str_equal(panel->oplus_priv.vendor_name, "TM_NT37705_DVT"))
+			|| (str_equal(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05"))
 			|| (str_equal(panel->oplus_priv.vendor_name, "NT37705"))
 			|| (str_equal(panel->oplus_priv.vendor_name, "BOE_NT37705"))
 			|| panel->oplus_priv.power_seq_adj)
@@ -689,6 +691,16 @@ int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
 		return -EINVAL;
 
 	mutex_lock(&panel->panel_tx_lock);
+#ifdef OPLUS_FEATURE_DISPLAY
+	/*  Add for onepulse feature */
+	if (panel->oplus_priv.pwm_onepulse_support) {
+		oplus_panel_cmd_switch(panel, &type);
+	}
+	if (panel->oplus_priv.hpwm_onepulse_support && oplus_panel_pwm_turbo_is_enabled(panel)) {
+		if (type == DSI_CMD_HBM_ON)
+			type = DSI_CMD_HBM_ON_ONEPULSE;
+	}
+#endif /* OPLUS_FEATURE_DISPLAY */
 
 	mode = panel->cur_mode;
 
@@ -2273,6 +2285,7 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 #endif /* OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 	"qcom,mdss-dsi-hbm-on-command",
+	"qcom,mdss-dsi-hbm-on-onepulse-command",
 	"qcom,mdss-dsi-hbm-off-command",
 	"qcom,mdss-dsi-aor-on-command",
 	"qcom,mdss-dsi-aor-off-command",
@@ -2310,12 +2323,23 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-loading-effect-off-command",
 	"qcom,mdss-dsi-hbm-enter-switch-command",
 	"qcom,mdss-dsi-hbm-exit-switch-command",
+	"qcom,mdss-dsi-pwm-switch-onepulse-command",
+	"qcom,mdss-dsi-timming-pwm-switch-onepulse-command",
+	"qcom,mdss-dsi-pwm-switch-threepulse-command",
+	"qcom,mdss-dsi-pwm-switch-high-command",
+	"qcom,mdss-dsi-pwm-switch-low-command",
+	"qcom,mdss-dsi-timming-pwm-switch-high-command",
+	"qcom,mdss-dsi-timming-pwm-switch-low-command",
+	"qcom,mdss-dsi-power-on-pwm-switch-high-command",
+	"qcom,mdss-dsi-power-on-pwm-switch-low-command",
+	"qcom,mdss-dsi-pwm-switch-disable-compensation-command",
 	"qcom,mdss-dsi-skipframe-dbv-command",
 	"qcom,mdss-dsi-reset-scanline-command",
 	"qcom,mdss-dsi-recovery-scanline-command",
 	"qcom,mdss-dsi-switch-avdd-command",
 	"qcom,mdss-dsi-switch-elvss-command",
 	"qcom,mdss-dsi-switch-high-fre-120-command",
+	"qcom,mdss-dsi-switch-high-fre-120-1pulse-command",
 	"qcom,mdss-dsi-switch-low-fre-120-command",
 	"qcom,mdss-dsi-on-high-fre-command",
 	"qcom,mdss-dsi-timing-switch-high-fre-command",
@@ -2395,6 +2419,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 #endif /* OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 	"qcom,mdss-dsi-hbm-on-command-state",
+	"qcom,mdss-dsi-hbm-on-onepulse-command-state",
 	"qcom,mdss-dsi-hbm-off-command-state",
 	"qcom,mdss-dsi-aor-on-command-state",
 	"qcom,mdss-dsi-aor-off-command-state",
@@ -2432,12 +2457,23 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"qcom,mdss-dsi-loading-effect-off-command-state",
 	"qcom,mdss-dsi-hbm-enter-switch-command-state",
 	"qcom,mdss-dsi-hbm-exit-switch-command-state",
+	"qcom,mdss-dsi-pwm-switch-onepulse-command-state",
+	"qcom,mdss-dsi-timming-pwm-switch-onepulse-command-state",
+	"qcom,mdss-dsi-pwm-switch-threepulse-command-state",
+	"qcom,mdss-dsi-pwm-switch-high-command-state",
+	"qcom,mdss-dsi-pwm-switch-low-command-state",
+	"qcom,mdss-dsi-timming-pwm-switch-high-command-state",
+	"qcom,mdss-dsi-timming-pwm-switch-low-command-state",
+	"qcom,mdss-dsi-power-on-pwm-switch-high-command-state",
+	"qcom,mdss-dsi-power-on-pwm-switch-low-command-state",
+	"qcom,mdss-dsi-pwm-switch-disable-compensation-command-state",
 	"qcom,mdss-dsi-skipframe-dbv-command-state",
 	"qcom,mdss-dsi-reset-scanline-command-state",
 	"qcom,mdss-dsi-recovery-scanline-command-state",
 	"qcom,mdss-dsi-switch-avdd-command-state",
 	"qcom,mdss-dsi-switch-elvss-command-state",
 	"qcom,mdss-dsi-switch-high-fre-120-command-state",
+	"qcom,mdss-dsi-switch-high-fre-120-1pulse-command-state",
 	"qcom,mdss-dsi-switch-low-fre-120-command-state",
 	"qcom,mdss-dsi-on-high-fre-command-state",
 	"qcom,mdss-dsi-timing-switch-high-fre-command-state",
@@ -5597,6 +5633,11 @@ int dsi_panel_switch(struct dsi_panel *panel)
 		DSI_INFO("PT Mode: dsi_cmd %s\n", cmd_set_prop_map[DSI_CMD_SET_TYPE_ID]);
 	} else
 #endif
+	/*  Add for onepulse feature */
+	if (oplus_panel_pwm_onepulse_is_enabled(panel)) {
+		oplus_sde_early_wakeup();
+		oplus_wait_for_vsync(panel);
+	}
     {
 #ifdef OPLUS_FEATURE_DISPLAY
 	if (oplus_panel_pwm_turbo_is_enabled(panel) && panel->cur_mode->timing.refresh_rate != 90)
@@ -5620,6 +5661,10 @@ int dsi_panel_switch(struct dsi_panel *panel)
 			/* make sure the cur_h_active is the newest status */
 			panel->cur_h_active = panel->cur_mode->timing.h_active;
 		}
+	}
+	/*  Add for onepulse feature , pwm switch due to timing switch */
+	if (panel->oplus_priv.pwm_onepulse_support) {
+		oplus_panel_pwm_switch_timing_switch(panel);
 	}
 #endif /* OPLUS_FEATURE_DISPLAY */
 
@@ -5756,10 +5801,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 #ifdef OPLUS_FEATURE_DISPLAY
 	panel->need_power_on_backlight = true;
 	set_oplus_display_power_status(OPLUS_DISPLAY_POWER_ON);
-	if (MSM_BOOT_MODE__FACTORY == get_boot_mode()) {
-		panel->power_mode = SDE_MODE_DPMS_ON;
-		DSI_INFO("[%s] get_boot_mode = %d\n", panel->name, get_boot_mode());
-	}
+	panel->power_mode = SDE_MODE_DPMS_ON;
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 error:

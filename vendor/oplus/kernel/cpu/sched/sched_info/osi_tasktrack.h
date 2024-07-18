@@ -37,8 +37,8 @@ struct state_time {
 #define CALL_STACK_LEVEL			4
 #define SKIP_LEVEL					1
 
-#define LATENCY_THRESHOLD               (1*1000*1000)
-#define IOWAIT_THRESHOLD               (1*1000*1000)
+#define LATENCY_THRESHOLD               (10*1000*1000)
+#define IOWAIT_THRESHOLD                (50*1000*1000)
 
 #ifdef JANK_DEBUG
 #define CALL_STACK_THRESHOLD		(1*1000*1000)

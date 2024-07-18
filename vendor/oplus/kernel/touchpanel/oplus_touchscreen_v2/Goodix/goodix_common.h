@@ -11,6 +11,7 @@
 #include "../touch_comon_api/touch_comon_api.h"
 #include "../touchpanel_autotest/touchpanel_autotest.h"
 #include "../touchpanel_healthinfo/touchpanel_healthinfo.h"
+#include "../touch_pen/touch_pen_core.h"
 
 #include <linux/firmware.h>
 #include <linux/rtc.h>
@@ -36,10 +37,14 @@
 #define UPDATE_STATUS_ABORT                  2
 #define FW_SECTION_TYPE_SS51_PATCH           0x02
 
+#define CMD_STR(name) #name
+
 typedef enum {
 	GTP_RAWDATA,
 	GTP_DIFFDATA,
 	GTP_BASEDATA,
+	GTP_FW_STATUS,
+	GTP_NORMAL_LIZE,
 } debug_type;
 
 struct goodix_proc_operations {
@@ -74,6 +79,16 @@ typedef enum {
 	RST_CHECK_RAWDATA = 0x07,
 } RESET_REASON;
 
+typedef enum {
+	ESD_RAM_ERROR = 0x01,
+	ESD_RAWDATA_ERROR = 0x07,
+} ESD_REASON;
+
+typedef enum {
+	HSYNC_NO_INPUT = 0x01,
+	HSYNC_FREQ_HOPPING = 0x02,
+} HSYNC_ERR;
+
 struct goodix_health_info {
 	uint8_t   shield_water: 1;
 	uint8_t   shield_freq: 1;
@@ -103,6 +118,50 @@ struct goodix_health_info {
 	uint8_t   checksum;
 };
 
+
+struct goodix_health_info_v2 {
+	uint8_t   shield_water: 1;
+	uint8_t   shield_freq: 1;
+	uint8_t   baseline_refresh: 1;
+	uint8_t   esd_rst: 1;
+	uint8_t   shield_palm: 1;
+	uint8_t   charger_mode: 1;
+	uint8_t   low_temperature: 1;
+	uint8_t   broken_compensated: 1;
+	uint8_t   sync_error: 1;
+	uint8_t   reserve_bit: 7;
+	uint8_t   shield_water_state;
+	uint8_t   freq_before_low;
+	uint8_t   freq_before_high;
+	uint8_t   freq_after_low;
+	uint8_t   freq_after_high;
+	uint8_t   baseline_refresh_type;
+	uint8_t   esd_reason; /* 0x01:RAM error; 0x07:Rawdata error */
+	uint8_t   noise_level_before;
+	uint8_t   noise_level_after;
+	uint8_t   reserve11;
+	uint8_t   hsync_error; /* 0x01:no Hsync; 0x02:Hsync freq hop */
+	uint8_t   hsync_freq_before_byte0;
+	uint8_t   hsync_freq_before_byte1;
+	uint8_t   hsync_freq_before_byte2;
+	uint8_t   hsync_freq_before_byte3;
+	uint8_t   hsync_freq_after_byte0;
+	uint8_t   hsync_freq_after_byte1;
+	uint8_t   hsync_freq_after_byte2;
+	uint8_t   hsync_freq_after_byte3;
+	uint8_t   reserve21;
+	uint8_t   reserve22;
+	uint8_t   reserve23;
+	uint8_t   reserve24;
+	uint8_t   reserve25;
+	uint8_t   reserve26;
+	uint8_t   reserve27;
+	uint8_t   reserve28;
+	uint8_t   reserve29;
+	uint8_t   checksum_low;
+	uint8_t   checksum_high;
+};
+
 /*test item*/
 enum {
 	TYPE_ERROR                   = 0x00,
@@ -111,6 +170,7 @@ enum {
 	TYPE_TEST3                   = 0x03,
 	TYPE_TEST4                   = 0x04,
 	TYPE_TEST5                   = 0x05,
+	TYPE_TEST6					 = 0x06,
 	TYPE_MAX                     = 0xFF,
 };
 
@@ -131,6 +191,9 @@ struct goodix_auto_test_operations {
 	int (*test5)(struct seq_file *s, void *chip_data,
 		     struct auto_testdata *goodix_testdata,
 		     struct test_item_info *p_test_item_info);
+	int (*test6)(struct seq_file *s, void *chip_data,
+		     struct auto_testdata *goodix_testdata,
+		     struct test_item_info *p_test_item_info);
 	int (*auto_test_preoperation)(struct seq_file *s, void *chip_data,
 				      struct auto_testdata *goodix_testdata,
 				      struct test_item_info *p_test_item_info);
@@ -144,6 +207,7 @@ int goodix_create_proc(struct touchpanel_data *ts,
 		       struct goodix_proc_operations *goodix_ops);
 int goodix_remove_proc(struct touchpanel_data *ts);
 int goodix_auto_test(struct seq_file *s,  struct touchpanel_data *ts);
+void goodix_print_differ(s16 *diff_buf, u32 buf_size, int tx, int rx);
 
 #endif  /*_TOUCHPANEL_COMMON_GOODIX_H_*/
 

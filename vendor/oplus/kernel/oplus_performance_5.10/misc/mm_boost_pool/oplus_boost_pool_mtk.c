@@ -464,12 +464,27 @@ DEFINE_BOOST_POOL_PROC_RW_ATTRIBUTE(min);
 
 /* limit max cpu here. in gki kernel CONFIG_NR_CPUS=32. */
 #define MAX_SUPPORT_CPUS (8)
+#define DEFAULT_TASK_END_CPU (3)
+
+static void __update_cpu_mask(struct boost_pool *boost_pool, int end_cpu)
+{
+	int i;
+	struct cpumask cpu_mask = { CPU_BITS_NONE };
+
+	if (end_cpu < 0 || end_cpu >= MAX_SUPPORT_CPUS)
+		pr_err("wrong cpu selected\n");
+
+	for (i = 0; i <= end_cpu; i++)
+		cpumask_set_cpu(i, &cpu_mask);
+
+	set_cpus_allowed_ptr(boost_pool->prefill_task, &cpu_mask);
+}
+
 static ssize_t cpu_write(struct file *file, const char __user *buf,
 			 size_t count, loff_t *ppos)
 {
 	char buffer[13];
-	int err, cpu, i;
-	struct cpumask cpu_mask = { CPU_BITS_NONE };
+	int err, cpu;
 	struct boost_pool *boost_pool = PDE_DATA(file_inode(file));
 
 	if (boost_pool == NULL)
@@ -484,14 +499,7 @@ static ssize_t cpu_write(struct file *file, const char __user *buf,
 	if (err)
 		return err;
 
-	if (cpu < 0 || cpu >= MAX_SUPPORT_CPUS)
-		return -EINVAL;
-
-	for (i = 0; i <= cpu; i++)
-		cpumask_set_cpu(i, &cpu_mask);
-
-	set_cpus_allowed_ptr(boost_pool->prefill_task, &cpu_mask);
-
+	__update_cpu_mask(boost_pool, cpu);
 	pr_info("%s:%d set %s cpu [0-%d]\n",
 		current->comm, current->tgid,
 		boost_pool->prefill_task->comm, cpu);
@@ -811,6 +819,7 @@ struct boost_pool *boost_pool_create(const char *name)
 		pr_err("kthread run failed\n");
 		goto destroy_proc_cpu;
 	}
+	__update_cpu_mask(boost_pool, DEFAULT_TASK_END_CPU);
 
 	mutex_lock(&pool_list_lock);
 	list_add(&boost_pool->list, &pool_list);

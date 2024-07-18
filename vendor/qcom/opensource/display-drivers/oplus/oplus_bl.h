@@ -511,5 +511,9 @@ int oplus_panel_global_hbm_mapping(struct dsi_panel *panel, u32 *backlight_level
 int oplus_display_panel_get_global_hbm_status(void);
 void oplus_display_panel_set_global_hbm_status(int global_hbm_status);
 void oplus_panel_backlight_level_mapping(struct dsi_panel *panel, u32 *backlight_level);
-
+/*  Add for onepulse feature */
+int oplus_panel_pwm_switch_backlight(struct dsi_panel *panel, u32 bl_lvl);
+int oplus_panel_pwm_switch_timing_switch(struct dsi_panel *panel);
+int oplus_panel_pwm_switch_wait_te_tx_cmd(struct dsi_panel *panel, u32 pwm_switch_cmd, u32 pwm_switch_state_last);
+int oplus_hbm_pwm_state(struct dsi_panel *panel, bool hbm_state);
 #endif

@@ -116,12 +116,14 @@ static int parse_hw_core_config(struct device *dev, struct ir_core* ir_core)
 			pr_info("oplus_ir_core: %s: ir_core->core_config.vdd_3v0 is NULL\n", __func__);
 		} else {
 			ir_core->core_config.vdd_3v0 = regulator_get(dev, "vdd");
-			if (ir_core->core_config.vdd_3v0 != NULL) {
+			if (!IS_ERR_OR_NULL(ir_core->core_config.vdd_3v0)) {
 				regulator_set_voltage(ir_core->core_config.vdd_3v0,
 					ir_core->core_config.vdd_min_vol, ir_core->core_config.vdd_max_vol);
 					pr_info("oplus_ir_core: %s: ir_core->core_config.vdd_3v0 is not NULL\n", __func__);
 			} else {
-				pr_info("oplus_ir_core: %s: ir_core->core_config.vdd_3v0 is NULL\n", __func__);
+				retval = PTR_ERR(ir_core->core_config.vdd_3v0);
+				retval = retval ? retval : -EINVAL;
+				pr_info("oplus_ir_core: %s: get ir_core->core_config.vdd_3v0 fail %d\n", __func__, retval);
 			}
 		}
 

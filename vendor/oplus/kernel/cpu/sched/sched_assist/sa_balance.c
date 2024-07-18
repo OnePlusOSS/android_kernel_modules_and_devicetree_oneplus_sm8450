@@ -25,6 +25,7 @@
 #define DEBUG_LB_RT_TICK
 #define DEBUG_LB_RT_RUNNABLE_TIME
 #define DEBUG_LB_EXEC_TIME
+#define DEBUG_LB_TRACKME
 #endif
 
 #define OPLUS_LB_SYSTRACE_PID		9999
@@ -33,6 +34,25 @@
  * The maximum exit delay allowed for latency-sensitive tasks.
  */
 #define OPLUS_LB_EXIT_LATENCY_US	2000		/* 2ms */
+
+#ifdef DEBUG_LB_TRACKME
+#define TRACKME_RUNNING_THRES		1000000		/* 1ms */
+#define TRACKME_RUNNABLE_THRES		1000000		/* 1ms */
+
+#define MAX_TRACKME_NUM				20
+
+struct trackme {
+	struct task_struct *tsk;
+	u64 max_running_time;
+	u64 max_runnable_time;
+	int pid;
+};
+
+struct trackme tk_array[MAX_TRACKME_NUM];
+int tk_num;
+
+void show_trackme_stats(void);
+#endif
 
 struct lb_statistic {
 	/* statistics related to tick balance. */
@@ -129,7 +149,7 @@ __maybe_unused void runnable_time_systrace(
 		if (!ux_state)
 			return;
 
-		snprintf(buf, sizeof(buf), "C|%d|runnable_time_cpu%d|%u\n",
+		snprintf(buf, sizeof(buf), "C|%d|runnable_time_cpu%d|%llu\n",
 						OPLUS_LB_SYSTRACE_PID, cpu, time);
 		tracing_mark_write(buf);
 	}
@@ -151,7 +171,7 @@ __maybe_unused void record_runnable_time_systrace(
 		if (!ux_state)
 			return;
 
-		snprintf(buf, sizeof(buf), "C|%d|runnable_time_cpu%d_pid%d|%u\n",
+		snprintf(buf, sizeof(buf), "C|%d|runnable_time_cpu%d_pid%d|%llu\n",
 						OPLUS_LB_SYSTRACE_PID, cpu, p->pid, time);
 		tracing_mark_write(buf);
 	}
@@ -173,7 +193,7 @@ __maybe_unused void record_exec_time_systrace(
 		if (!ux_state)
 			return;
 
-		snprintf(buf, sizeof(buf), "C|%d|exec_time_cpu%d_pid%d|%u\n",
+		snprintf(buf, sizeof(buf), "C|%d|exec_time_cpu%d_pid%d|%llu\n",
 						OPLUS_LB_SYSTRACE_PID, cpu, p->pid, time);
 		tracing_mark_write(buf);
 	}
@@ -188,7 +208,7 @@ void runnable_time_rt_systrace(
 		if (!test_task_is_rt(p))
 			return;
 
-		snprintf(buf, sizeof(buf), "C|%d|runnable_time_rt_cpu%d|%u\n",
+		snprintf(buf, sizeof(buf), "C|%d|runnable_time_rt_cpu%d|%llu\n",
 						OPLUS_LB_SYSTRACE_PID, cpu, time);
 		tracing_mark_write(buf);
 	}
@@ -1025,12 +1045,12 @@ u64 __get_time(struct task_struct *tsk, bool time_sel)
 	(s64)running_time < 0, (s64)runnable_time < 0, runnable_time == now,
 	running_time > 80000000000, runnable_time > 80000000000,
 	max_runnable_time, max_running_time);
-#endif
 
 	oplus_loadbalance_systrace_print(OPLUS_LB_SYSTRACE_PID,
 			"A-runnable_time_pid", tsk->pid, runnable_time);
 	oplus_loadbalance_systrace_print(OPLUS_LB_SYSTRACE_PID,
 			"B-running_time_pid", tsk->pid, running_time);
+#endif
 
 	return time_sel ? runnable_time : running_time;
 }
@@ -1772,7 +1792,7 @@ static int oplus_active_load_balance_cpu_stop_for_rt(void *data)
 		orq->lb.pid);
 
 	task = find_task_by_vpid(orq->lb.pid);
-	trace_printk("DEBUG_LB_RT_TICK[%d]: task=0x%lx\n", __LINE__, task);
+	trace_printk("DEBUG_LB_RT_TICK[%d]: task=0x%llx\n", __LINE__, (unsigned long long)task);
 	if (task) {
 		trace_printk("DEBUG_LB_RT_TICK[%d]: task=%s$%d, state=%d, on_cpu=%d, on_rq=%d, task_cpu=%d\n",
 			__LINE__, task->comm, task->pid,
@@ -1941,6 +1961,8 @@ static bool oplus_migrate_running_ux(void *data, struct rq *rq)
 	ret = stop_one_cpu_nowait(prev_cpu,
 		oplus_active_load_balance_cpu_stop, rq,
 		&rq->active_balance_work);
+	if (ret)
+		wake_up_if_idle(prev_cpu);
 
 #ifdef DEBUG_LB_TICK
 	trace_printk("OPLUS_LB_TICK[%d]: curr=%s$%d, ret=%d\n",
@@ -2538,12 +2560,12 @@ static void dump_cpu_state(void)
 
 		trace_printk("DEBUG_LB_TICK[%d]: cpu=%d, name=%s, desc=%s,"
 				" exit_latency=%dus, online=%d, active=%d, idle=%d,"
-				" available_idle=%d, nr_running=%d\n",
+				" available_idle=%d, nr_running=%d, h_nr_running=%d\n",
 			__LINE__, i,
 			idle?idle->name:"NULL", idle?idle->desc:"NULL",
 			idle?idle->exit_latency:0, cpu_online(i), cpu_active(i),
 			oplus_idle_cpu(i), available_idle_cpu(i),
-			cpu_rq(i)->nr_running);
+			cpu_rq(i)->nr_running, cpu_rq(i)->cfs.h_nr_running);
 
 		cpuidle_exit_latency_systrace(i, idle?idle->exit_latency:0);
 	}
@@ -2869,6 +2891,12 @@ static bool oplus_newidle_balance_pull_runnable_rt_boost(
 	if (sched_rt_runnable(this_rq))
 		return false;
 
+#ifdef DEBUG_LB_NEWIDLE_HIT
+	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, "
+		"order_idx=%d, walk_cnt=%d\n",
+		__LINE__, this_cpu, order_idx, walk_cnt);
+#endif
+
 	/*
 	 * Find a cpu on which there is a task in rt_boost group that has been
 	 * in the runnable state for a long time.
@@ -2984,6 +3012,12 @@ static bool oplus_newidle_balance_pull_runnable_rt_normal(
 	if (sched_rt_runnable(this_rq))
 		return false;
 
+#ifdef DEBUG_LB_NEWIDLE_HIT
+	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, "
+		"order_idx=%d, walk_cnt=%d\n",
+		__LINE__, this_cpu, order_idx, walk_cnt);
+#endif
+
 	/*
 	 * Find a cpu whose runqueue has a normal_rt task in the
 	 * runnable state.
@@ -3075,6 +3109,12 @@ static bool oplus_newidle_balance_pull_runnable_ux(
 	int cpu = -1;
 	int busiest_cpu = -1;
 	int idx;
+
+#ifdef DEBUG_LB_NEWIDLE_HIT
+	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, "
+		"order_idx=%d, walk_cnt=%d\n",
+		__LINE__, this_cpu, order_idx, walk_cnt);
+#endif
 
 	/*
 	 * Find a cpu on which there is a task in rt_boost group that has been
@@ -3245,6 +3285,58 @@ out:
 	if (*pulled_task != 0)
 		*done = 1;
 
+	/*
+	 * WARNING:
+	 * Skip the newidle logic of QCOM or MTK and pick the higher
+	 * priority task directly when there is a higher priority task.
+	 *
+	 * For example:
+	 * the following logic exists in Qualcomm's walt_newidle_balance
+	 * function (implemented in kernel\sched\walt\walt_lb.c).
+	 * The pulled_task variable will be cleared here. If this_cpu is
+	 * inactive at this time, the walt_newidle_balance function will
+	 * return directly, which results in The RETRY_TASK logic will
+	 * not be executed in pick_next_task_fair. This will causes high
+	 * priority tasks to fail to run.
+	 *
+	 *  * newly idle load balance is completely handled here, so
+	 *  * set done to skip the load balance by the caller.
+	 *
+	 * *done = 1;
+	 * *pulled_task = 0;
+	 *
+	 *
+	 *  * This CPU is about to enter idle, so clear the
+	 *  * misfit_task_load and mark the idle stamp.
+	 *
+	 * this_rq->misfit_task_load = 0;
+	 * this_rq->idle_stamp = rq_clock(this_rq);
+	 *
+	 * if (!cpu_active(this_cpu))
+	 * 	 return;
+	 *
+	 * Note:
+	 * The execution logic in the pause_cpus function (implemented in
+	 * \kernel\cpu.c), will first mark the cpu as inactive, and then
+	 * wake up the migration thread. This will also cause the active
+	 * status judgment result of this_cpu in walt_newidle_balance to
+	 * be false. However, there may be a high-priority migration task
+	 * in the runqueue of this_cpu.
+	 *
+	 * 	for_each_cpu(cpu, cpus)
+	 * 	set_cpu_active(cpu, false);
+	 * 	err = __pause_drain_rq(cpus);
+	 */
+	if (*done != 0)
+		ret = true;
+
+#ifdef DEBUG_LB_NEWIDLE_HIT
+	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, pulled_task=%d, "
+		"done=%d, nr_running=%d, h_nr_running=%d\n",
+		__LINE__, this_cpu, *pulled_task, *done,
+		this_rq->nr_running, this_rq->cfs.h_nr_running);
+#endif
+
 	return ret;
 }
 
@@ -3343,6 +3435,9 @@ bool __oplus_newidle_balance(void *data, struct rq *this_rq,
 	struct root_domain *rd = cpu_rq(this_cpu)->rd;
 	bool enough_idle, enough_capacity;
 	bool ret = false;
+#ifdef DEBUG_LB_NEWIDLE_HIT
+	bool is_migration;
+#endif
 
 	if (unlikely(!lb_enable))
 		return false;
@@ -3376,9 +3471,20 @@ bool __oplus_newidle_balance(void *data, struct rq *this_rq,
 	enough_idle = (this_rq->avg_idle > NEWIDLE_BALANCE_IDLE_THRESHOLD);
 	enough_capacity = has_enough_capacity(this_cpu);
 
+#ifdef DEBUG_LB_TRACKME
+	show_trackme_stats();
+#endif
+
 #ifdef DEBUG_LB_NEWIDLE_HIT
-	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, nr_running=%d\n",
-		__LINE__, this_cpu, this_rq->nr_running);
+	is_migration = !strncmp(this_rq->curr->comm, "migration/", 10);
+
+	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, current=%s$%d, "
+			"nr_running=%d, h_nr_running=%d, high_prio=%d "
+			"is_migration=%d\n",
+		__LINE__, this_cpu, this_rq->curr->comm, this_rq->curr->pid,
+		this_rq->nr_running, this_rq->cfs.h_nr_running,
+		this_rq->nr_running != this_rq->cfs.h_nr_running,
+		is_migration);
 
 	oplus_loadbalance_systrace_print(OPLUS_LB_SYSTRACE_PID,
 					"newidle_enough_idle",
@@ -3424,6 +3530,13 @@ bool __oplus_newidle_balance(void *data, struct rq *this_rq,
 
 	rq_repin_lock(this_rq, rf);
 
+#ifdef DEBUG_LB_NEWIDLE_HIT
+	trace_printk("DEBUG_LB_NEWIDLE_HIT[%d]: cpu=%d, ret=%d, "
+		"pulled_task=%d, done=%d\n",
+		__LINE__, this_cpu, ret,
+		*pulled_task, *done);
+#endif
+
 	return ret;
 }
 EXPORT_SYMBOL(__oplus_newidle_balance);
@@ -3435,6 +3548,178 @@ void oplus_newidle_balance(void *data, struct rq *this_rq,
 }
 
 /**** Interface exported to the proc file system. ****/
+
+#ifdef DEBUG_LB_TRACKME
+void show_trackme_stats(void)
+{
+	struct task_struct *tsk;
+	struct task_struct *curr;
+	struct rq *rq;
+	u64 running_time, runnable_time;
+	int i;
+	int pid;
+	int cpu;
+	int preempt;
+
+	/*
+	 * Ignore preempt_disable scenarios.
+	 */
+	int is_idle;
+
+	if (!tk_num)
+		return;
+
+	for (i = 0; i < tk_num; i++) {
+		pid = tk_array[i].pid;
+		tsk = tk_array[i].tsk;
+		if (!tsk)
+			continue;
+
+		get_task_struct(tsk);
+
+		cpu = task_cpu(tsk);
+		rq = cpu_rq(cpu);
+		curr = rq->curr;
+		preempt = task_thread_info(curr)->preempt.count;
+		is_idle = curr == rq->idle;
+
+		runnable_time = get_runnable_time(tsk);
+		running_time = get_running_time(tsk);
+
+		if (is_idle) {
+			tk_array[i].max_runnable_time = max_t(u64,
+					tk_array[i].max_runnable_time, runnable_time);
+			tk_array[i].max_running_time = max_t(u64,
+					tk_array[i].max_running_time, running_time);
+		}
+
+		trace_printk("TRACK[%d]: task=%s$%d, state=%d, on_cpu=%d, on_rq=%d, "
+			"running=%llu, runnable=%llu, thres=%d-%d, "
+			"max_running_time=%llu, max_runnable_time=%llu, "
+			"curr=%s$%d, is_idle=%d, preempt=%d, tif=%d, "
+			"nr_running=%d, h_nr_running=%d\n",
+			i, tsk->comm, tsk->pid,
+			tsk->state, tsk->on_cpu, tsk->on_rq,
+			running_time, runnable_time,
+			running_time >= TRACKME_RUNNING_THRES,
+			runnable_time >= TRACKME_RUNNABLE_THRES,
+			tk_array[i].max_running_time,
+			tk_array[i].max_runnable_time,
+			curr->comm, curr->pid, is_idle, preempt,
+			test_ti_thread_flag(task_thread_info(curr), TIF_NEED_RESCHED),
+			rq->nr_running, rq->cfs.h_nr_running);
+
+		/*
+		 * No log if the task is in the running/runnable state
+		 * for a long time due to preempt_diasble.
+		 */
+		if (running_time >= TRACKME_RUNNING_THRES && is_idle) {
+			oplus_loadbalance_systrace_print(OPLUS_LB_SYSTRACE_PID,
+					"trackme_running_pid", tsk->pid, running_time);
+		}
+
+		if (runnable_time >= TRACKME_RUNNABLE_THRES && is_idle) {
+			oplus_loadbalance_systrace_print(OPLUS_LB_SYSTRACE_PID,
+					"trackme_runnable_pid", tsk->pid, runnable_time);
+		}
+
+		put_task_struct(tsk);
+	}
+}
+
+static int proc_trackme_read(struct seq_file *m, void *v)
+{
+	struct task_struct *tsk;
+	int pid;
+	int i;
+
+	if (!tk_num) {
+		seq_printf(m, "TRACK: No task being tracked yet!\n");
+		return 0;
+	}
+
+	for (i = 0; i < tk_num; i++) {
+		pid = tk_array[i].pid;
+		tsk = tk_array[i].tsk;
+
+		seq_printf(m, "TRACK[%d]: pid=%d, comm=%s\n",
+			i, pid, tsk->comm);
+	}
+
+	return 0;
+}
+
+static int proc_trackme_open(struct inode *inode,
+			struct file *file)
+{
+	return single_open(file, proc_trackme_read, inode);
+}
+
+static ssize_t proc_trackme_write(struct file *file,
+					const char __user *buf, size_t count, loff_t *offset)
+{
+	struct task_struct *tsk;
+	char buffer[256];
+	char *token, *p = buffer;
+	int pid;
+	int i = 0;
+
+	memset(buffer, 0, sizeof(buffer));
+	if (count > sizeof(buffer) - 1)
+		count = sizeof(buffer) - 1;
+
+	if (copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	tk_num = 0;
+	memset(tk_array, 0, sizeof(struct trackme));
+	while ((token = strsep(&p, " ")) != NULL) {
+		if (tk_num >= MAX_TRACKME_NUM)
+			break;
+
+		if (kstrtoint(strstrip(token), 10, &tk_array[tk_num].pid))
+			return -EINVAL;
+
+		tk_num++;
+	}
+
+	for (i = 0; i < tk_num; i++) {
+		pid = tk_array[i].pid;
+		tsk = find_task_by_vpid(pid);
+		if (!tsk)
+			continue;
+
+		get_task_struct(tsk);
+		tk_array[i].tsk = tsk;
+		trace_printk("DEBUG_LB_TRACKME[%d]: TRACK[%d]: pid=%d, comm=%s, "
+				"state=%d, on_cpu=%d, on_rq=%d\n",
+			__LINE__, i, pid, tsk->comm,
+			tsk->state, tsk->on_cpu, tsk->on_rq);
+		put_task_struct(tsk);
+	}
+
+	return count;
+}
+
+const struct proc_ops proc_trackme_operations = {
+	.proc_open = proc_trackme_open,
+	.proc_read = seq_read,
+	.proc_write = proc_trackme_write,
+	.proc_lseek = seq_lseek,
+	.proc_release = single_release,
+};
+
+struct proc_dir_entry *oplus_trackme_proc_init(
+			struct proc_dir_entry *pde)
+{
+	return proc_create("trackme", S_IRUGO | S_IWUGO, pde, &proc_trackme_operations);
+}
+
+void oplus_trackme_proc_deinit(struct proc_dir_entry *pde)
+{
+	remove_proc_entry("trackme", pde);
+}
+#endif
 
 int dump_rt_boost_task(struct seq_file *m, void *v)
 {
@@ -3473,7 +3758,7 @@ int dump_rt_boost_task(struct seq_file *m, void *v)
 		defined(DEBUG_LB_RT_RUNNABLE_TIME)
 
 		seq_printf(m, ", uage=%d, state=%d, task_cpu=%d",
-			p->usage, READ_ONCE(p->state), task_cpu(p));
+			refcount_read(&p->usage), READ_ONCE(p->state), task_cpu(p));
 #endif
 		seq_printf(m, "\n");
 	}
@@ -3780,6 +4065,9 @@ void oplus_lb_proc_init(struct proc_dir_entry *pde)
 	oplus_lb_stat_proc_init(pde);
 	oplus_lb_enable_proc_init(pde);
 	oplus_lb_debug_proc_init(pde);
+#ifdef DEBUG_LB_TRACKME
+	oplus_trackme_proc_init(pde);
+#endif
 }
 
 void oplus_lb_proc_deinit(struct proc_dir_entry *pde)
@@ -3788,6 +4076,9 @@ void oplus_lb_proc_deinit(struct proc_dir_entry *pde)
 	oplus_lb_stat_proc_deinit(pde);
 	oplus_lb_enable_proc_deinit(pde);
 	oplus_lb_debug_proc_deinit(pde);
+#ifdef DEBUG_LB_TRACKME
+	oplus_trackme_proc_deinit(pde);
+#endif
 }
 
 void oplus_loadbalance_init(void)

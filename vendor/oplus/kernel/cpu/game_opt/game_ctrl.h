@@ -15,25 +15,16 @@
 
 extern struct proc_dir_entry *game_opt_dir;
 
-extern atomic_t need_stat_util;
-extern atomic_t need_stat_wake;
+extern atomic_t have_valid_game_pid;
+extern atomic_t have_valid_render_pid;
 
 int cpu_load_init(void);
 int cpufreq_limits_init(void);
 int task_util_init(void);
 int rt_info_init(void);
 int fake_cpufreq_init(void);
-void try_to_wake_up_success_hook2(struct task_struct *task);
 
-static inline u32 task_util(struct task_struct *p)
-{
-	return READ_ONCE(p->se.avg.util_avg);
-}
-
-static inline bool need_stat_cpu_load(void)
-{
-	return (atomic_read(&need_stat_util) > 0) ||
-		(atomic_read(&need_stat_wake) > 0);
-}
+bool get_task_name(pid_t pid, struct task_struct *in_task, char *name);
+void ui_assist_threads_wake_stat(struct task_struct *task);
 
 #endif /*__GAME_CTRL_H__*/

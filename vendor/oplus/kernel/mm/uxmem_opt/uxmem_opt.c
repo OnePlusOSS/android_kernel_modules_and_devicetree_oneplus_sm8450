@@ -430,7 +430,7 @@ static ssize_t ux_page_pool_read(struct file *file,
 	if (len > *off)
 		len -= *off;
 	else
-		len = 0;
+		return 0;
 
 	if (copy_to_user(buffer, kbuf + *off, (len < count ? len : count)))
 		return -EFAULT;
@@ -727,9 +727,14 @@ static int __init uxmem_opt_init(void)
 {
 	int ret = 0;
 
-	if (!enable || IS_ENABLED(CONFIG_PAGE_POISONING)) {
+	if (!enable) {
 		pr_err("oplus_bsp_uxmem_opt is disabled in cmdline\n");
-		return -EINVAL;
+		return 0;
+	}
+
+	if (IS_ENABLED(CONFIG_PAGE_POISONING)) {
+		pr_err("oplus_bsp_uxmem_opt conflict with CONFIG_PAGE_POISONING\n");
+		return 0;
 	}
 
 	ret = ux_page_pool_init();

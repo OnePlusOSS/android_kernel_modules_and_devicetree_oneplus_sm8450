@@ -544,6 +544,7 @@ struct oplus_pps_chip {
 
 	struct power_supply *pps_batt_psy;
 	struct delayed_work pps_stop_work;
+	struct delayed_work get_pps_ops_work;
 	struct delayed_work update_pps_work;
 	struct delayed_work check_vbat_diff_work;
 	struct delayed_work ready_force2svooc_work;
@@ -745,4 +746,5 @@ int oplus_pps_track_upload_err_info(struct oplus_pps_chip *chip, int err_type, i
 bool oplus_pps_get_btb_temp_over(void);
 int oplus_pps_check_3rd_support(void);
 void oplus_pps_stop_flash_led(bool on);
+int oplus_pps_support_max_power(void);
 #endif /*_OPLUS_PPS_H_*/

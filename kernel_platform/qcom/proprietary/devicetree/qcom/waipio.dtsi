@@ -2238,6 +2238,7 @@
 		iommus = <&apps_smmu 0xE0 0x0>;
 		qcom,iommu-dma = "fastmap";
 		dma-coherent;
+		qcom,iommu-faults = "non-fatal";
 
 		status = "disabled";
 		qos0 {

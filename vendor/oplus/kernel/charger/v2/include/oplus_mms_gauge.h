@@ -24,6 +24,10 @@ enum gauge_topic_item {
 	GAUGE_ITEM_AUTH,
 	GAUGE_ITEM_REAL_TEMP,
 	GAUGE_ITEM_SUBBOARD_TEMP_ERR,
+	GAUGE_ITEM_VBAT_UV,
+	GAUGE_ITEM_DEEP_SUPPORT,
+	GAUGE_ITEM_REG_INFO,
+	GAUGE_ITEM_CALIB_TIME,
 };
 
 enum gauge_type_id {
@@ -32,6 +36,11 @@ enum gauge_type_id {
 	DEVICE_BQ28Z610,
 	DEVICE_ZY0602,
 	DEVICE_ZY0603,
+};
+
+#define OPLUS_BATT_SERIAL_NUM_SIZE 20
+struct battery_manufacture_info {
+	char batt_serial_num[OPLUS_BATT_SERIAL_NUM_SIZE];
 };
 
 int oplus_gauge_get_batt_mvolts(void);
@@ -97,4 +106,9 @@ bool oplus_gauge_afi_update_done(void);
 bool oplus_gauge_check_reset_condition(void);
 bool oplus_gauge_reset(void);
 bool is_support_parallel_battery(struct oplus_mms *topic);
+void oplus_gauge_set_deep_dischg_count(struct oplus_mms *topic, int count);
+int oplus_gauge_show_deep_dischg_count(struct oplus_mms *topic);
+void oplus_gauge_set_deep_count_cali(struct oplus_mms *topic, int val);
+int oplus_gauge_get_deep_count_cali(struct oplus_mms *topic);
+int oplus_gauge_get_battinfo_sn(struct oplus_mms *topic, char *sn_buff, int size_buffer);
 #endif /* __OPLUS_MMS_GAUGE_H__ */

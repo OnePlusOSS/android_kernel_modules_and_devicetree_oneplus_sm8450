@@ -1780,7 +1780,7 @@ static proc_node_t proc_table[] = {
 	{"rw_tp_reg", NULL, &proc_rw_tp_reg_fops, false},
 };
 
-#define NETLINK_USER 21
+#define NETLINK_USER 0xff
 static struct sock *netlink_skb;
 static struct nlmsghdr *netlink_head;
 static struct sk_buff *skb_out;

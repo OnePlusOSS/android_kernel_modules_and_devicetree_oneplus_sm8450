@@ -51,7 +51,10 @@
 #include "oplus_battery_sm6375.h"
 #include "oplus_discrete_charger.h"
 #include <linux/nvmem-consumer.h>
-
+#if (LINUX_VERSION_CODE == KERNEL_VERSION(5, 1, 5))
+#include "../../../../../kernel_platform/msm-kernel/drivers/usb/typec/pd/inc/tcpci.h"
+#include "../../../../../kernel_platform/msm-kernel/drivers/usb/typec/pd/inc/tcpm.h"
+#endif
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0))
 int op10_subsys_init(void);
 void op10_subsys_exit(void);
@@ -245,8 +248,10 @@ static int oplus_get_iio_channel(struct smb_charger *chg, const char *propname,
 
 	rc = of_property_match_string(chg->dev->of_node,
 					"io-channel-names", propname);
-	if (rc < 0)
+	if (rc < 0) {
+		dev_err(chg->dev, "oplus_get_iio_channel %s miss\n",propname);
 		return 0;
+	}
 
 	*chan = iio_channel_get(chg->dev, propname);
 	if (IS_ERR(*chan)) {
@@ -259,35 +264,45 @@ static int oplus_get_iio_channel(struct smb_charger *chg, const char *propname,
 	return rc;
 }
 
-static int oplus_parse_dt_adc_channels(struct smb_charger *chg)
+static void oplus_parse_dt_adc_channels(struct work_struct *work)
 {
+	static int retry_count = 100;
 	int rc = 0;
+	struct smb_charger *chg = container_of(work, struct smb_charger,
+						parse_dt_adc_channels_work.work);
 
 	rc = oplus_get_iio_channel(chg, "chgid_v_chan", &chg->iio.chgid_v_chan);
 	if (rc < 0)
-		return rc;
+		goto retry;
 
 	rc = oplus_get_iio_channel(chg, "usbtemp_r_v_chan", &chg->iio.usbtemp_r_v_chan);
 	if (rc < 0)
-		return rc;
+		goto retry;
 
 	rc = oplus_get_iio_channel(chg, "usbtemp_l_v_chan", &chg->iio.usbtemp_l_v_chan);
 	if (rc < 0)
-		return rc;
+		goto retry;
 
 	rc = oplus_get_iio_channel(chg, "batbtb_temp_chan", &chg->iio.batbtb_temp_chan);
 	if (rc < 0)
-		return rc;
+		goto retry;
 
 	rc = oplus_get_iio_channel(chg, "usbbtb_temp_chan", &chg->iio.usbbtb_temp_chan);
 	if (rc < 0)
-		return rc;
+		goto retry;
 
 	rc = oplus_get_iio_channel(chg, "subboard_temp_chan", &chg->iio.subboard_temp_chan);
 	if (rc < 0)
-		return rc;
+		goto retry;
 
-	return 0;
+	return;
+retry:
+	if (retry_count > 0) {
+		pr_info("oplus_parse_dt_adc_channels\n");
+		retry_count--;
+		schedule_delayed_work(&chg->parse_dt_adc_channels_work, msecs_to_jiffies(100));
+	}
+	return;
 }
 
 #define ERROR_BATT_TEMP -400
@@ -856,7 +871,7 @@ static __maybe_unused bool oplus_chg_get_shortc_hw_gpio_status(void)
 	return shortc_hw_status;
 }
 #else
-static bool oplus_chg_get_shortc_hw_gpio_status(void)
+static __maybe_unused bool oplus_chg_get_shortc_hw_gpio_status(void)
 {
 	bool shortc_hw_status = 1;
 
@@ -2711,7 +2726,8 @@ static int discrete_charger_probe(struct platform_device *pdev)
 	oplus_chg_parse_custom_dt(oplus_chip);
 	oplus_chg_parse_charger_dt(oplus_chip);
 	oplus_chg_2uart_pinctrl_init(oplus_chip);
-	oplus_parse_dt_adc_channels(chg);
+	INIT_DELAYED_WORK(&chg->parse_dt_adc_channels_work, oplus_parse_dt_adc_channels);
+	schedule_delayed_work(&chg->parse_dt_adc_channels_work, msecs_to_jiffies(0));
 	oplus_chg_init(oplus_chip);
 
 	oplus_chip->con_volt = con_volt_pmr735a;

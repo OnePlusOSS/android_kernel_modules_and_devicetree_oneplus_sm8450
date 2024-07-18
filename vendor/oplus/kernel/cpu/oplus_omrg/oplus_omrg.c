@@ -138,6 +138,7 @@ static DEFINE_KTHREAD_WORKER(g_omrg_worker);
 static struct task_struct *g_omrg_work_thread;
 static bool g_omrg_initialized;
 static DEFINE_SPINLOCK(g_ruler_write_lock);
+static DEFINE_MUTEX(g_ruler_enable_lock);
 
 static void omrg_irq_work(struct irq_work *w)
 {
@@ -1148,6 +1149,7 @@ error_out:
 
 static bool omrg_enable_ruler(struct omrg_rule *ruler, int enable)
 {
+	mutex_lock(&g_ruler_enable_lock);
 	ruler->enable = !!enable;
 
 	if (ruler->enable) {
@@ -1155,9 +1157,11 @@ static bool omrg_enable_ruler(struct omrg_rule *ruler, int enable)
 	} else {
 		if (!omrg_disable_ruler(ruler)) {
 			ruler->enable = true;
+			mutex_unlock(&g_ruler_enable_lock);
 			return false;
 		}
 	}
+	mutex_unlock(&g_ruler_enable_lock);
 	return true;
 }
 
@@ -1217,10 +1221,10 @@ static ssize_t omrg_set_master_slave(struct omrg_rule *ruler, const char *buf, s
 	unsigned long flags;
 	int cur_enable = ruler->enable;
 
-	spin_lock_irqsave(&g_ruler_write_lock, flags);
 	if (cur_enable)
 		omrg_enable_ruler(ruler, 0);
 
+	spin_lock_irqsave(&g_ruler_write_lock, flags);
 	while ((cp = strpbrk(cp + 1, ":")))
 		ntokens++;
 	cp = buf;
@@ -1261,9 +1265,9 @@ static ssize_t omrg_set_master_slave(struct omrg_rule *ruler, const char *buf, s
 	}
 
 out:
+	spin_unlock_irqrestore(&g_ruler_write_lock, flags);
 	if (cur_enable)
 		omrg_enable_ruler(ruler, 1);
-	spin_unlock_irqrestore(&g_ruler_write_lock, flags);
 	return ret;
 }
 

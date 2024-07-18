@@ -44,7 +44,7 @@ static char bright_skip_stages[][64] = {
 
 static int br_start_check_systemid = -1;
 u64 mLastPwkTime = 0;
-u64 FrequencyInterval = 60000;
+u64 FrequencyInterval = 300000;
 
 int bright_screen_timer_restart(void)
 {
@@ -100,8 +100,10 @@ static void send_bright_screen_dcs_msg(void)
 	mLastPwkTime = ts;
 	BRIGHT_DEBUG_PRINTK("send_bright_screen_dcs_msg mLastPwkTime is %lld ms\n", mLastPwkTime);
 	get_brightscreen_check_dcs_logmap(logmap);
-	theia_send_event(THEIA_EVENT_BRIGHT_SCREEN_HANG, THEIA_LOGINFO_EVENTS_LOG | THEIA_LOGINFO_KERNEL_LOG | THEIA_LOGINFO_ANDROID_LOG,
-		current->pid, logmap);
+	theia_send_event(THEIA_EVENT_PWK_SHUTDOWN_MONITOR, THEIA_LOGINFO_SYSTEM_SERVER_TRACES
+		 | THEIA_LOGINFO_EVENTS_LOG | THEIA_LOGINFO_KERNEL_LOG | THEIA_LOGINFO_ANDROID_LOG
+		 | THEIA_LOGINFO_DUMPSYS_SF | THEIA_LOGINFO_DUMPSYS_POWER,
+		get_systemserver_pid(), logmap);
 }
 
 static void dump_freeze_log(void)
@@ -155,7 +157,7 @@ static bool is_need_skip(void)
 	return false;
 }
 
-static void delete_timer(char *reason, bool cancel)
+static void delete_timer_bright(char *reason, bool cancel)
 {
 	del_timer(&g_bright_data.timer);
 	del_timer(&g_black_data.timer);
@@ -195,7 +197,8 @@ static void bright_error_happen_work(struct work_struct *work)
 	BRIGHT_DEBUG_PRINTK("bright_error_happen_work error_id = %s, error_count = %d\n",
 		bri_data->error_id, bri_data->error_count);
 
-	delete_timer("BR_SCREEN_ERROR_HAPPEN", false);
+	set_timer_started(true);
+	delete_timer_bright("BR_SCREEN_ERROR_HAPPEN", false);
 }
 
 static void bright_timer_func(struct timer_list *t)
@@ -203,6 +206,9 @@ static void bright_timer_func(struct timer_list *t)
 	struct pwrkey_monitor_data *p = from_timer(p, t, timer);
 
 	BRIGHT_DEBUG_PRINTK("bright_timer_func is called\n");
+
+	/* stop recored stage when happen work for alm:6864732 */
+	set_timer_started(false);
 
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)
 	if (g_bright_data.active_panel == NULL || g_bright_data.cookie == NULL) {
@@ -230,7 +236,7 @@ static void bright_fb_notifier_callback(enum panel_event_notifier_tag tag,
 	case DRM_PANEL_EVENT_BLANK:
 		g_bright_data.blank = THEIA_PANEL_BLANK_VALUE;
 		if (g_bright_data.status != BLACK_STATUS_CHECK_DEBUG) {
-			delete_timer("FINISH_FB", true);
+			delete_timer_bright("FINISH_FB", true);
 			del_timer(&g_recovery_data.timer);
 			BRIGHT_DEBUG_PRINTK("bright_fb_notifier_callback: del_timer g_recovery_data del in qcom\n");
 			BRIGHT_DEBUG_PRINTK("bright_fb_notifier_callback: del timer, status:%d, blank:%d\n",
@@ -256,7 +262,7 @@ static int bright_fb_notifier_callback(struct notifier_block *self,
 		g_bright_data.blank = *(int *)data;
 		if (g_bright_data.status != BLACK_STATUS_CHECK_DEBUG) {
 			if (g_bright_data.blank == THEIA_PANEL_BLANK_VALUE) {
-				delete_timer("FINISH_FB", true);
+				delete_timer_bright("FINISH_FB", true);
 				del_timer(&g_recovery_data.timer);
 				BRIGHT_DEBUG_PRINTK("bright_fb_notifier_callback: del_timer g_recovery_data del in mtk\n");
 				BRIGHT_DEBUG_PRINTK("bright_fb_notifier_callback: del timer, status:%d blank:%d\n",
@@ -306,7 +312,7 @@ static ssize_t bright_screen_cancel_proc_write(struct file *file, const char __u
 	}
 
 	snprintf(cancel_str, sizeof(cancel_str), "CANCELED_BR_%s", buffer);
-	delete_timer(cancel_str, true);
+	delete_timer_bright(cancel_str, true);
 
 	return count;
 }
@@ -376,7 +382,7 @@ void bright_screen_exit(void)
 {
 	BRIGHT_DEBUG_PRINTK("%s called\n", __func__);
 	remove_proc_entry(PROC_BRIGHT_SWITCH, NULL);
-	delete_timer("FINISH_DRIVER_EXIT", true);
+	delete_timer_bright("FINISH_DRIVER_EXIT", true);
 	del_timer(&g_recovery_data.timer);
 	BRIGHT_DEBUG_PRINTK("bright_screen_exit: del_timer g_recovery_data exit\n");
 	cancel_work_sync(&g_bright_data.error_happen_work);

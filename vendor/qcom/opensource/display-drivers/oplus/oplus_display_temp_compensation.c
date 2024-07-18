@@ -41,6 +41,12 @@ struct LCM_setting_table {
 
 /* log level config */
 unsigned int oplus_temp_compensation_log_level = OPLUS_TEMP_COMPENSATION_LOG_LEVEL_DEBUG;
+/* oplus,temp-compensation-data */
+const char *data1 = NULL;
+const char *data2 = NULL;
+unsigned char *data_normal = NULL;
+unsigned char *data_onepulse = NULL;
+extern bool hpwm_onepulse_update_temp;
 EXPORT_SYMBOL(oplus_temp_compensation_log_level);
 /* temp compensation global structure */
 static struct oplus_temp_compensation_params g_oplus_temp_compensation_params = {0};
@@ -312,6 +318,95 @@ error:
 	}
 
 	OPLUS_TEMP_COMPENSAITON_TRACE_END("oplus_temp_compensation_init");
+
+	TEMP_COMPENSATION_DEBUG("end\n");
+
+	return rc;
+}
+
+int oplus_temp_compensation_data_replace (void *dsi_panel)
+{
+	unsigned char *data_replace = NULL;
+	int rc = 0;
+	int length = 0;
+	unsigned int i = 0;
+	unsigned int j = 0;
+	unsigned int k = 0;
+	struct dsi_panel *panel = dsi_panel;
+	struct dsi_parser_utils *utils = NULL;
+	struct oplus_temp_compensation_params *p_oplus_temp_compensation_params = oplus_temp_compensation_get_params();
+
+	TEMP_COMPENSATION_DEBUG("start\n");
+
+	if (IS_ERR_OR_NULL(panel) || IS_ERR_OR_NULL(p_oplus_temp_compensation_params)) {
+		TEMP_COMPENSATION_ERR("Invalid panel or p_oplus_temp_compensation_params params\n");
+		return -EINVAL;
+	}
+
+	if (!strcmp(panel->type, "secondary")) {
+		TEMP_COMPENSATION_INFO("ignore secondary panel function calls\n");
+		return rc;
+	}
+
+	utils = &panel->utils;
+	if (!utils) {
+		TEMP_COMPENSATION_ERR("Invalid utils params\n");
+		return -EINVAL;
+	}
+
+	if (data1 == NULL || data2 == NULL) {
+		/* oplus,temp-compensation-temp-group */
+		length = utils->count_u32_elems(utils->data, "oplus,temp-compensation-temp-group");
+		if (length < 0) {
+			TEMP_COMPENSATION_ERR("failed to get the count of oplus,temp-compensation-temp-group\n");
+			return -EINVAL;
+		}
+		/* oplus,temp-compensation-data */
+		data1 = utils->get_property(utils->data, "oplus,temp-compensation-data", &length);
+		if (!data1) {
+			TEMP_COMPENSATION_ERR("failed to get oplus,temp-compensation-data\n");
+			return rc;
+		}
+		data2 = utils->get_property(utils->data, "oplus,temp-compensation-data-onepulse", &length);
+		if (!data2) {
+			TEMP_COMPENSATION_ERR("failed to get oplus,temp-compensation-data-onepulse\n");
+			return rc;
+		}
+		data_normal = kzalloc(length * sizeof(unsigned char), GFP_KERNEL);
+		if (!data_normal) {
+			TEMP_COMPENSATION_ERR("failed to kzalloc data3\n");
+			return -ENOMEM;
+		}
+		data_onepulse = kzalloc(length * sizeof(unsigned char), GFP_KERNEL);
+		if (!data_onepulse) {
+			TEMP_COMPENSATION_ERR("failed to kzalloc data3\n");
+			return -ENOMEM;
+		}
+		memcpy(data_normal, data1, length * sizeof(unsigned char));
+		memcpy(data_onepulse, data2, length * sizeof(unsigned char));
+	}
+
+	if (panel->oplus_priv.pwm_turbo_enabled) {
+		data_replace = data_onepulse;
+	} else {
+		data_replace = data_normal;
+	}
+
+	for (i = 0; i < p_oplus_temp_compensation_params->dbv_group_count; i++) {
+		p_oplus_temp_compensation_params->data[i] = kzalloc(p_oplus_temp_compensation_params->temp_group_count * sizeof(unsigned char*), GFP_KERNEL);
+		if (!p_oplus_temp_compensation_params->data[i]) {
+			TEMP_COMPENSATION_ERR("failed to kzalloc data[%u]\n", i);
+			return -ENOMEM;
+		}
+		for (j = 0; j < p_oplus_temp_compensation_params->temp_group_count; j++) {
+			p_oplus_temp_compensation_params->data[i][j] =
+				&data_replace[i * p_oplus_temp_compensation_params->temp_group_count * p_oplus_temp_compensation_params->voltage_group_count +
+						j * p_oplus_temp_compensation_params->voltage_group_count + 0];
+			for (k = 0; k < (p_oplus_temp_compensation_params->voltage_group_count); k++) {
+				TEMP_COMPENSATION_DEBUG("data[%u][%u][%u]=0x%02X\n", i, j, k, p_oplus_temp_compensation_params->data[i][j][k]);
+			}
+		}
+	}
 
 	TEMP_COMPENSATION_DEBUG("end\n");
 
@@ -736,7 +831,8 @@ int oplus_temp_compensation_cmd_set(void *dsi_panel, unsigned int setting_mode)
 				last_temp_index, temp_index);
 
 	if ((last_dbv_index != dbv_index) || (last_temp_index != temp_index) || (!last_bl_lvl && bl_lvl)
-			|| (setting_mode == OPLUS_TEMP_COMPENSATION_ESD_SETTING) || (setting_mode == OPLUS_TEMP_COMPENSATION_FIRST_HALF_FRAME_SETTING)) {
+			|| (setting_mode == OPLUS_TEMP_COMPENSATION_ESD_SETTING) || (setting_mode == OPLUS_TEMP_COMPENSATION_FIRST_HALF_FRAME_SETTING)
+			|| hpwm_onepulse_update_temp) {
 		if (((refresh_rate == 60) && (setting_mode == OPLUS_TEMP_COMPENSATION_BACKLIGHT_SETTING)
 			&& (bl_lvl != 0) && (bl_lvl != 1)) || oplus_temp_compensation_wait_for_vsync_set) {
 			p_oplus_temp_compensation_params->need_to_set_in_first_half_frame = true;

@@ -41,6 +41,7 @@
 #define FTS_REG_FOD_INFO                        0xE1
 #define FTS_REG_FOD_INFO_LEN                    9
 
+#define FTS_REG_MC_THGROUP                      0x80
 #define FTS_REG_INT_CNT                         0x8F
 #define FTS_REG_FLOW_WORK_CNT                   0x91
 #define FTS_REG_CHIP_ID                         0xA3
@@ -50,6 +51,7 @@
 #define FTS_REG_FW_VER                          0xA6
 #define FTS_REG_VENDOR_ID                       0xA8
 #define FTS_REG_GESTURE_EN                      0xD0
+#define FTS_REG_GESTURE_CONFIG1                 0xD1
 #define FTS_REG_GESTURE_OUTPUT_ADDRESS          0xD3
 #define FTS_REG_MODULE_ID                       0xE3
 #define FTS_REG_LIC_VER                         0xE4
@@ -172,6 +174,12 @@ struct fts_fod_info {
 	u8 fp_down_report;
 };
 
+typedef enum {
+	TYPE_NO_FOD_TRIGGER = 0,
+	TYPE_SMALL_FOD_TRIGGER,
+	TYPE_FOD_TRIGGER,
+} fod_trigger_type;
+
 struct ftxxxx_proc {
 	struct proc_dir_entry *proc_entry;
 	u8 opmode;
@@ -222,6 +230,7 @@ struct chip_data_ft3658u {
 	struct seq_file *s;
 	struct fts_autotest_offset *fts_autotest_offset;
 	struct touchpanel_data *ts;
+	struct monitor_data *monitor_data;
 	struct delayed_work prc_work;
 	struct workqueue_struct *ts_workqueue;
 	unsigned long intr_jiffies;
@@ -229,6 +238,13 @@ struct chip_data_ft3658u {
 	bool high_resolution_support_x8;
 	bool switch_game_rate_support;
 	uint16_t game_rate;
+	int gesture_state;
+	bool black_gesture_indep;
+
+	bool is_in_water;
+	fod_trigger_type fod_trigger;
+
+	bool charger_connected;
 };
 
 
@@ -252,6 +268,7 @@ int ft3658u_short_test(struct seq_file *s, void *chip_data,
                        struct auto_testdata *focal_testdata, struct test_item_info *p_test_item_info);
 int ft3658u_auto_endoperation(struct seq_file *s, void *chip_data,
                               struct auto_testdata *focal_testdata, struct test_item_info *p_test_item_info);
-
-
+int ft3658u_rst_autotest(struct seq_file *s, void *chip_data,
+                                  struct auto_testdata *focal_testdata, struct test_item_info *p_test_item_info);
+int ft3658u_rstpin_reset(void *chip_data);
 #endif /*__FT3658U_CORE_H__*/

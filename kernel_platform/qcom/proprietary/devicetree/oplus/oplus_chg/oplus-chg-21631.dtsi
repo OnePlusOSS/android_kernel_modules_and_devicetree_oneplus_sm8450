@@ -3,6 +3,11 @@
 #include "oplus_chg_21631.h"
 
 &soc {
+	oplus_battery_log: oplus,battery_log {
+		compatible = "oplus,battery_log";
+		oplus,battery_log_support;
+	};
+
 	oplus,adsp-voocphy {
 		compatible = "oplus,adsp-voocphy";
 	};
@@ -60,6 +65,7 @@
 	qcom,recharge-mv = <100>;
 	qcom,batt_capacity_mah = <5000>;/*typical capacity*/
 	//qcom,batt_capacity_mah = <4400>; /*rated capacity*/
+	oplus,aging_ffc_version = <1>;
 
 	qcom,removed_bat_decidegc = <190>;  /*<-19C*/
 

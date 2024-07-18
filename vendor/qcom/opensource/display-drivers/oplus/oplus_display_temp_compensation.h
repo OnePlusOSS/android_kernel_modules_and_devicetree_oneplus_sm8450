@@ -147,6 +147,7 @@ void oplus_temp_compensation_first_half_frame_cmd_set_work_handler(struct work_s
 int oplus_temp_compensation_first_half_frame_cmd_set(void *dsi_panel);
 int oplus_temp_compensation_temp_check(void *dsi_display);
 int oplus_temp_compensation_get_ntc_temp(void);
+int oplus_temp_compensation_data_replace(void *dsi_display);
 
 /* -------------------- node -------------------- */
 /* config */

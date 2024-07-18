@@ -1292,6 +1292,79 @@ static ssize_t oplus_set_pwm_turbo_debug(struct kobject *obj,
 	return count;
 }
 
+/* start for pwm onepulse feature */
+static ssize_t oplus_get_pwm_pulse_debug(struct kobject *obj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int rc = 0;
+	u32 enabled = 0;
+	struct dsi_display *display = get_main_display();
+	struct dsi_panel *panel = NULL;
+
+	if (!display || !display->panel) {
+		DSI_ERR("Invalid display or panel\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	panel = display->panel;
+
+	if (!panel->oplus_priv.pwm_onepulse_support) {
+		DSI_ERR("Falied to get pwm pulse status, because it is unsupport\n");
+		rc = -EFAULT;
+		return rc;
+	}
+
+	mutex_lock(&display->display_lock);
+	mutex_lock(&panel->panel_lock);
+
+	enabled = panel->oplus_priv.pwm_onepulse_enabled;
+
+	mutex_unlock(&panel->panel_lock);
+	mutex_unlock(&display->display_lock);
+	DSI_INFO("Get pwm pulse status: %d\n", enabled);
+
+	return sysfs_emit(buf, "%d\n", enabled);
+}
+
+static ssize_t oplus_set_pwm_pulse_debug(struct kobject *obj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int rc = 0;
+	u32 enabled = 0;
+	struct dsi_display *display = get_main_display();
+	struct dsi_panel *panel = NULL;
+
+	if (!display || !display->panel) {
+		DSI_ERR("Invalid display or panel\n");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	panel = display->panel;
+
+	if (!panel->oplus_priv.pwm_onepulse_support) {
+		DSI_ERR("Falied to set pwm onepulse status, because it is unsupport\n");
+		rc = -EFAULT;
+		return rc;
+	}
+
+	rc = kstrtou32(buf, 10, &enabled);
+	if (rc) {
+		DSI_WARN("%s cannot be converted to u32", buf);
+		return count;
+	}
+	DSI_INFO("Set pwm onepulse status: %du\n", enabled);
+
+	mutex_lock(&display->display_lock);
+	oplus_panel_update_pwm_pulse_lock(panel, enabled);
+	mutex_unlock(&display->display_lock);
+
+	return count;
+}
+/* end for pwm onepulse feature */
+
 static ssize_t oplus_get_ffc_mode_debug(struct kobject *obj,
 	struct kobj_attribute *attr, char *buf)
 {
@@ -3254,6 +3327,9 @@ static OPLUS_ATTR(temp_compensation_config, S_IRUGO | S_IWUSR, oplus_temp_compen
 static OPLUS_ATTR(ntc_temp, S_IRUGO | S_IWUSR, oplus_temp_compensation_get_ntc_temp_attr, oplus_temp_compensation_set_ntc_temp_attr);
 static OPLUS_ATTR(shell_temp, S_IRUGO | S_IWUSR, oplus_temp_compensation_get_shell_temp_attr, oplus_temp_compensation_set_shell_temp_attr);
 #endif /* OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */
+/* add for onepulse feature */
+static OPLUS_ATTR(pwm_onepulse, S_IRUGO|S_IWUSR, oplus_get_pwm_pulse_debug,
+		oplus_set_pwm_pulse_debug);
 #ifdef OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT
 static OPLUS_ATTR(fp_type, S_IRUGO | S_IWUSR, oplus_ofp_get_fp_type_attr, oplus_ofp_set_fp_type_attr);
 static OPLUS_ATTR(hbm, S_IRUGO | S_IWUSR, oplus_ofp_get_hbm_attr, oplus_ofp_set_hbm_attr);
@@ -3301,6 +3377,8 @@ static struct attribute *oplus_display_attrs[] = {
 	&oplus_attr_ffc_mode.attr,
 	&oplus_attr_crc_check.attr,
 	&oplus_attr_pwm_turbo.attr,
+	/* add for onepulse feature */
+	&oplus_attr_pwm_onepulse.attr,
 #ifdef OPLUS_FEATURE_DISPLAY
 	&oplus_attr_adfr_debug.attr,
 	&oplus_attr_vsync_switch.attr,

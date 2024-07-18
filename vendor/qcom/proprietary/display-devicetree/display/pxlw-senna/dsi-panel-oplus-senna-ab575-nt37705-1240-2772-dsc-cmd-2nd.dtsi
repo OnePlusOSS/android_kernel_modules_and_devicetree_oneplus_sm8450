@@ -63,6 +63,25 @@
 
 		qcom,dynamic-mode-switch-enabled;
 		qcom,dynamic-mode-switch-type = "dynamic-resolution-switch-immediate";
+
+		/* aod/fod config */
+		oplus,ofp-fp-type = <0x08>;
+		oplus,ofp-need-to-wait-data-before-aod-on;
+		/* adfr config */
+		/* just for qsync enable*/
+		qcom,qsync-enable;
+		qcom,mdss-dsi-qsync-min-refresh-rate = <24>;
+		/*
+		** 0st bit: adfr global on/off
+		** 1st bit: fakeframe on/off
+		** 2st bit: switch on/off
+		** 3rd bit: 0:double-TE switch 1:external TE/TP switch
+		** 4rd bit: idle mode on/off
+		** 5th bit: temperature compensation mode on/off
+		** 6th bit: OA backlight mutual exclusion
+		*/
+		oplus,adfr-config = <33>; //0010 0001
+
 		qcom,mdss-dsi-display-timings {
 			timing@sdc_fhd_120{
 				//qcom,mdss-mdp-transfer-time-us = <12000>;

@@ -100,6 +100,8 @@ static const struct panel_ioctl_desc panel_ioctls[] = {
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_DC_REAL_BACKLIGHT, oplus_display_panel_set_dc_real_brightness),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_PWM_TURBO, oplus_display_panel_set_pwm_turbo),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_PWM_TURBO, oplus_display_panel_get_pwm_turbo),
+	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_PWM_PULSE, oplus_display_panel_set_pwm_pulse),
+	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_PWM_PULSE, oplus_display_panel_get_pwm_pulse),
 };
 
 int oplus_display_fix_apollo_level(void)
