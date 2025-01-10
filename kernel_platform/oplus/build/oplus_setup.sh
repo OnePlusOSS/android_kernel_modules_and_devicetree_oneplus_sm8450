@@ -312,4 +312,4 @@ choose_platform $1
 choose_build_type $2
 choose_lto_type $3
 choose_target_build $4
-choose_repack_img $5
+#choose_repack_img $5

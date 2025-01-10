@@ -3371,6 +3371,7 @@ RECHECK:
 			} else if (bq->power_good) {
 				goto RECHECK;
 			}
+			break;
 		case BQ2589X_VBUS_TYPE_SDP:
 			bq->chg_type = STANDARD_HOST;
 			if (!bq->sdp_retry && (!g_oplus_chip || g_oplus_chip->stop_chg)) {

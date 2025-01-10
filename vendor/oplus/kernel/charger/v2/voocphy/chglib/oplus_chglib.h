@@ -95,6 +95,7 @@ struct vphy_chip {
 	bool switching_hw_status;
 	int debug_cp_err;
 	int track_err_type;
+	int cc_detect;
 };
 
 extern void oplus_chg_adc_switch_ctrl(void);
@@ -131,5 +132,7 @@ int oplus_chglib_push_break_code(struct device *dev, int code);
 struct vphy_chip *oplus_chglib_register_vphy(struct device *dev,
 					     struct hw_vphy_info *vinf);
 void oplus_chglib_creat_ic_err(struct device *dev, int type);
+int oplus_chglib_get_cc_detect(struct device *dev);
+
 
 #endif /*__OPLUS_CHGLIB_H__*/

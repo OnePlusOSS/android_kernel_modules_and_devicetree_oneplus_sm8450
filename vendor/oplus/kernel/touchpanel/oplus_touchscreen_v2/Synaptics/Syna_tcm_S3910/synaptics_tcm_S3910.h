@@ -263,6 +263,7 @@ enum dynamic_config_id {
 	DC_ENABLE_GLOVE,
 	DC_PS_STATUS = 0xC1,
 	DC_DISABLE_ESD = 0xC2,
+	DC_MOIS_MODE = 0xC7,
 	DC_FREQUENCE_HOPPING = 0xD2,
 	DC_TOUCH_HOLD = 0xD4,
 	DC_ERROR_PRIORITY = 0xD5,
@@ -381,6 +382,12 @@ enum smart_mode {
 	DIAPHRAGM_FILM_MODE = 1,
 	DIAPHRAGM_WATERPROO_MODE = 2,
 	DIAPHRAGM_FILM_WATERPROO_MODE = 3,
+};
+
+enum mois_mode {
+	MOIS_DISABLED = 0,
+	MOIS_ENABLED = 1,
+	MOIS_FORCED = 2,
 };
 
 struct syna_tcm_buffer {

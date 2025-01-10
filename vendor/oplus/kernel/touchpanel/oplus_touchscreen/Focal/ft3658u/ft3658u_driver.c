@@ -2525,6 +2525,12 @@ static void ft3658u_health_report_v2(void *chip_data, struct monitor_data_v2 *mo
 	if (0 != val) {
 		TPD_INFO("Health register(0x01):0x%x", val);
 	}
+	if (val & 0x01) {
+		ts_data->in_water_flag = 1;
+	}
+	else {
+		ts_data->in_water_flag = 0;
+	}
 	if ((val & 0x01) && !ts_data->is_in_water) {
 		TPD_DETAIL("Health register(0x01):Water Shield");
 		tp_healthinfo_report(mon_data_v2, HEALTH_REPORT, HEALTH_REPORT_SHIELD_WATER);
@@ -3545,6 +3551,43 @@ int ft3658u_set_spi_max_speed(u32 speed, u8 mode)
 	return rc;
 }
 
+static int ft3658u_diaphragm_touch_lv_set(void *chip_data, int level)
+{
+	u8 diaphragm_mode = 0;
+	switch (level) {
+	case DIAPHRAGM_DEFAULT_MODE:
+		diaphragm_mode = 0;
+		break;
+	case DIAPHRAGM_FILM_MODE:
+		diaphragm_mode = 1;
+		break;
+	case DIAPHRAGM_WATERPROO_MODE:
+		diaphragm_mode = 2;
+		break;
+	case DIAPHRAGM_FILM_WATERPROO_MODE:
+		diaphragm_mode = 3;
+		break;
+	default:
+		TPD_INFO("error, level = %d", level);
+		return 0;
+	}
+	TPD_INFO("diaphragm_mode level = %d", level);
+	return ft3658u_write_reg(FT3658U_REG_DIAPHRAGM_EN, diaphragm_mode);
+}
+
+static void ft3658u_read_water_flag(void *chip_data)
+{
+	struct chip_data_ft3658u *ts_data = (struct chip_data_ft3658u *)chip_data;
+	struct touchpanel_data *ts = spi_get_drvdata(ts_data->ft_spi);
+	TPD_INFO("%s: water flag %d!\n", __func__, ts_data->in_water_flag);
+	if (ts_data->in_water_flag == 1) {
+		ts->read_water_data = 1;
+	}
+	else {
+		ts->read_water_data = 0;
+	}
+}
+
 static struct oplus_touchpanel_operations ft3658u_ops = {
 	.power_control              = ft3658u_power_control,
 	.get_vendor                 = ft3658u_get_vendor,
@@ -3573,6 +3616,8 @@ static struct oplus_touchpanel_operations ft3658u_ops = {
 	.set_high_frame_rate        = ft3658u_set_high_frame_rate,
 	.set_gesture_state          = ft3658u_set_gesture_state,
 	.send_temperature           = ft3658u_send_temperature,
+	.diaphragm_touch_lv_set     = ft3658u_diaphragm_touch_lv_set,
+	.read_water_flag            = ft3658u_read_water_flag,
 };
 
 static struct fts_proc_operations ft3658u_proc_ops = {

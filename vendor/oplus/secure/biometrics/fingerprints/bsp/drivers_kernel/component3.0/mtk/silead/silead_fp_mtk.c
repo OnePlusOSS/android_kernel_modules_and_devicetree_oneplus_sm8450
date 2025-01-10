@@ -322,7 +322,6 @@ static int silfp_parse_dts(struct silfp_data *fp_dev)
 	struct platform_device *pdev = NULL;
 	int  ret;
 //#ifdef VENDOR_EDIT
-//Zemin.Li@BSP.Fingerprint.Basic, 2019.11.29, fix failed to get irq
 	node = of_find_compatible_node(NULL, NULL, FP_PINS_OF);
 
 	if (node) {
@@ -638,10 +637,10 @@ static int silfp_resource_init(struct silfp_data *fp_dev,
 	silfp_hw_poweron(fp_dev);
 	mdelay(5);
 
-	/*ÉÏµçÖ®ºóÀ­¸ßRST£¬Ê¹ÄÜÄ£×é*/
+	/*ä¸Šç”µä¹‹åæ‹‰é«˜RSTï¼Œä½¿èƒ½æ¨¡ç»„*/
 	pinctrl_select_state(fp_dev->pin.pinctrl, fp_dev->pin.pins_rst_h);
 
-	/*ÅäÖÃspi µÄÉÏµçºóµÄÄ¬ÈÏ×´Ì¬£¬CSÄ£Ê½À­¸ßÊä³ö*/
+	/*é…ç½®spi çš„ä¸Šç”µåçš„é»˜è®¤çŠ¶æ€ï¼ŒCSæ¨¡å¼æ‹‰é«˜è¾“å‡º*/
 	silfp_set_spi_default_status(fp_dev);
 
 	if (!ret) {

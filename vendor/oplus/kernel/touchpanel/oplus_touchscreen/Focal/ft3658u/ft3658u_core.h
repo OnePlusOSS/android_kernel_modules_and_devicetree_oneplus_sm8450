@@ -81,6 +81,7 @@
 #define FT3658U_REG_WORK_MODE_SNR_MODE              0x81
 #define FT3658U_REG_WORK_MODE_FINAL_DIFF_MODE       0x01
 #define FT3658U_REG_WORK_MODE_NORMAL_MODE           0x00
+#define FT3658U_REG_DIAPHRAGM_EN                    0xC0
 
 
 #define FT3658U_MAX_POINTS_SUPPORT                  10
@@ -377,8 +378,15 @@ struct chip_data_ft3658u {
 
 	bool charger_connected;
 	u32 spi_speed;
+	bool in_water_flag;
 };
 
+enum diaphragm_mode {
+	DIAPHRAGM_DEFAULT_MODE = 0,
+	DIAPHRAGM_FILM_MODE = 1,
+	DIAPHRAGM_WATERPROO_MODE = 2,
+	DIAPHRAGM_FILM_WATERPROO_MODE = 3,
+};
 
 extern struct chip_data_ft3658u *g_ft3658u_data;
 

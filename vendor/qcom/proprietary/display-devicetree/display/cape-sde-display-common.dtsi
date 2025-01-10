@@ -43,9 +43,6 @@
 #include "dsi-panel-oplus-senna22623-nt37705-06-1240-2772-dsc-cmd.dtsi"
 #include "dsi-panel-oplus-senna22623-nt37705-1240-2772-dsc-cmd-evt.dtsi"
 #include "dsi-panel-oplus22803-nt37705-1240-2772-dsc-cmd.dtsi"
-#include "dsi-panel-oplus-monroe-nt37705-1240-2772-dsc-cmd.dtsi"
-#include "dsi-panel-oplus-monroe-boe-nt37705-1240-2772-dsc-cmd.dtsi"
-#include "dsi-panel-oplus-monroe-boe-nt37705-1240-2772-dsc-cmd_evt.dtsi"
 #include "dsi-panel-BF185-P-3-A0001-dsc-cmd.dtsi"
 
 &soc {
@@ -70,9 +67,6 @@
 			&dsi_oplus_senna22623_nt37705_06_1240_2772_dsc_cmd
 			&dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd_evt
 			&dsi_oplus22803_nt37705_1240_2772_dsc_cmd
-			&dsi_oplus_monroe_nt37705_1240_2772_dsc_cmd
-			&dsi_oplus_monroe_boe_nt37705_1240_2772_dsc_cmd
-			&dsi_oplus_monroe_boe_nt37705_1240_2772_dsc_cmd_evt
 			&dsi_panel_BF185_P_3_A0001_dsc_cmd
 		>;
 		oplus,dsi-panel-secondary = <
@@ -103,9 +97,6 @@
 			&dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd
 			&dsi_oplus_senna22623_nt37705_1240_2772_dsc_cmd_evt
 			&dsi_oplus22803_nt37705_1240_2772_dsc_cmd
-			&dsi_oplus_monroe_nt37705_1240_2772_dsc_cmd
-			&dsi_oplus_monroe_boe_nt37705_1240_2772_dsc_cmd
-			&dsi_oplus_monroe_boe_nt37705_1240_2772_dsc_cmd_evt
 			&dsi_oplus_samsung_s6e3fac_1080_2120_dsc_cmd
 			&dsi_oplus_samsung_s6e3fac_1080_2120_dsc_cmd_wdte
 			&dsi_panel_BF185_P_3_A0001_dsc_cmd

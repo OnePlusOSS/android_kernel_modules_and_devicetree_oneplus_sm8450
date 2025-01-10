@@ -37,3 +37,4 @@ obj-y += dynamic_readahead/
 
 obj-$(CONFIG_OPLUS_FEATURE_SIGKILL_DIAGNOSIS) += sigkill_diagnosis/
 
+obj-y += kswapd_opt/

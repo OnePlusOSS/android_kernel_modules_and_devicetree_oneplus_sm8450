@@ -1139,10 +1139,10 @@ static void oplus_adsp_voocphy_status_func(struct work_struct *work)
 	}
 
 	oplus_adsp_voocphy_fastchg_event_handle(intval);
-	if ((intval & 0xFF) == ADSP_VPHY_FAST_NOTIFY_PRESENT
+/*	if ((intval & 0xFF) == ADSP_VPHY_FAST_NOTIFY_PRESENT
 		|| (intval & 0xFF) == ADSP_VPHY_FAST_NOTIFY_ONGOING) {
 		oplus_chg_set_curr_level_to_voocphy(bcdev);
-	}
+	}*/
 
 	if ((intval & 0xFF) != ADSP_VPHY_FAST_NOTIFY_PRESENT)
 		oplus_adsp_voocphy_cancle_err_check(bcdev);

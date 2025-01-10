@@ -4340,6 +4340,9 @@ static int oplus_chg_track_handle_wls_type_info(struct oplus_chg_track_status *t
 	int rc;
 	union oplus_chg_mod_propval pval;
 
+	if (!g_track_chip)
+		return -EINVAL;
+
 	track_status->power_info.power_type = TRACK_CHG_TYPE_WIRELESS;
 	memset(track_status->power_info.power_mode, 0, sizeof(track_status->power_info.power_mode));
 	strcpy(track_status->power_info.power_mode, "wireless");
@@ -4462,7 +4465,7 @@ static int oplus_chg_track_cal_chg_common_mesg(struct oplus_chg_chip *chip, stru
 	static bool pre_slow_chg = false;
 	struct rtc_time tm;
 
-	if (chip == NULL || track_status == NULL)
+	if (chip == NULL || track_status == NULL || track_chip == NULL)
 		return -EINVAL;
 
 	if (chip->temperature > track_status->chg_max_temp)
@@ -5019,6 +5022,9 @@ int oplus_chg_track_set_fastchg_break_code(int fastchg_break_code)
 int oplus_chg_track_set_fastchg_break_code_with_val(int fastchg_break_code, int val)
 {
 	struct oplus_chg_track_status *track_status;
+
+	if (!g_track_chip)
+		return -EINVAL;
 
 	track_status = &g_track_chip->track_status;
 	track_status->fastchg_break_val = val;

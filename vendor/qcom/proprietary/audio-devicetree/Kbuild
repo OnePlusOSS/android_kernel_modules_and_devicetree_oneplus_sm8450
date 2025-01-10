@@ -45,11 +45,7 @@ dtbo-$(CONFIG_ARCH_CAPE) += cape-audio.dtbo \
 #OPLUS_DTS_OVERLAY start
 #for waipio platform
 dtbo-$(CONFIG_ARCH_WAIPIO) += oplus/wly-20846-audio-waipio-overlay.dtbo \
-                 oplus/mt-20845-audio-waipio-overlay.dtbo \
                  oplus/jnc-20865-audio-waipio-overlay.dtbo \
-                 oplus/baize-21001-audio-waipio-overlay.dtbo \
-                 oplus/ferrari-21631-audio-waipio-overlay.dtbo \
-                 oplus/kunpeng-21009-audio-waipio-overlay.dtbo \
                  oplus/jennie-21605-audio-waipio-overlay.dtbo
 
 
@@ -62,7 +58,6 @@ dtbo-$(CONFIG_ARCH_CAPE) += oplus/whiteswan-22001-audio-cape-overlay.dtbo \
                  oplus/senna-22625-audio-cape-overlay.dtbo \
                  oplus/senna-22623-audio-cape-overlay.dtbo \
                  oplus/udon-22803-audio-cape-overlay.dtbo \
-                 oplus/monroe-22091-audio-cape-overlay.dtbo \
                  oplus/daoxiang-23023-audio-cape-overlay.dtbo
 
 #for diwali platform

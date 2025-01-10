@@ -69,6 +69,7 @@
 #define HEART			17
 #define S_GESTURE		18 /* new project not use this gesture type*/
 #define PENDETECT		18
+#define WATERPROOF_RUS_BIT 7
 
 #define HEALTH_REPORT_GRIP          "grip_report"
 #define HEALTH_REPORT_BASELINE_ERR  "baseline_err"
@@ -198,6 +199,7 @@ typedef enum {
 	MODE_PEN_SCAN,
 	MODE_PEN_CTL,
 	MODE_PALM_TO_SLEEP,
+	MODE_WATERPROOF,
 } work_mode;
 
 typedef enum {
@@ -986,6 +988,7 @@ struct touchpanel_data {
 	struct esd_information  esd_info;                    /*debug info esd check*/
 	struct freq_hop_info    freq_hop_info;                /*debug info freq_hop*/
 	bool in_force_water_mode;                /*debug info force_water_mode*/
+	unsigned short water_mode;               /*debug info force_water_mode*/
 	/*struct proc_dir_entry of "/proc/touchpanel"*/
 	struct proc_dir_entry *prEntry_tp;
 	/*struct proc_dir_entry of "/proc/touchpanel/debug_info"*/
@@ -1047,6 +1050,9 @@ struct touchpanel_data {
 	int pen_mode_tp_state;
 
 	int palm_to_sleep_enable;                            /*detect palm need to sleep when device in Screen lock*/
+
+	int waterproof_support;
+	int waterproof;
 
 	bool report_rate_white_list_support;
 
@@ -1247,6 +1253,7 @@ struct oplus_touchpanel_operations {
 
 	void (*freq_hop_trigger)(void *chip_data); /*trigger frequency-hopping*/
 	void (*force_water_mode)(void *chip_data, bool enable); /*force enter water mode*/
+	void (*get_water_mode)(void *chip_data); /*force enter water mode*/
 	void (*set_noise_modetest)(void *chip_data, bool enable);
 	uint8_t (*get_noise_modetest)(void *chip_data);
 	/*If the tp ic need do something, use this!*/

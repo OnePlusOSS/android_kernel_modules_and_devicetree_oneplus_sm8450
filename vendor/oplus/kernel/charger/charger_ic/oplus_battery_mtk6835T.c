@@ -940,9 +940,10 @@ EXPORT_SYMBOL(charger_manager_get_by_name);
 
 static int get_usb_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop, prop2;
+	union power_supply_propval prop = {0};
+	union power_supply_propval prop2 = {0};
 	static struct power_supply *chg_psy;
-	int ret;
+	int ret = 0;
 
 	chg_psy = info->chg_psy;
 
@@ -2653,10 +2654,9 @@ static ssize_t enable_sc_store(
 	if (buf != NULL && size != 0) {
 		chr_err("[enable smartcharging] buf is %s\n", buf);
 		ret = kstrtoul(buf, 10, &val);
-		if (val < 0) {
+		if (ret < 0) {
 			chr_err(
-				"[enable smartcharging] val is %d ??\n",
-				(int)val);
+				"[enable smartcharging] ret is %d ??\n", ret);
 			val = 0;
 		}
 

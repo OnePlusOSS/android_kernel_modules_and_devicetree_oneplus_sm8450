@@ -919,6 +919,8 @@ struct touchpanel_data {
 	/******For smooth report_threshold area********/
 	bool diaphragm_touch_support;
 	u32 diaphragm_touch_level_chosen;
+	bool force_water_mode_support;
+	unsigned short read_water_data;
 
 #if defined(TPD_USE_EINT)
 	struct hrtimer         timer;                       /*using polling instead of IRQ*/
@@ -1124,6 +1126,7 @@ struct oplus_touchpanel_operations {
 	int (*send_temperature)(void *chip_data, int value, bool status);
 	int (*set_high_frame_rate)(void *chip_data, int value, int time);
 	int (*diaphragm_touch_lv_set)(void *chip_data, int level);
+	void (*read_water_flag)(void *chip_data); /*force enter water mode*/
 };
 
 struct aging_test_proc_operations {

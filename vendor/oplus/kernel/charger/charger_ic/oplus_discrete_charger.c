@@ -1021,7 +1021,7 @@ void oplus_ccdetect_disable(void)
 		tcpm_typec_change_role_postpone(chg->tcpc,TYPEC_ROLE_SNK, true);
 		pr_err("%s: set sink", __func__);
 	} else if (chg != NULL && chg->external_cclogic) {
-		oplus_chg_cclogic_set_mode(MODE_UFP);
+		oplus_chg_cclogic_set_mode(MODE_SINK);
 		pr_err("%s: set sink", __func__);
 	}
 }
@@ -1698,7 +1698,7 @@ void oplus_set_otg_switch_status(bool value)
 			}
 		}
 		printk(KERN_ERR "[OPLUS_CHG][%s]: otg switch[%d]\n", __func__, value);
-		oplus_chg_cclogic_set_mode(value ? MODE_DRP : MODE_UFP);
+		oplus_chg_cclogic_set_mode(value ? MODE_DRP : MODE_SINK);
 	}
 #endif
 }

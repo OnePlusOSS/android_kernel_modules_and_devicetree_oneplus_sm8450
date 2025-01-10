@@ -27,6 +27,7 @@
 #include "oplus_adsp_voocphy.h"
 #include "chglib/oplus_chglib.h"
 #include <oplus_chg_comm.h>
+#include <oplus_mms_wired.h>
 
 #define SEND_FASTCHG_ONGOING_NOTIFY_INTERVAL 2000 /* ms */
 #define BTBOVER_5V1A_CHARGE_STD	0x01
@@ -381,8 +382,21 @@ static void oplus_adsp_voocphy_handle_err_commu_event(struct oplus_voocphy_manag
 	chip->fastchg_ing = false;
 	chip->btb_temp_over = false;
 	chip->fast_chg_type = FASTCHG_CHARGER_TYPE_UNKOWN;
-	chip->fastchg_notify_status = FAST_NOTIFY_ERR_COMMU;
+
+	if ((oplus_chglib_is_pd_svooc_adapter(chip->dev) || (oplus_chglib_get_adapter_sid_power(chip->dev) >= 80))&&
+	    (oplus_chglib_get_cc_detect(chip->dev) == CC_DETECT_PLUGIN) &&
+	    oplus_chglib_get_vooc_is_started(chip->dev)) {
+		chg_info("abnormal adpater need delay\n");
+		msleep(100);
+		chip->fastchg_notify_status = FAST_NOTIFY_ABSENT;
+	} else {
+		chip->fastchg_notify_status = FAST_NOTIFY_ERR_COMMU;
+	}
 	oplus_chglib_notify_ap(chip->dev, chip->fastchg_notify_status);
+	chg_info("1+ abnormal adpater icon hold[%d %d %d]\n",
+		 oplus_chglib_is_pd_svooc_adapter(chip->dev),
+		 oplus_chglib_is_wired_present(chip->dev),
+		 oplus_chglib_get_vooc_is_started(chip->dev));
 	chg_info("fastchg err commu\n");
 }
 
@@ -430,15 +444,16 @@ static void oplus_adsp_voocphy_handle_clk_err_event(struct oplus_voocphy_manager
 	if (is_batt_psy_available(chip))
 		power_supply_changed(chip->batt_psy);
 	chg_info("fastchg commu clk err\n");
-	if (oplus_chglib_is_pd_svooc_adapter(chip->dev) &&
-	    oplus_chglib_is_wired_present(chip->dev) &&
-	    oplus_chglib_get_vooc_is_started(chip->dev))
+	if ((oplus_chglib_is_pd_svooc_adapter(chip->dev) || (oplus_chglib_get_adapter_sid_power(chip->dev) >= 80))&&
+	    (oplus_chglib_get_cc_detect(chip->dev) == CC_DETECT_PLUGIN) &&
+	    oplus_chglib_get_vooc_is_started(chip->dev)) {
+		chg_info("abnormal adpater need delay\n");
 		msleep(100);
-	else
-		chg_info("1+ abnormal adpater icon hold[%d %d %d]\n",
-			 oplus_chglib_is_pd_svooc_adapter(chip->dev),
-			 oplus_chglib_is_wired_present(chip->dev),
-			 oplus_chglib_get_vooc_is_started(chip->dev));
+	}
+	chg_info("1+ abnormal adpater icon hold[%d %d %d]\n",
+		 oplus_chglib_is_pd_svooc_adapter(chip->dev),
+		 oplus_chglib_is_wired_present(chip->dev),
+		 oplus_chglib_get_vooc_is_started(chip->dev));
 
 	oplus_chglib_notify_ap(chip->dev, FAST_NOTIFY_ABSENT);
 }
@@ -478,6 +493,17 @@ static void oplus_adsp_voocphy_handle_commu_time_out_event(struct oplus_voocphy_
 	chip->btb_temp_over = false;
 	chip->fast_chg_type = FASTCHG_CHARGER_TYPE_UNKOWN;
 	chip->fastchg_notify_status = FAST_NOTIFY_ABSENT;
+
+	if ((oplus_chglib_is_pd_svooc_adapter(chip->dev) || (oplus_chglib_get_adapter_sid_power(chip->dev) >= 80))&&
+	    (oplus_chglib_get_cc_detect(chip->dev) == CC_DETECT_PLUGIN) &&
+	    oplus_chglib_get_vooc_is_started(chip->dev)) {
+		chg_info("abnormal adpater need delay\n");
+		msleep(100);
+	}
+	chg_info("1+ abnormal adpater icon hold[%d %d %d]\n",
+		 oplus_chglib_is_pd_svooc_adapter(chip->dev),
+		 oplus_chglib_is_wired_present(chip->dev),
+		 oplus_chglib_get_vooc_is_started(chip->dev));
 	oplus_chglib_notify_ap(chip->dev, FAST_NOTIFY_ABSENT);
 	chg_info("fastchg commu timeout\n");
 }
@@ -490,8 +516,24 @@ static void oplus_adsp_voocphy_handle_unknown_event(struct oplus_voocphy_manager
 	chip->fastchg_to_normal = false;
 	chip->fastchg_ing = false;
 	chip->fast_chg_type = FASTCHG_CHARGER_TYPE_UNKOWN;
-	chip->fastchg_notify_status = FAST_NOTIFY_UNKNOW;
-	oplus_chglib_notify_ap(chip->dev, chip->fastchg_notify_status);
+
+	if ((oplus_chglib_is_pd_svooc_adapter(chip->dev) || (oplus_chglib_get_adapter_sid_power(chip->dev) >= 80))&&
+	    (oplus_chglib_get_cc_detect(chip->dev) == CC_DETECT_PLUGIN) &&
+	    oplus_chglib_get_vooc_is_started(chip->dev)) {
+		chg_info("abnormal adpater need delay\n");
+		msleep(100);
+		chip->fastchg_notify_status = FAST_NOTIFY_ABSENT;
+		oplus_chglib_notify_ap(chip->dev, FAST_NOTIFY_ABSENT);
+	} else {
+		chg_info("1+ abnormal adpater icon hold[%d %d %d]\n",
+			 oplus_chglib_is_pd_svooc_adapter(chip->dev),
+			 oplus_chglib_is_wired_present(chip->dev),
+			 oplus_chglib_get_vooc_is_started(chip->dev));
+		chg_info("oplus_adsp_voocphy_handle_unknown_event\n");
+		chip->fastchg_notify_status = FAST_NOTIFY_UNKNOW;
+		oplus_chglib_notify_ap(chip->dev, chip->fastchg_notify_status);
+	}
+
 }
 
 void oplus_adsp_voocphy_fastchg_event_handle(int event)

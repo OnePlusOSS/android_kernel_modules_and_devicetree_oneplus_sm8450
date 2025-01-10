@@ -45,6 +45,7 @@ static char bright_skip_stages[][64] = {
 static int br_start_check_systemid = -1;
 u64 mLastPwkTime = 0;
 u64 FrequencyInterval = 300000;
+bool error_flag = false;
 
 int bright_screen_timer_restart(void)
 {
@@ -61,7 +62,7 @@ int bright_screen_timer_restart(void)
 		return -1;
 	}
 
-	if (g_bright_data.blank == THEIA_PANEL_UNBLANK_VALUE) {
+	if ((g_bright_data.blank == THEIA_PANEL_UNBLANK_VALUE) && !error_flag) {
 		br_start_check_systemid = get_systemserver_pid();
 		mod_timer(&g_bright_data.timer, jiffies + msecs_to_jiffies(g_bright_data.timeout_ms));
 		del_timer(&g_black_data.timer);
@@ -154,6 +155,9 @@ static bool is_need_skip(void)
 	if (is_bright_contain_skip_stage())
 		return true;
 
+	if (is_slowkernel_skip())
+		return true;
+
 	return false;
 }
 
@@ -176,8 +180,10 @@ static void bright_error_happen_work(struct work_struct *work)
 	struct timespec64 ts;
 
 	/* for bright screen check, check if need skip, we direct return */
-	if (is_need_skip())
+	if (is_need_skip()) {
+		error_flag = false;
 		return;
+	}
 
 	if (bri_data->error_count == 0) {
 		ktime_get_real_ts64(&ts);
@@ -198,6 +204,7 @@ static void bright_error_happen_work(struct work_struct *work)
 		bri_data->error_id, bri_data->error_count);
 
 	set_timer_started(true);
+	error_flag = false;
 	delete_timer_bright("BR_SCREEN_ERROR_HAPPEN", false);
 }
 
@@ -209,18 +216,21 @@ static void bright_timer_func(struct timer_list *t)
 
 	/* stop recored stage when happen work for alm:6864732 */
 	set_timer_started(false);
-
+	error_flag = true;
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)
 	if (g_bright_data.active_panel == NULL || g_bright_data.cookie == NULL) {
 		BRIGHT_DEBUG_PRINTK("br check register panel not ready\n");
+		error_flag = false;
 		return;
 	}
 #endif
 
 	if (br_start_check_systemid == get_systemserver_pid())
 		schedule_work(&p->error_happen_work);
-	else
+	else {
+		error_flag = false;
 		BRIGHT_DEBUG_PRINTK("bright_timer_func, not valid for check, skip\n");
+	}
 }
 
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)

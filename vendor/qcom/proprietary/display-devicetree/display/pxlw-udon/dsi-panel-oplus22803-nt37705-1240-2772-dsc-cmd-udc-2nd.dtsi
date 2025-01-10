@@ -190,6 +190,23 @@
 };
 
 &dsi_oplus22803_nt37705_1240_2772_dsc_cmd_2nd {
+	/* ofp config */
+	oplus,ofp-fp-type = <0x08>;
+	oplus,ofp-need-to-wait-data-before-aod-on;
+
+	/* adfr config */
+	/* just for qsync enable*/
+	qcom,qsync-enable;
+	qcom,mdss-dsi-qsync-min-refresh-rate = <24>;
+	/*
+	** 0th bit: adfr global on/off
+	** 1st bit: fakeframe on/off
+	** 2nd bit: switch on/off
+	** 3rd bit: 0:double-TE switch 1:external TE/TP switch
+	** 4th bit: idle mode on/off
+	** 5th bit: temperature compensation mode on/off
+	*/
+	oplus,adfr-config = <33>;
 	qcom,dsi-select-sec-clocks = "pll_byte_clk1", "pll_dsi_clk1";
 	qcom,mdss-dsi-display-timings {
 		timing@sdc_fhd_120 { /* FHD+ 120hz 550Mhz 1100Mbps */

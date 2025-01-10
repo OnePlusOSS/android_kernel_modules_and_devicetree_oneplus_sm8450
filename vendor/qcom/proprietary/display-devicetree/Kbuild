@@ -25,18 +25,13 @@ dtbo-y += display/waipio-sde.dtbo \
 #PLUS_DTS_OVERLAY start
 dtbo-y += oplus/wly-20846-display-waipio-overlay.dtbo
 dtbo-y += oplus/swan-22001-display-cape-overlay.dtbo
-dtbo-y += oplus/mt-20845-display-waipio-overlay.dtbo
 dtbo-y += oplus/jnc-20865-display-waipio-overlay.dtbo
-dtbo-y += oplus/baize-21001-display-waipio-overlay.dtbo
-dtbo-y += oplus/ferrari-21631-display-waipio-overlay.dtbo
-dtbo-y += oplus/kunpeng-21009-display-waipio-overlay.dtbo
 dtbo-y += oplus/jennie-21605-display-waipio-overlay.dtbo
 dtbo-y += oplus/udon-22803-display-cape-overlay.dtbo
 dtbo-y += oplus/ovaltine-21841-display-cape-overlay.dtbo
 dtbo-y += oplus/senna-22623-display-cape-overlay.dtbo
 dtbo-y += oplus/senna-22624-display-cape-overlay.dtbo
 dtbo-y += oplus/senna-22625-display-cape-overlay.dtbo
-dtbo-y += oplus/monroe-22091-display-cape-overlay.dtbo
 dtbo-y += oplus/daoxiang-23023-display-cape-overlay.dtbo
 #PLUS_DTS_OVERLAY end
 else

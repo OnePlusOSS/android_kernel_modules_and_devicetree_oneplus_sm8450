@@ -2577,6 +2577,30 @@ static const struct file_operations proc_diaphragm_touch_level_fops = {
 	.owner = THIS_MODULE,
 };
 
+static ssize_t proc_force_water_mode_read(struct file *file, char __user *buffer,
+				  size_t count, loff_t *ppos)
+{
+	int ret = 0;
+	char page[PAGESIZE] = {0};
+	struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+	if (!ts) {
+		snprintf(page, PAGESIZE - 1, "%d\n", -1); /*no support*/
+	} else {
+		/*support*/
+		ts->ts_ops->read_water_flag(ts->chip_data);
+		TPD_INFO("%s: read_water_data 0x%x", __func__, ts->read_water_data);
+		snprintf(page, PAGESIZE - 1, "%d\n", ts->read_water_data);
+	}
+	ret = simple_read_from_buffer(buffer, count, ppos, page, strlen(page));
+	return ret;
+}
+
+static const struct file_operations proc_force_water_mode_fops = {
+	.read  = proc_force_water_mode_read,
+	.open  = simple_open,
+	.owner = THIS_MODULE,
+};
+
 //proc/touchpanel/black_screen_test
 static ssize_t proc_black_screen_test_read(struct file *file, char __user *user_buf, size_t count, loff_t *ppos)
 {
@@ -5056,6 +5080,14 @@ static int init_touchpanel_proc(struct touchpanel_data *ts)
 		}
 	}
 
+	if (ts->force_water_mode_support) {
+		prEntry_tmp = proc_create_data("force_water_mode", 0666, prEntry_tp, &proc_force_water_mode_fops, ts);
+		if (prEntry_tmp == NULL) {
+			ret = -ENOMEM;
+			TPD_INFO("%s: Couldn't create proc entry, %d\n", __func__, __LINE__);
+		}
+	}
+
     //proc files-step2-11:/proc/touchpanel/oplus_tp_noise_modetest
     if (ts->noise_modetest_support) {
         prEntry_tmp = proc_create_data("oplus_tp_noise_modetest", 0664, prEntry_tp, &proc_noise_modetest_fops, ts);
@@ -7126,6 +7158,7 @@ static int init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 	ts->tp_data_record_support = of_property_read_bool(np, "tp_data_record_support");
 	ts->palm_to_sleep_support = of_property_read_bool(np, "palm_to_sleep_support");
 	ts->diaphragm_touch_support = of_property_read_bool(np, "diaphragm_touch_support");
+	ts->force_water_mode_support = of_property_read_bool(np, "force_water_mode_support");
 
 	if (!ts->sportify_aod_gesture_support) {
 		TPD_INFO("not support sportify_aod_gesture\n");

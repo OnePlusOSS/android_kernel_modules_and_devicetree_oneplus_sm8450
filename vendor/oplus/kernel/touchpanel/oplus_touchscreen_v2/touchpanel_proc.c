@@ -429,6 +429,90 @@ OUT:
 
 DECLARE_PROC_OPS(tp_palm_to_sleep_support_fops, simple_open, proc_palm_to_sleep_support_read, proc_palm_to_sleep_support_write, NULL);
 
+static ssize_t proc_waterproof_read(struct file *file, char __user *buffer,
+				       size_t count, loff_t *ppos)
+{
+	struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+	uint8_t ret = 0;
+	char buf[PALM_BUF_SIZE] = {0};
+
+	if (!ts) {
+		TPD_INFO("%s ts is null \n", __func__);
+		goto OUT;
+	}
+
+	snprintf(buf, PALM_BUF_SIZE - 1, "%d\n", ts->waterproof);
+	ret = simple_read_from_buffer(buffer, count, ppos, buf, strlen(buf));
+	TPD_DETAIL("%s: get palm_to_sleep\n", __func__);
+
+OUT:
+	return ret;
+}
+
+static ssize_t proc_waterproof_write(struct file *file,
+					 const char __user *buffer, size_t count, loff_t *ppos)
+{
+	int tmp = 0;
+	int oldwaterproof = 0;
+	char buf[PALM_BUF_SIZE] = {0};
+	struct touchpanel_data *ts = PDE_DATA(file_inode(file));
+
+	if (!ts) {
+		TPD_INFO("%s ts is null \n", __func__);
+		goto OUT;
+	}
+
+	if (count > PALM_BUF_MAX) {
+		TPD_INFO("%s over size cmd is %lu\n", __func__, count);
+		goto OUT;
+	}
+
+	tp_copy_from_user(buf, sizeof(buf), buffer, count, PALM_BUF_SIZE);
+
+	if (kstrtoint(buf, 10, &tmp)) {
+		TPD_INFO("%s: kstrtoint error,buf:%s\n", __func__, buf);
+		goto OUT;
+	}
+	oldwaterproof = ts->waterproof;
+	if ((ts->waterproof >> WATERPROOF_RUS_BIT) & 0x1) { /* RUS status*/
+		if ((tmp >> WATERPROOF_RUS_BIT) & 0x1) { /* RUS command*/
+			if (tmp & 0x1) {
+				ts->waterproof = tmp & ~(0x1 << WATERPROOF_RUS_BIT);
+				TPD_INFO("%s: exit RUS set WATERPROOF_NODE:%s  waterproof:%d\n",
+				__func__, buf, ts->waterproof);
+			} else {
+				ts->waterproof = tmp;
+			}
+		} else {
+			TPD_INFO("%s: RUS skip to set WATERPROOF_NODE:%s  waterproof:%d\n",
+			__func__, buf, ts->waterproof);
+			goto OUT;
+		}
+	} else {
+		if (((tmp >> WATERPROOF_RUS_BIT) & 0x1) && (tmp & 0x1)) {
+			ts->waterproof = tmp & ~(0x1 << WATERPROOF_RUS_BIT);
+		} else {
+			ts->waterproof = tmp;
+		}
+	}
+
+	if (ts->ts_ops->mode_switch) {
+		if (ts->ts_ops->mode_switch(ts->chip_data, MODE_WATERPROOF, ts->waterproof & ~(0x1 << WATERPROOF_RUS_BIT)) < 0) {
+			TPD_INFO("%s:set waterproof failed. value = %d.", __func__, ts->waterproof & ~(0x1 << WATERPROOF_RUS_BIT));
+			ts->waterproof = oldwaterproof;
+			return count;
+		}
+	}
+	else {
+		TPD_INFO("%s:waterproof set not support.", __func__);
+	}
+
+OUT:
+	return count;
+}
+
+DECLARE_PROC_OPS(tp_waterproof_fops, simple_open, proc_waterproof_read, proc_waterproof_write, NULL);
+
 /*debug_level - For touch panel driver debug_level
  * Output:
  * tp_debug:0, LEVEL_BASIC;
@@ -3670,7 +3754,9 @@ static ssize_t proc_force_water_mode_read(struct file *file, char __user *buffer
 
 	} else {
 		/*support*/
-		snprintf(page, PAGESIZE - 1, "%d\n", ts->in_force_water_mode);
+		ts->ts_ops->get_water_mode(ts->chip_data);
+		TP_INFO(ts->tp_index, "%s:  water_mode 0x%x", __func__, ts->water_mode);
+		snprintf(page, PAGESIZE - 1, "%d\n", ts->water_mode);
 	}
 
 	ret = simple_read_from_buffer(buffer, count, ppos, page, strlen(page));
@@ -3985,6 +4071,10 @@ int init_touchpanel_proc_part2(struct touchpanel_data *ts, struct proc_dir_entry
 			ts->diaphragm_touch_support
 		},
 		{
+			"force_water_mode", 0666, NULL, &proc_force_water_mode_fops, ts, false,
+			ts->ts_ops->force_water_mode
+		},
+		{
 			"double_tap_enable_indep", 0666, NULL, &proc_gesture_control_indep_fops, ts, false,
 			ts->black_gesture_indep_support
 		},
@@ -4112,6 +4202,7 @@ int init_touchpanel_proc(struct touchpanel_data *ts)
 		{"gesture_support", 0666, NULL, &tp_gesture_support_fops, ts, false, true},
 		{"palm_to_sleep", 0666, NULL, &tp_palm_to_sleep_fops, ts, false, ts->palm_to_sleep_support},
 		{"palm_to_sleep_support", 0666, NULL, &tp_palm_to_sleep_support_fops, ts, false, ts->palm_to_sleep_support},
+		{"waterproof", 0666, NULL, &tp_waterproof_fops, ts, false, ts->waterproof_support},
 		{
 			"glove_mode_enable", 0666, NULL, &proc_glove_mode, ts, false,
 			ts->glove_mode_support

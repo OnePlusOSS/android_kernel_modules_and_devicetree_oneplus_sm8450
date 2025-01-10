@@ -122,3 +122,4 @@ source "mm/oplus_mm/mm_osvelte/Kconfig"
 
 source "mm/oplus_mm/uxmem_opt/Kconfig"
 source "mm/oplus_mm/dynamic_readahead/Kconfig"
+source "mm/oplus_mm/kswapd_opt/Kconfig"

@@ -32,7 +32,13 @@
 #include <linux/sched/walt.h>
 #endif
 #include <../../fs/proc/internal.h>
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_FRAME_BOOST)
+#include <../kernel/oplus_cpu/sched/frame_boost/frame_group.h>
+#endif
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
 #include <../kernel/oplus_cpu/sched/sched_assist/sa_common.h>
+#endif
+#include <linux/sched/cputime.h>
 #include <../kernel/sched/sched.h>
 #include <linux/cred.h>
 #include "task_overload.h"
@@ -49,7 +55,7 @@
  * DOWN_THRESH : the floor time percent to releasing affinity
  *               for power abnormal task
  */
-#define TRIGGER_FREQ	(1300000)
+#define TRIGGER_FREQ	(1000000)
 #define TRIGGER_UTIL	(80)
 #define CPU_THRESHOLD	(85)
 #define CPU_CAP	(100)
@@ -103,6 +109,15 @@ static inline bool is_min_cluster_cpu(int cpu)
 	return false;
 }
 
+static inline unsigned long limited_capacity(int cpu)
+{
+#ifdef CONFIG_OPLUS_SYSTEM_KERNEL_QCOM
+	return capacity_orig_of(cpu);
+#else
+	return cpu_rq(cpu)->cpu_capacity;
+#endif
+}
+
 static inline unsigned long task_util(struct task_struct *p)
 {
 #if IS_ENABLED(CONFIG_SCHED_WALT)
@@ -125,7 +140,7 @@ static inline unsigned long cpu_util(int cpu)
 	if (sched_feat(UTIL_EST))
 		util = max(util, READ_ONCE(cfs_rq->avg.util_est.enqueued));
 
-	return min_t(unsigned long, util, capacity_orig_of(cpu));
+	return min_t(unsigned long, util, limited_capacity(cpu));
 }
 
 unsigned int uclamp_bucket_id(unsigned int clamp_value)
@@ -135,8 +150,12 @@ unsigned int uclamp_bucket_id(unsigned int clamp_value)
 
 void set_uclamp_max(struct task_struct *task)
 {
-	task->uclamp_req[UCLAMP_MAX].value = SET_UCLAMP;
-	task->uclamp_req[UCLAMP_MAX].bucket_id = uclamp_bucket_id(SET_UCLAMP);
+	int max_uc = 0;
+
+	max_uc = limited_capacity(goplus_cpu) * 2 / 3;
+	max_uc = max_uc > SET_UCLAMP ? SET_UCLAMP : max_uc;
+	task->uclamp_req[UCLAMP_MAX].value = max_uc;
+	task->uclamp_req[UCLAMP_MAX].bucket_id = uclamp_bucket_id(max_uc);
 }
 
 void resume_uclamp_max(struct task_struct *task)
@@ -195,6 +214,8 @@ EXPORT_SYMBOL(is_task_overload);
 
 bool test_task_overload(struct task_struct *task)
 {
+	int ux_stat = 0;
+	int fbg_stat = 0;
 	struct oplus_task_struct *ots = get_oplus_task_struct(task);
 
 	if (IS_ERR_OR_NULL(ots))
@@ -202,16 +223,28 @@ bool test_task_overload(struct task_struct *task)
 
 	if (ots->abnormal_flag % ABNORMAL_TIME == 0) {
 		if (check_abnormal_task_util(task) && check_abnormal_freq(task) && check_abnormal_cpu_util()
-			&& test_task_uid(task) && ots->abnormal_flag <= ABNORMAL_THRESHOLD) {
+			&& ots->abnormal_flag <= ABNORMAL_THRESHOLD) {
 			ots->abnormal_flag++;
 		}
 	} else if (ots->abnormal_flag <= ABNORMAL_THRESHOLD)
 		ots->abnormal_flag++;
 	if (ots->abnormal_flag == ABNORMAL_THRESHOLD) {
-		set_task_state(task);
-		if (sysctl_abnormal_enable)
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+		ux_stat = get_ux_state_type(task);
+#endif
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_FRAME_BOOST)
+		fbg_stat = is_fbg_task(task);
+#endif
+
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+		if (sysctl_abnormal_enable && test_task_uid(task) && !fbg_stat
+				&& ux_stat != UX_STATE_INHERIT && ux_stat != UX_STATE_SCHED_ASSIST)
+#else
+		if (sysctl_abnormal_enable && test_task_uid(task) && !fbg_stat)
+#endif
 			set_uclamp_max(task);
 		ots->abnormal_flag++;
+		set_task_state(task);
 	}
 
 	if (ots->abnormal_flag > ABNORMAL_THRESHOLD && test_task_bg(task))
@@ -230,7 +263,7 @@ bool check_skip_task_goplus(struct task_struct *task, unsigned int prev_cpu, uns
 	if (IS_ERR_OR_NULL(ots))
 		return false;
 
-	if ((capacity_orig_of(new_cpu) < capacity_orig_of(prev_cpu)) && (ots->abnormal_flag > ABNORMAL_THRESHOLD)
+	if ((limited_capacity(new_cpu) < limited_capacity(prev_cpu)) && (ots->abnormal_flag > ABNORMAL_THRESHOLD)
 		&& is_max_cluster_cpu(prev_cpu) && sysctl_abnormal_enable)
 		return true;
 
@@ -293,7 +326,7 @@ bool check_abnormal_task_util(struct task_struct *p)
 	if (test_task_bg(p) && ots->abnormal_flag >= ABNORMAL_MIN_CHECK) {
 		ots->abnormal_flag -= ABNORMAL_TIME;
 		if (ots->abnormal_flag <= ABNORMAL_MIN_CHECK) {
-			if (p->uclamp_req[UCLAMP_MAX].value == SET_UCLAMP)
+			if (p->uclamp_req[UCLAMP_MAX].value != RESUME_UCLAMP)
 				resume_uclamp_max(p);
 		}
 		return false;
@@ -301,7 +334,7 @@ bool check_abnormal_task_util(struct task_struct *p)
 	cpu = task_cpu(p);
 
 	if (is_max_cluster_cpu(cpu)) {
-		thresh_load = capacity_orig_of(cpu) * TRIGGER_UTIL;
+		thresh_load = limited_capacity(cpu) * TRIGGER_UTIL;
 		if (task_util(p) >  reciprocal_divide(thresh_load, spc_rdiv))
 			return true;
 	}
@@ -314,15 +347,18 @@ EXPORT_SYMBOL(check_abnormal_task_util);
 bool check_abnormal_cpu_util(void)
 {
 	int i;
+	int goden = 0;
 	unsigned long goden_sum = 0;
 	unsigned long goden_cap = 0;
 
 	for (i = 0; i < golden_cpu; i++) {
 		goden_sum += cpu_util(golden_cpu_first + i);
-		goden_cap += capacity_orig_of(golden_cpu_first + i) / 2;
+		goden_cap += limited_capacity(golden_cpu_first + i) / 2;
+		if (cpu_util(golden_cpu_first + i) < limited_capacity(golden_cpu_first + i) / 2)
+			goden++;
 	}
 
-	if ((capacity_orig_of(goplus_cpu) * CPU_THRESHOLD) < (cpu_util(goplus_cpu) * CPU_CAP) && goden_cap > goden_sum)
+	if ((limited_capacity(goplus_cpu) * CPU_THRESHOLD) < (cpu_util(goplus_cpu) * CPU_CAP) && (goden_cap > goden_sum || golden_cpu <= (goden + 1)))
 		return true;
 	else
 		return false;
@@ -346,7 +382,7 @@ void set_task_state(struct task_struct *p)
 	tsk->uid = __kuid_val(tcred->uid);
 	rcu_read_unlock();
 	memcpy(tsk->comm, p->comm, TASK_COMM_LEN);
-	tsk->limit_flag = sysctl_abnormal_enable;
+	tsk->limit_flag = p->uclamp_req[UCLAMP_MAX].value;
 	ktime_get_real_ts64(&boot_time);
 	tsk->date = boot_time.tv_sec * MSEC_PER_SEC + boot_time.tv_nsec/NSEC_PER_MSEC;
 	tsk->temp = 0;

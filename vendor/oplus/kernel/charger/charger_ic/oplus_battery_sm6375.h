@@ -188,12 +188,14 @@ enum {
 	RESTART_AICL,
 };
 
+#if !IS_ENABLED(CONFIG_OPLUS_CHG_TEST_KIT)
 enum cc_modes_type {
 	MODE_DEFAULT = 0,
-	MODE_UFP,
-	MODE_DFP,
+	MODE_SINK,
+	MODE_SRC,
 	MODE_DRP
 };
+#endif /* ! CONFIG_OPLUS_CHG_TEST_KIT */
 
 enum smb_irq_index {
 	/* CHGR */

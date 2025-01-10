@@ -322,6 +322,19 @@ bool oplus_chglib_is_wired_present(struct device *dev)
 	return chip->is_wired_present;
 }
 
+int oplus_chglib_get_cc_detect(struct device *dev)
+{
+	struct vphy_chip *chip = oplus_chglib_get_vphy_chip(dev);
+
+	union mms_msg_data data = { 0 };
+	oplus_mms_get_item_data(chip->wired_topic,
+				WIRED_ITEM_CC_DETECT, &data,
+				false);
+	chip->cc_detect = data.intval;
+	chg_err("cc_detect:%d\n", chip->cc_detect);
+	return chip->cc_detect;
+}
+
 bool oplus_chglib_is_switch_temp_range(void)
 {
 	struct votable *vooc_disable_votable;

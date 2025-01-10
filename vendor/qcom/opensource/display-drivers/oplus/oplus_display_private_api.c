@@ -799,7 +799,8 @@ static ssize_t oplus_display_get_panel_serial_number(struct kobject *obj,
 			panel_serial_info.year		= (read[panel_serial_info.reg_index] & 0xF0) >> 0x4;
 			panel_serial_info.year += 1;
 		} else if ((!strcmp(display->panel->name, "tianma nt37705 dsc cmd mode panel"))
-		|| (!strcmp(display->panel->name, "senna22623 ab575 tm nt37705 dsc cmd mode panel"))) {
+		|| (!strcmp(display->panel->name, "senna22623 ab575 tm nt37705 dsc cmd mode panel"))
+		|| (!strcmp(display->panel->name, "BOE AB241 NT37701A"))) {
 			panel_serial_info.year		= (read[panel_serial_info.reg_index] & 0xF0) >> 0x4;
 			panel_serial_info.year += 10;
 		} else {

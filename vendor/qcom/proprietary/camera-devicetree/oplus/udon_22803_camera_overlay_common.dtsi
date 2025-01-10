@@ -719,3 +719,19 @@
 		};
 	};
 };
+
+&pm8350c_torch0 {
+    qcom,ires-ua = <5000>;
+};
+
+&pm8350c_torch1 {
+    qcom,ires-ua = <5000>;
+};
+
+&pm8350c_torch2 {
+    qcom,ires-ua = <5000>;
+};
+
+&pm8350c_torch3 {
+    qcom,ires-ua = <5000>;
+};

@@ -2946,6 +2946,7 @@ static int nvt_enable_headset_mode(struct chip_data_nt36523 *chip_info,
 
 static void nvt_notify_pencil_type(void *chip_data, uint8_t value)
 {
+	int i;
 	struct chip_data_nt36523 *chip_info = (struct chip_data_nt36523 *)chip_data;
 
 	if (!chip_info) {
@@ -2953,7 +2954,17 @@ static void nvt_notify_pencil_type(void *chip_data, uint8_t value)
 	}
 
 	chip_info->current_pencil_type = value;
-	TPD_INFO("set pencil type to %d.\n", chip_info->current_pencil_type);
+
+	if (chip_info->pen_id_map_num) {
+		for (i = 0; i < chip_info->pen_id_map_num; i++) {
+			if (chip_info->pen_id_map_array[i].src_id == value) {
+				chip_info->current_pencil_type = chip_info->pen_id_map_array[i].dst_id;
+				break;
+			}
+		}
+	}
+
+	TPD_INFO("value = %d, set pencil type to %d.\n", value, chip_info->current_pencil_type);
 
 	return;
 }
@@ -8510,6 +8521,8 @@ static struct engineer_test_operations nvt_engineer_test_ops = {
 static void nvt_prase_dts(struct device *dev, void *chip_data)
 {
 	int rc;
+	int i;
+	int length;
 	struct device_node *np;
 
 	struct chip_data_nt36523 *chip_info = (struct chip_data_nt36523 *)chip_data;
@@ -8520,13 +8533,43 @@ static void nvt_prase_dts(struct device *dev, void *chip_data)
 		TPD_INFO("chip_info->doze_x_num not specified\n");
 		chip_info->doze_x_num = 0;
 	}
-        rc = of_property_read_u32(np, "touchpanel,doze-rx-num", &chip_info->doze_y_num);
-        if (rc < 0) {
-                TPD_INFO("chip_info->doze_y_num not specified\n");
-                chip_info->doze_y_num = 0;
-        }
+
+	rc = of_property_read_u32(np, "touchpanel,doze-rx-num", &chip_info->doze_y_num);
+	if (rc < 0) {
+		TPD_INFO("chip_info->doze_y_num not specified\n");
+		chip_info->doze_y_num = 0;
+	}
 
 	TPD_INFO("chip_info->doze_x_num = %d,chip_info->doze_y_num = %d\n", chip_info->doze_x_num, chip_info->doze_y_num);
+
+	rc = of_property_count_u32_elems(np, "touchpanel,pen-id-map");
+	if (rc < 0) {
+		TPD_INFO("chip_info->pen_id_map not specified\n");
+		rc = 0;
+	}
+	length = rc;
+	chip_info->pen_id_map_num = 0;
+
+	if (length != 0 && length % 2 == 0) {
+		chip_info->pen_id_map_num = length / 2;
+		chip_info->pen_id_map_array = devm_kzalloc(dev, chip_info->pen_id_map_num * sizeof(struct pen_id_map), GFP_KERNEL);
+
+		if (chip_info->pen_id_map_array) {
+			rc = of_property_read_u32_array(np, "touchpanel,pen-id-map", (uint32_t *)chip_info->pen_id_map_array, length);
+			if (rc < 0) {
+				TPD_INFO("parse touchpanel,pen-id-map failed, rc=%d\n", rc);
+				devm_kfree(dev, chip_info->pen_id_map_array);
+				chip_info->pen_id_map_num = 0;
+			} else {
+				TPD_INFO("pen_id_map num = %d\n", chip_info->pen_id_map_num);
+				for (i = 0; i < chip_info->pen_id_map_num; i++) {
+					TPD_INFO("src_id: %d , dst_id: %d\n", chip_info->pen_id_map_array[i].src_id, chip_info->pen_id_map_array[i].dst_id);
+				}
+			}
+		}
+	} else {
+		TPD_INFO("pen_id_map elements should be multiple of 2. length = %d\n", length);
+	}
 }
 
 static int nvt_tp_probe(struct spi_device *client)

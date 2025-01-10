@@ -337,6 +337,9 @@ void operate_mode_switch(struct touchpanel_data *ts)
 			mode_switch_health(ts, MODE_PEN_SCAN, ts->is_pen_connected);
 		}
 
+		if (ts->waterproof_support) {
+			mode_switch_health(ts, MODE_WATERPROOF, ts->waterproof & ~(0x1 << WATERPROOF_RUS_BIT));
+		}
 		mode_switch_health(ts, MODE_NORMAL, true);
 	}
 }
@@ -2188,6 +2191,10 @@ static int init_parse_dts(struct device *dev, struct touchpanel_data *ts)
 	ts->snr_read_support = of_property_read_bool(np, "snr_read_support");
 	ts->major_rate_limit_support = of_property_read_bool(np, "major_rate_limit_support");
 	ts->palm_to_sleep_support = of_property_read_bool(np, "palm_to_sleep_support");
+	ts->waterproof_support = of_property_read_bool(np, "waterproof_support");
+	if (ts->waterproof_support) {
+		ts->waterproof = 1;
+	}
 	ts->tp_data_record_support = of_property_read_bool(np, "tp_data_record_support");
 	ts->skip_reinit_device_support = of_property_read_bool(np, "skip_reinit_device_support");
 	ts->suspend_work_support = of_property_read_bool(np, "suspend_work_support");

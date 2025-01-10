@@ -290,6 +290,11 @@ struct nvt_ts_trim_id_table {
 	const struct nvt_ts_hw_info *hwinfo;
 };
 
+struct pen_id_map{
+	uint32_t src_id;
+	uint32_t dst_id;
+};
+
 struct nvt_ts_hw_reg_addr_info {
 	uint32_t chip_ver_trim_addr;
 	uint32_t swrst_sif_addr;
@@ -351,6 +356,7 @@ struct chip_data_nt36523 {
 	struct hw_resource              *hw_res;
 	struct nvt_ts_trim_id_table     trim_id_table;
 	struct nvt_ts_bin_map           *bin_map;
+	struct pen_id_map               *pen_id_map_array;
 	bool                            esd_check_enabled;
 	unsigned long                   irq_timer;
 	uint8_t                         esd_retry;
@@ -366,6 +372,7 @@ struct chip_data_nt36523 {
 	int                             lcd_reset_gpio;
 	struct nvt_fw_debug_info        nvt_fw_debug_info;
 	int irq_num;
+	int pen_id_map_num;
 	struct touchpanel_data *ts;
 	u8 *g_fw_buf;
 	size_t g_fw_len;

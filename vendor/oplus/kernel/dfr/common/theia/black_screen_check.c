@@ -47,6 +47,7 @@ static char black_skip_stages[][64] = {
 
 static int bl_start_check_systemid = -1;
 
+extern bool error_flag;
 int black_screen_timer_restart(void)
 {
 	BLACK_DEBUG_PRINTK("%s enter: blank = %d, status = %d\n", __func__, g_black_data.blank, g_black_data.status);
@@ -62,7 +63,7 @@ int black_screen_timer_restart(void)
 		return -1;
 	}
 
-	if (g_black_data.blank == THEIA_PANEL_BLANK_VALUE) {
+	if ((g_black_data.blank == THEIA_PANEL_BLANK_VALUE) && !error_flag) {
 		bl_start_check_systemid = get_systemserver_pid();
 		mod_timer(&g_black_data.timer, jiffies + msecs_to_jiffies(g_black_data.timeout_ms));
 		BLACK_DEBUG_PRINTK("%s: BL check start, timeout = %u\n", __func__, g_black_data.timeout_ms);
@@ -219,6 +220,9 @@ static bool is_need_skip(void)
 	if (is_black_contain_skip_stage())
 		return true;
 
+	if (is_slowkernel_skip())
+		return true;
+
 	return false;
 }
 
@@ -228,8 +232,10 @@ static void black_error_happen_work(struct work_struct *work)
 	struct timespec64 ts;
 
 	/* for black screen check, check if need skip, we direct return */
-	if (is_need_skip())
+	if (is_need_skip()) {
+		error_flag = false;
 		return;
+	}
 
 	if (bla_data->error_count == 0) {
 		ktime_get_real_ts64(&ts);
@@ -250,6 +256,7 @@ static void black_error_happen_work(struct work_struct *work)
 		bla_data->error_id, bla_data->error_count);
 
 	set_timer_started(true);
+	error_flag = false;
 	delete_timer_black("BL_SCREEN_ERROR_HAPPEN", false);
 }
 
@@ -261,18 +268,21 @@ static void black_timer_func(struct timer_list *t)
 
 	/* stop recored stage when happen work for alm:6864732 */
 	set_timer_started(false);
-
+	error_flag = true;
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)
 	if (g_black_data.active_panel == NULL || g_black_data.cookie == NULL) {
 		BLACK_DEBUG_PRINTK("bl check register panel not ready\n");
+		error_flag = false;
 		return;
 	}
 #endif
 
 	if (bl_start_check_systemid == get_systemserver_pid())
 		schedule_work(&p->error_happen_work);
-	else
+	else {
+		error_flag = false;
 		BLACK_DEBUG_PRINTK("black_timer_func, not valid for check, skip\n");
+	}
 }
 
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_QCOM_PANEL_EVENT_NOTIFIER)

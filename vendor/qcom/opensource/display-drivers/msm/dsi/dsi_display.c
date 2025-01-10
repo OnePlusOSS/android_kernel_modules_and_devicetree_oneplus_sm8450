@@ -1155,6 +1155,10 @@ int dsi_display_check_status(struct drm_connector *connector, void *display,
 		DSI_WARN("Skip the check because esd is pending\n");
 		goto release_panel_lock;
 	}
+	if (panel->power_mode != SDE_MODE_DPMS_ON) {
+		DSI_WARN("Skip the check because panel power mode not power on!\n");
+		goto release_panel_lock;
+	}
 #endif /* OPLUS_FEATURE_DISPLAY */
 
 	status_mode = panel->esd_config.status_mode;
