@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+ifeq ($(OPLUS_VND_ENV_PW_X5_COMPATIBLE),yes)
+    $(warning The feature of iris5 iris will be added to the kernel)
+    ccflags-y += -I$(PWATOP)/iris5/
+    include $(PWATOP)/iris5/Kbuild
+else
+    $(warning The feature of iris7 iris will be added to the kernel)
+    ccflags-y += -I$(PWATOP)/iris7/
+    include $(PWATOP)/iris7/Kbuild
+endif

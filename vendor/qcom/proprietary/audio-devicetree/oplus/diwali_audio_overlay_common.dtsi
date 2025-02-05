@@ -1,0 +1,188 @@
+/* diwali-audio-overlay.dtsi */
+/* #ifdef OPLUS_ARCH_EXTENDS */
+/* add for audio bringup */
+/* Add for oplus extend aduio config */
+#include "oplus-audio-extend.dtsi"
+
+&aliases {
+	i2c2 = "/soc/i2c@988000";
+};
+
+&lpass_cdc {
+	qcom,num-macros = <3>;
+};
+
+&wsa_macro {
+	status = "disabled";
+};
+
+&wsa883x_0221 {
+	status = "disabled";
+};
+
+&wsa883x_0222 {
+	status = "disabled";
+};
+
+&wcd938x_codec {
+	qcom,cdc-micbias1-mv = <2700>;
+	qcom,cdc-micbias2-mv = <2700>;
+	qcom,cdc-micbias3-mv = <2700>;
+};
+
+&waipio_snd {
+	qcom,audio-routing =
+		"AMIC1", "Analog Mic1",
+		"AMIC1", "MIC BIAS1",
+		"AMIC2", "Analog Mic2",
+		"AMIC2", "MIC BIAS2",
+		"AMIC3", "Analog Mic3",
+		"AMIC3", "MIC BIAS3",
+		"AMIC4", "Analog Mic4",
+		"AMIC4", "MIC BIAS3",
+		"AMIC5", "Analog Mic5",
+		"AMIC5", "MIC BIAS3",
+		"TX DMIC0", "Digital Mic0",
+		"TX DMIC0", "MIC BIAS3",
+		"TX DMIC1", "Digital Mic1",
+		"TX DMIC1", "MIC BIAS3",
+		"TX DMIC2", "Digital Mic2",
+		"TX DMIC2", "MIC BIAS1",
+		"TX DMIC3", "Digital Mic3",
+		"TX DMIC3", "MIC BIAS1",
+		"IN1_HPHL", "HPHL_OUT",
+		"IN2_HPHR", "HPHR_OUT",
+		"IN3_AUX", "AUX_OUT",
+		"RX_TX DEC0_INP", "TX DEC0 MUX",
+		"RX_TX DEC1_INP", "TX DEC1 MUX",
+		"RX_TX DEC2_INP", "TX DEC2 MUX",
+		"RX_TX DEC3_INP", "TX DEC3 MUX",
+		"TX SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA SWR_INPUT", "VA_SWR_CLK",
+		"VA SWR_INPUT", "WCD_TX_OUTPUT",
+		"VA_AIF1 CAP", "VA_SWR_CLK",
+		"VA_AIF2 CAP", "VA_SWR_CLK",
+		"VA_AIF3 CAP", "VA_SWR_CLK",
+		"VA DMIC0", "Digital Mic0",
+		"VA DMIC1", "Digital Mic1",
+		"VA DMIC2", "Digital Mic2",
+		"VA DMIC3", "Digital Mic3",
+		"VA DMIC0", "VA MIC BIAS3",
+		"VA DMIC1", "VA MIC BIAS3",
+		"VA DMIC2", "VA MIC BIAS1",
+		"VA DMIC3", "VA MIC BIAS1";
+	qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
+	oplus,mbhc-check-cross-conn = <1>;
+	oplus,mbhc-check-irq-en = <1>;
+	qcom,msm-mbhc-usbc-audio-supported = <1>;
+	qcom,msm-mbhc-hs-mic-max-threshold-mv = <2600>;
+	qcom,msm-mbhc-hs-mic-min-threshold-mv = <75>;
+	qcom,cdc-dmic01-gpios;
+	qcom,cdc-dmic23-gpios;
+	qcom,cdc-dmic45-gpios;
+	asoc-codec  = <&stub_codec>, <&lpass_cdc>,
+			  <&wcd938x_codec>;
+	asoc-codec-names = "msm-stub-codec.1", "lpass-cdc",
+			   "wcd938x_codec";
+	qcom,wsa-max-devs = <0>;
+	oplus,mbhc-headset-micbias-alwayon = <1>;
+	oplus,mbhc-headset-detect-mode = <1>;
+	fsa4480-i2c-handle = <&fsa4480_new>;
+};
+
+&spf_core_platform  {
+	cdc_pri_mi2s_gpios: pri_mi2s_pinctrl {
+		status= "okay";
+		compatible = "qcom,msm-cdc-pinctrl";
+		pinctrl-names = "aud_active", "aud_sleep";
+		pinctrl-0 = <&pri_mi2s_sck_active &pri_mi2s_ws_active
+				&pri_mi2s_sd0_active &pri_mi2s_sd1_active>;
+		pinctrl-1 = <&pri_mi2s_sck_sleep &pri_mi2s_ws_sleep
+				&pri_mi2s_sd0_sleep &pri_mi2s_sd1_sleep>;
+		#gpio-cells = <0>;
+	};
+};
+
+&dai_mi2s0 {
+	qcom,msm-mi2s-tx-lines = <1>;
+	qcom,msm-mi2s-rx-lines = <2>;
+};
+
+&dai_mi2s2 {
+	qcom,msm-mi2s-tx-lines = <1>;
+	qcom,msm-mi2s-rx-lines = <2>;
+};
+
+&qupv3_se2_i2c {
+	status = "ok";
+	qcom,clk-freq-out = <400000>;
+	tfa98xx@34 {
+		compatible = "nxp,tfa98xx";
+		reg = <0x34>;
+		reset-gpio = <&tlmm 50 0x00>;
+		tfa9874_vdd-supply = <&L18B>;
+		tfa_min_range = <5000>;
+		tfa_max_range = <8000>;
+		tfa_channel = <0>;
+		status = "ok";
+	};
+	fsa4480_new: fsa4480@43 {
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x43>;
+		fsa4480,hs-det-gpio = <&tlmm 144 0x00>;
+		fsa4480,use-3rd-usb-protocal = <1>;
+		status= "okay";
+	};
+};
+
+&cdc_dmic01_gpios {
+	status = "disabled";
+};
+
+&cdc_dmic23_gpios {
+	status = "disabled";
+};
+
+&cdc_dmic45_gpios {
+	status = "disabled";
+};
+
+&cdc_dmic67_gpios {
+	status = "disabled";
+};
+
+&wsa_spkr_en1 {
+	status = "disabled";
+};
+
+&wsa_spkr_en2 {
+	status = "disabled";
+};
+
+&wsa2_spkr_en1 {
+	status = "disabled";
+};
+
+&wsa2_spkr_en2 {
+	status = "disabled";
+};
+
+&fsa4480 {
+	compatible = "qcom,fsa4480-i2c";
+	status = "disabled";
+	fsa4480,hs-det-gpio = <&tlmm 144 0x00>;
+};
+
+&sde_dp {
+	qcom,dp-aux-switch = <&fsa4480_new>;
+};
+
+&oplus_audio_drv {
+	compatible = "oplus,asoc-audio";
+	//for nxp speaker
+	oplus,speaker-vendor = "nxp";
+	oplus,speaker-i2s-id = <0>;
+	oplus,speaker-codec-name = "tfa98xx.2-0034";
+	oplus,speaker-codec-dai-name = "tfa98xx-aif-2-34";
+};
+/* OPLUS_ARCH_EXTENDS */

@@ -1,0 +1,2 @@
+obj-$(CONFIG_HORAE_THERMAL_SHELL) += horae_shell_temp.o
+horae_shell_temp-y := horae_shell_temp.o

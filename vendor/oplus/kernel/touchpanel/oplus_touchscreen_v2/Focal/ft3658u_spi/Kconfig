@@ -1,0 +1,4 @@
+config TOUCHPANEL_FOCAL_FT3658U_SPI
+	tristate "TP focal ft3658U spi IC enable or not for OPLUS"
+	help
+	say Y to enable driver for Touchpanel using Focal FT3658u spi

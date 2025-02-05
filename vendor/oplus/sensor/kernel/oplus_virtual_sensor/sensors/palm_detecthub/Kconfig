@@ -1,0 +1,4 @@
+
+config OPLUS_FEATURE_PALM_DETECT
+	bool "palm_detecthub for MediaTek package"
+	default n

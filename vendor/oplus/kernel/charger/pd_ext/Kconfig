@@ -1,0 +1,93 @@
+#
+# TypeC Port Controller Device Configuration
+#
+config OPLUS_TCPC
+        tristate "TypeC Port Controller Device Class"
+        depends on TCPC_CLASS
+        depends on USB_POWER_DELIVERY
+        help
+          Say Y to enable
+          Typec Portcd
+          Controller Device
+          Class
+
+config TCPC_CLASS
+	tristate "TypeC Port Controller Device Class"
+	select MTK_USB_TYPEC
+	select RT_REGMAP
+	select TYPEC
+	help
+	  Say Y to enable
+	  Typec Port
+	  Controller Device
+	  Class
+
+config USB_POWER_DELIVERY
+	tristate "Support USB power delivery Function"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  USB
+	  Power Delivery
+	  support
+
+config TCPC_ET7303
+	tristate "Richtek ET7303 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  Richtek ET7303
+	  TypeC port Controller
+	  Driver
+
+config TCPC_RT1711H
+	tristate "Richtek RT1711H TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  Richtek RT1711H
+	  TypeC port Controller
+	  Driver
+
+config TCPC_SGM7220
+	tristate "SGM7220 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  SGM7220
+	  TypeC port Controller
+	  Driver
+
+config TCPC_AW35616
+	tristate "TCPC_AW35616 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  AW35616
+	  TypeC port Controller
+	  Driver
+
+config USB_PD_VBUS_STABLE_TOUT
+	int "PD VBUS Stable Timeout"
+	depends on USB_POWER_DELIVERY
+	range 0 1000                       # >= 0,  <= 1000
+	default 125
+	help
+	  Setup a timeout value (ms)
+	  for
+	  VBUS change
+	  stable
+
+config PD_DBG_INFO
+	tristate "PD debug information"
+	depends on TCPC_CLASS
+	default y
+	help
+	  Say Y to enable PD debug
+	  information
+	  Say N to disable

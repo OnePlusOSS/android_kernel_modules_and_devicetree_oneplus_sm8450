@@ -1,0 +1,1051 @@
+{
+    "type": "top_cfg",
+    "enum_list": [
+        {
+            "name": "oplus_chg_ic_type",
+            "desc":{
+                "zh": "虚拟IC框架IC类型"
+            },
+            "list": [
+                {
+                    "lable": "OPLUS_CHG_IC_BUCK",
+                    "desc": {
+                        "en": "buck IC",
+                        "zh": "buck芯片"
+                    },
+                    "str": "buck"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_BOOST",
+                    "desc": {
+                        "en": "boost IC",
+                        "zh": "boost芯片"
+                    },
+                    "str": "boost"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_BUCK_BOOST",
+                    "desc": {
+                        "en": "buck&boost IC",
+                        "zh": "buck&boost双功能芯片"
+                    },
+                    "str": "buck&boost"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_CP_DIV2",
+                    "desc": {
+                        "en": "deprecated",
+                        "zh": "已废弃"
+                    },
+                    "str": "cp_div2"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_CP_MUL2",
+                    "desc": {
+                        "en": "deprecated",
+                        "zh": "已废弃"
+                    },
+                    "str": "cp_mul2"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_CP_TW2",
+                    "desc": {
+                        "en": "deprecated",
+                        "zh": "已废弃"
+                    },
+                    "str": "cp_tw2"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_RX",
+                    "desc": {
+                        "zh": "无线充电RX芯片"
+                    },
+                    "str": "wireless_rx"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_RX",
+                    "desc": {
+                        "zh": "虚拟无线充电RX芯片"
+                    },
+                    "str": "virtual_rx"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_BUCK",
+                    "desc": {
+                        "zh": "虚拟buck芯片"
+                    },
+                    "str": "virtual_buck"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_CP",
+                    "desc": {
+                        "zh": "虚拟电荷泵芯片"
+                    },
+                    "str": "virtual_cp"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_USB",
+                    "desc": {
+                        "zh": "虚拟USB"
+                    },
+                    "str": "virtual_usb"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_TYPEC",
+                    "desc": {
+                        "zh": "typec芯片"
+                    },
+                    "str": "typec"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_GAUGE",
+                    "desc": {
+                        "zh": "电量计芯片"
+                    },
+                    "str": "gauge"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_GAUGE",
+                    "desc": {
+                        "zh": "虚拟电量计芯片"
+                    },
+                    "str": "virtual_gauge"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_ASIC",
+                    "desc": {
+                        "en": "ASIC",
+                        "zh": "ASIC"
+                    },
+                    "str": "asic"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_ASIC",
+                    "desc": {
+                        "en": "virtual ASIC",
+                        "zh": "虚拟ASIC"
+                    },
+                    "str": "virtual_asic"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VPHY",
+                    "desc": {
+                        "en": "vooc phy",
+                        "zh": "vooc phy"
+                    },
+                    "str": "voocphy"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_VPHY",
+                    "desc": {
+                        "en": "virtual vooc phy",
+                        "zh": "虚拟vooc phy"
+                    },
+                    "str": "virtual_voocphy"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_SWITCH",
+                    "desc": {
+                        "en": "switch IC",
+                        "zh": "开关芯片"
+                    },
+                    "str": "switch"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_SWITCH",
+                    "desc": {
+                        "en": "virtual switch IC",
+                        "zh": "虚拟开关芯片"
+                    },
+                    "str": "virtual_switch"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_CP",
+                    "desc": {
+                        "en": "charge pump IC",
+                        "zh": "电荷泵芯片"
+                    },
+                    "str": "cp"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_UFCS",
+                    "desc": {
+                        "en": "virtual ufcs",
+                        "zh": "虚拟UFCS协议栈"
+                    },
+                    "str": "virtual_ufcs"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_MISC",
+                    "desc": {
+                        "en": "misc",
+                        "zh": "misc"
+                    },
+                    "str": "misc"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_PPS",
+                    "desc": {
+                        "en": "pps",
+                        "zh": "pps协议栈"
+                    },
+                    "str": "pps"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_PPS",
+                    "desc": {
+                        "en": "virtual pps",
+                        "zh": "虚拟pps协议栈"
+                    },
+                    "str": "virtual_pps"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_UFCS",
+                    "desc": {
+                        "en": "UFCS",
+                        "zh": "UFCS协议栈"
+                    },
+                    "str": "ufcs"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_BATT_BAL",
+                    "desc": {
+                        "en": "batt_bal",
+                        "zh": "电池均衡芯片"
+                    },
+                    "str": "batt_bal"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_BATT_BAL",
+                    "desc": {
+                        "en": "virtual batt_bal",
+                        "zh": "虚拟电池均衡芯片"
+                    },
+                    "str": "virtual batt_bal"
+                },
+                {
+                    "lable": "OPLUS_CHG_IC_VIRTUAL_LEVEL_SHIFT",
+                    "desc": {
+                        "en": "virtual level_shift",
+                        "zh": "虚拟电平转换芯片"
+                    },
+                    "str": "virtual level_shift"
+                }
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_connect_type",
+            "desc":{
+                "zh": "虚拟IC框架IC连接类型"
+            },
+            "list": [
+                "OPLUS_CHG_IC_CONNECT_PARALLEL",
+                "OPLUS_CHG_IC_CONNECT_SERIAL"
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_virq_id",
+            "desc":{
+                "zh": "虚拟IC框架IC虚拟中断类型"
+            },
+            "list": [
+                {
+                    "lable": "OPLUS_IC_VIRQ_ERR",
+                    "desc": {
+                        "zh": "IC出错中断"
+                    },
+                    "str": "error"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_CC_DETECT",
+                    "desc": {
+                        "zh": "cc连接断开中断"
+                    },
+                    "str": "cc_detect"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_PLUGIN",
+                    "desc": {
+                        "zh": "适配器插入拔出中断"
+                    },
+                    "str": "plugin"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_CC_CHANGED",
+                    "desc": {
+                        "zh": "cc状态变化中断"
+                    },
+                    "str": "cc_changed"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_VOOC_DATA",
+                    "desc": {
+                        "zh": "VOOC数据中断"
+                    },
+                    "str": "vooc_data"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_SUSPEND_CHECK",
+                    "desc": {
+                        "zh": "停充检查中断"
+                    },
+                    "str": "suspend_check"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_CHG_TYPE_CHANGE",
+                    "desc": {
+                        "zh": "充电器类型变化中断"
+                    },
+                    "str": "chg_type_change"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_OFFLINE",
+                    "desc": {
+                        "zh": "IC离线中断"
+                    },
+                    "str": "offline"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_RESUME",
+                    "desc": {
+                        "zh": "IC唤醒中断"
+                    },
+                    "str": "resume"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_SVID",
+                    "desc": {
+                        "zh": "svid中断"
+                    },
+                    "str": "svid"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_OTG_ENABLE",
+                    "desc": {
+                        "zh": "OTG使能中断"
+                    },
+                    "str": "svid"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_VOLTAGE_CHANGED",
+                    "desc": {
+                        "zh": "电压范围变化中断"
+                    },
+                    "str": "voltage_change"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_CURRENT_CHANGED",
+                    "desc": {
+                        "zh": "电流范围变化中断"
+                    },
+                    "str": "current_change"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_BC12_COMPLETED",
+                    "desc": {
+                        "zh": "BC1.2完成中断"
+                    },
+                    "str": "bc12_completed"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_DATA_ROLE_CHANGED",
+                    "desc": {
+                        "zh": "USB数据角色中断"
+                    },
+                    "str": "data_role_changed"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_ONLINE",
+                    "desc": {
+                        "zh": "IC上线中断"
+                    },
+                    "str": "online"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_TYPEC_STATE",
+                    "desc": {
+                        "zh": "typec状态变化中断"
+                    },
+                    "str": "typec_state"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_HARD_RESET",
+                    "desc": {
+                        "zh": "hard reset中断"
+                    },
+                    "str": "hard_reset"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_POWER_CHANGED",
+                    "desc": {
+                        "zh": "功率变化中断"
+                    },
+                    "str": "power_changed"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_PRESENT",
+                    "desc": {
+                        "zh": "present中断"
+                    },
+                    "str": "present"
+                },
+                {
+                    "lable": "OPLUS_IC_VIRQ_EVENT_CHANGED",
+                    "desc": {
+                        "zh": "无线充电事件变化中断"
+                    },
+                    "str": "event_changed"
+                }
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_err",
+            "desc":{
+                "zh": "虚拟IC框架IC故障类型"
+            },
+            "list": [
+                {
+                    "lable": "OPLUS_IC_ERR_UNKNOWN",
+                    "desc": {
+                        "zh": "未知的错误类型"
+                    },
+                    "str": "Unknown"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_I2C",
+                    "desc": {
+                        "zh": "i2c错误"
+                    },
+                    "str": "I2C"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_GPIO",
+                    "desc": {
+                        "zh": "gpio错误"
+                    },
+                    "str": "GPIO"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_PLAT_PMIC",
+                    "desc": {
+                        "zh": "平台pmic错误"
+                    },
+                    "str": "PlatformPMIC"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_BUCK_BOOST",
+                    "desc": {
+                        "zh": "Buck/Boost IC错误"
+                    },
+                    "str": "Buck/Boost"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_GAUGE",
+                    "desc": {
+                        "zh": "电量计错误"
+                    },
+                    "str": "Gauge"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_WLS_RX",
+                    "desc": {
+                        "zh": "无线充电RX错误"
+                    },
+                    "str": "WirelessRX"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_CP",
+                    "desc": {
+                        "zh": "电荷泵错误"
+                    },
+                    "str": "ChargePump"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_CC_LOGIC",
+                    "desc": {
+                        "zh": "CC逻辑芯片错误"
+                    },
+                    "str": "CCLogic"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_PARALLEL_UNBALANCE",
+                    "desc": {
+                        "zh": "并联充电不平衡错误"
+                    },
+                    "str": "ParallelUnbalance"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_MOS_ERROR",
+                    "desc": {
+                        "zh": "MOS错误"
+                    },
+                    "str": "MosError"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_OFFLINE",
+                    "desc": {
+                        "zh": "芯片离线"
+                    },
+                    "str": "Offline"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_UFCS",
+                    "desc": {
+                        "zh": "UFCS错误"
+                    },
+                    "str": "UFCS"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_GAN_MOS_ERROR",
+                    "desc": {
+                        "zh": "氮化镓MOS错误"
+                    },
+                    "str": "GanMosError"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_BATT_ID",
+                    "desc": {
+                        "zh": "BATT ID信息"
+                    },
+                    "str": "BATTID"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_NTC",
+                    "desc": {
+                        "zh": "NTC错误"
+                    },
+                    "str": "NTC"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_BATT_BAL",
+                    "desc": {
+                        "zh": "BATT_BAL错误"
+                    },
+                    "str": "BATT_BAL"
+                }
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_plat_pmic_err",
+            "desc":{
+                "zh": "虚拟IC框架pmic故障类型"
+            },
+            "list": [
+                "PLAT_PMIC_ERR_UNKNOWN",
+                "PLAT_PMIC_ERR_VCONN_OVP",
+                "PLAT_PMIC_ERR_VCONN_UVP",
+                "PLAT_PMIC_ERR_VCONN_RVP",
+                "PLAT_PMIC_ERR_VCONN_OCP",
+                "PLAT_PMIC_ERR_VCONN_OPEN",
+                "PLAT_PMIC_ERR_VCONN_CLOSE",
+                "PLAT_PMIC_ERR_VBUS_ABNORMAL"
+            ]
+        },
+        {
+            "name": "oplus_chg_track_mos_device_error",
+            "desc":{
+                "zh": "并联充电mos故障埋点类型"
+            },
+            "list": [
+                "TRACK_MOS_ERR_DEFAULT",
+                "TRACK_MOS_SOC_NOT_FULL",
+                "TRACK_MOS_SOC_GAP_TOO_BIG",
+                "TRACK_MOS_CURRENT_UNBALANCE",
+                "TRACK_MOS_I2C_ERROR",
+                "TRACK_MOS_OPEN_ERROR",
+                "TRACK_MOS_VBAT_GAP_BIG"
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_ufcs_err",
+            "desc":{
+                "zh": "虚拟IC框架UFCS故障类型"
+            },
+            "list": [
+                "UFCS_ERR_READ",
+                "UFCS_ERR_WRITE",
+                "UFCS_ERR_REG_DUMP"
+            ]
+        },
+        {
+            "name": "oplus_chg_ic_gpio_status",
+            "desc":{
+                "zh": "GPIO状态枚举值"
+            },
+            "list": [
+                "GPIO_STATUS_NC",
+                "GPIO_STATUS_PD",
+                "GPIO_STATUS_PU",
+                "GPIO_STATUS_NOT_SUPPORT"
+            ]
+        },
+        {
+            "name": "oplus_chg_track_gague_device_error",
+            "desc":{
+                "zh": "电量计故障类型"
+            },
+            "list": [
+                {
+                    "lable": "TRACK_GAGUE_ERR_DEFAULT",
+                    "desc": {
+                        "zh": "默认值"
+                    },
+                    "str": "default"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_SEAL",
+                    "desc": {
+                        "zh": "上锁失败"
+                    },
+                    "str": "seal_fail"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_UNSEAL",
+                    "desc": {
+                        "zh": "解锁失败"
+                    },
+                    "str": "unseal_fail"
+                },
+                {
+                    "lable": "TRACK_GAGUE_GENERAL_INFO",
+                    "desc": {
+                        "zh": "常规记录"
+                    },
+                    "str": "general_info"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_RSOC_JUMP",
+                    "desc": {
+                        "zh": "真实电量跳变"
+                    },
+                    "str": "rsoc_jump"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_VOLT_SOC_NOT_MATCH",
+                    "desc": {
+                        "zh": "电压电量不匹配"
+                    },
+                    "str": "volt_soc_not_match"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_QMAX",
+                    "desc": {
+                        "zh": "qmax不在标称的70~120%"
+                    },
+                    "str": "qmax_err"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_FCC",
+                    "desc": {
+                        "zh": "fcc不在标称的70~120%"
+                    },
+                    "str": "fcc_err"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_RSOC_SMOOTH",
+                    "desc": {
+                        "zh": "电池放电5分钟电量上升或者电池充电5分钟电量下降"
+                    },
+                    "str": "rsoc_smooth_err"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_TEMP",
+                    "desc": {
+                        "zh": "保护板温度小于等于-40度"
+                    },
+                    "str": "temp_err"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_SOH_JUMP",
+                    "desc": {
+                        "zh": "前后soh差值大于等于3"
+                    },
+                    "str": "soh_jump"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_CC_JUMP",
+                    "desc": {
+                        "zh": "前后cc差值大于等于3"
+                    },
+                    "str": "cc_jump"
+                },
+                {
+                    "lable": "TRACK_GAGUE_SOC_1_PCT_INFO",
+                    "desc": {
+                        "zh": "真实电量小于等于1的信息"
+                    },
+                    "str": "soc1_info"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_SINGLE_DISCHG_TERM_VOLT",
+                    "desc": {
+                        "zh": "单次放电电量计动态调压前后两次幅值超标"
+                    },
+                    "str": "single_dichg_term_volt"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_MULTIPLE_DISCHG_TERM_VOLT",
+                    "desc": {
+                        "zh": "前后两次放电电量计动态调压幅值超标"
+                    },
+                    "str": "multiple_dichg_term_volt"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_CC_TERM_VOLT",
+                    "desc": {
+                        "zh": "电量计动态调压幅值跟CC不匹配"
+                    },
+                    "str": "cc_term_volt"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_BELOW_FIRMWARE_TERM_VOLT",
+                    "desc": {
+                        "zh": "电量计动态调压幅值低于固件限定值"
+                    },
+                    "str": "below_firmware_term_volt"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_LIFETIME_OVER",
+                    "desc": {
+                        "zh": "电量计lifetime 最值超标"
+                    },
+                    "str": "lifetime_over"
+                },
+                {
+                    "lable": "TRACK_GAGUE_TERM_VOLT_OK",
+                    "desc": {
+                        "zh": "电量计动态调压幅值正常"
+                    },
+                    "str": "term_volt_ok"
+                },
+                {
+                    "lable": "TRACK_GAGUE_LIFETIME_INFO",
+                    "desc": {
+                        "zh": "电量计lifetime常规信息"
+                    },
+                    "str": "lifetime_info"
+                },
+                {
+                    "lable": "TRACK_GAGUE_MTK_CALI_INFO",
+                    "desc": {
+                        "zh": "MTK平台电量计校准信息"
+                    },
+                    "str": "mtk_cali_info"
+                },
+                {
+                    "lable": "TRACK_GAGUE_ERR_MAX",
+                    "desc": {
+                        "zh": "异常上限"
+                    },
+                    "str": "unknown_err"
+                }
+            ]
+        },
+        {
+            "name": "oplus_chg_spec_version",
+            "desc":{
+                "zh": "充电规范版本号枚举值"
+            },
+            "list": [
+                "OPLUS_CHG_SPEC_VER_UNKNOW",
+                "OPLUS_CHG_SPEC_VER_V3P6",
+                "OPLUS_CHG_SPEC_VER_V3P7",
+                "OPLUS_CHG_SPEC_VER_MAX"
+            ]
+        },
+        {
+            "name": "oplus_chg_sili_alg_cfg_type",
+            "desc":{
+                "zh": "电量计硅算法配置枚举类型"
+            },
+            "list": [
+                "SILI_OCV_HYSTERESIS",
+                "SILI_OCV_AGING_OFFSET",
+                "SILI_DYNAMIC_DSG_CTRL",
+                "SILI_STATIC_DSG_CTRL",
+                "SILI_MONITOR_MODE",
+                "SILI_CFG_TYPE_MAX"
+            ]
+        },
+        {
+            "name": "oplus_region_list_index",
+            "desc":{
+                "zh": "区域码相关dts的index"
+            },
+            "list": [
+                {
+                    "lable": "ECO_DESIGN_SUPPORT_REGION",
+                    "desc": {
+                        "zh": "eco design需求支持区域"
+                    },
+                    "str": "oplus,eco_region_list"
+                },
+                {
+                    "lable": "REGION_INDEX_MAX",
+                    "desc": {
+                        "zh": "支持的数量"
+                    },
+                    "str": "NA"
+                }
+            ]
+        },
+        {
+            "name": "endurance_exit_reason",
+            "desc":{
+                "zh": "低压超省退出原因"
+            },
+            "list": [
+                {
+                    "lable": "ENDURANCE_EXIT_SHUTDOWN",
+                    "desc": {
+                        "zh": "电量0%关机退出"
+                    },
+                    "str": "shutdown"
+                },
+                {
+                    "lable": "ENDURANCE_EXIT_CHARGING",
+                    "desc": {
+                        "zh": "插充电器退出"
+                    },
+                    "str": "charging"
+                },
+                {
+                    "lable": "ENDURANCE_EXIT_USER",
+                    "desc": {
+                        "zh": "用户主动退出"
+                    },
+                    "str": "user"
+                }
+            ]
+        },
+        {
+            "name": "vooc_frame_head",
+            "desc":{
+                "zh": "VOOC/SVOOC协议帧头"
+            },
+            "list": [
+                {
+                    "lable": "VOOC_FRAME_HEAD_VOOC20",
+                    "desc": {
+                        "zh": "vooc2.0"
+                    },
+                    "str": "vooc2.0"
+                },
+                {
+                    "lable": "VOOC_FRAME_HEAD_VOOC30",
+                    "desc": {
+                        "zh": "vooc3.0"
+                    },
+                    "str": "vooc3.0"
+                },
+                {
+                    "lable": "VOOC_FRAME_HEAD_SVOOC",
+                    "desc": {
+                        "zh": "svooc"
+                    },
+                    "str": "svooc"
+                },
+                {
+                    "lable": "VOOC_FRAME_HEAD_MAX",
+                    "desc": {
+                        "zh": "unknown"
+                    },
+                    "str": "unknown"
+                }
+            ]
+        },
+        {
+            "name": "track_not_record_reason",
+            "desc":{
+                "zh": "埋点不需要记录的原因"
+            },
+            "list": [
+                {
+                    "lable": "NOT_RECORD_ENGINEER",
+                    "desc": {
+                        "zh": "工模dis808放电"
+                    },
+                    "str": "dis808"
+                },
+                {
+                    "lable": "NOT_RECORD_SAFETY",
+                    "desc": {
+                        "zh": "新安规user_disable放电"
+                    },
+                    "str": "user_disable"
+                },
+                {
+                    "lable": "NOT_RECORD_MMI",
+                    "desc": {
+                        "zh": "夜间充电等停充接口"
+                    },
+                    "str": "mmi"
+                },
+                {
+                    "lable": "NOT_RECORD_SLOW_CHG",
+                    "desc": {
+                        "zh": "智能充电-缓速充电"
+                    },
+                    "str": "slow_chg"
+                },
+                {
+                    "lable": "NOT_RECORD_PLC",
+                    "desc": {
+                        "zh": "旁路充电"
+                    },
+                    "str": "plc"
+                },
+                {
+                    "lable": "NOT_RECORD_MAX",
+                    "desc": {
+                        "zh": "unknown"
+                    },
+                    "str": "unknown"
+                }
+            ]
+        },
+        {
+            "name": "batt_bal_ic_exit_reason",
+            "desc":{
+                "zh": "电池均衡IC故障类型"
+            },
+            "list": [
+                {
+                    "lable": "BATT_BAL_ERR_UNKNOW",
+                    "desc": {
+                        "zh": "未知错误"
+                    },
+                    "str": "unknow"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_B1_OVP",
+                    "desc": {
+                        "zh": "电池B1触发ovp"
+                    },
+                    "str": "b1_ovp"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_B2_OVP",
+                    "desc": {
+                        "zh": "电池B2触发ovp"
+                    },
+                    "str": "b2_ovp"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_OT_WARM",
+                    "desc": {
+                        "zh": "芯片温度过高警告"
+                    },
+                    "str": "ot_warm"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_OT",
+                    "desc": {
+                        "zh": "芯片温度过温"
+                    },
+                    "str": "ot"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_B1_UV",
+                    "desc": {
+                        "zh": "电池B1触发UV"
+                    },
+                    "str": "b1_uv"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_B2_UV",
+                    "desc": {
+                        "zh": "电池B2触发UV"
+                    },
+                    "str": "b2_uv"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_L1_PEAK_CURR_LIMIT",
+                    "desc": {
+                        "zh": "电感L1过流"
+                    },
+                    "str": "l1_peak_curr_limit"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_L2_PEAK_CURR_LIMIT",
+                    "desc": {
+                        "zh": "电感L2过流"
+                    },
+                    "str": "l2_peak_curr_limit"
+                },
+                {
+                    "lable": "BATT_BAL_ERR_WDG_TIMEOUT",
+                    "desc": {
+                        "zh": "均衡触发看门狗"
+                    },
+                    "str": "wdg_timeout"
+                }
+            ]
+        },
+        {
+            "name": "plc_enable_status",
+            "desc":{
+                "zh": "旁路状态"
+            },
+            "list": [
+                {
+                    "lable": "PLC_STATUS_NOT_SUPPORT",
+                    "desc": {
+                        "zh": "旁路不支持"
+                    },
+                    "str": "plc not support"
+                },
+                {
+                    "lable": "PLC_STATUS_NOT_ALLOW",
+                    "desc": {
+                        "zh": "旁路不允许"
+                    },
+                    "str": "plc not allow"
+                },
+                {
+                    "lable": "PLC_STATUS_DISABLE",
+                    "desc": {
+                        "zh": "旁路关闭"
+                    },
+                    "str": "plc disable"
+                },
+                {
+                    "lable": "PLC_STATUS_ENABLE",
+                    "desc": {
+                        "zh": "旁路使能"
+                    },
+                    "str": "plc enable"
+                },
+                {
+                    "lable": "PLC_STATUS_WAIT",
+                    "desc": {
+                        "zh": "旁路等待"
+                    },
+                    "str": "plc wait"
+                },
+                {
+                    "lable": "PLC_STATUS_MAX",
+                    "desc": {
+                        "zh": "旁路未知状态"
+                    },
+                    "str": "plc unknown"
+                }
+            ]
+        }
+    ],
+
+    "oplus_chg_ic_list": [
+        "ic/common.json",
+        "ic/wireless_rx.json",
+        "ic/buck_boost.json",
+        "ic/charge_pump.json",
+        "ic/gauge.json",
+        "ic/misc.json",
+        "ic/voocphy.json",
+        "ic/vooc.json",
+        "ic/switch.json",
+        "ic/ufcs.json",
+        "ic/pps.json",
+        "ic/batt_bal.json"
+    ]
+}

@@ -1,0 +1,1 @@
+../../../opensource/cvp-kernel/cvp_kernel_board.mk

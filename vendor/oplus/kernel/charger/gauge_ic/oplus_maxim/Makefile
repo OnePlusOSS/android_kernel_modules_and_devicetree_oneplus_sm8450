@@ -1,0 +1,11 @@
+obj-y      += oplus_ds28e30/1wire_protocol.o
+obj-y      += oplus_ds28e30/bignum.o
+obj-y      += oplus_ds28e30/deep_cover_coproc_sw.o
+obj-y      += oplus_ds28e30/ds28e30.o
+obj-y      += oplus_ds28e30/ecc_generate_key.o
+obj-y      += oplus_ds28e30/ecdsa_generic_api.o
+obj-y      += oplus_ds28e30/ecdsa_high.o
+obj-y      += oplus_ds28e30/sha256_stone.o
+obj-y      += oplus_ds28e30/ucl_rng.o
+obj-y      += oplus_ds28e30/ucl_sha256.o
+obj-y      += oplus_maxim.o

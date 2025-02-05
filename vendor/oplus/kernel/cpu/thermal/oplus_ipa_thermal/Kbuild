@@ -1,0 +1,2 @@
+obj-$(CONFIG_OPLUS_IPA_THERMAL) += oplus_ipa_thermal.o
+LINUXINCLUDE := -I$(srctree)/drivers/thermal ${LINUXINCLUDE}

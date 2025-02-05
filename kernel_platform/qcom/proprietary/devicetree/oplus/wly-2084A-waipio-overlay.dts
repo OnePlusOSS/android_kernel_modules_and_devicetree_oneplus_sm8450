@@ -1,0 +1,17 @@
+/dts-v1/;
+/plugin/;
+//#include "../qcom/waipio-mtp.dtsi"
+#include <dt-bindings/oplus/hw-id.h>
+#include "../qcom/waipio-mtp-pm8010-overlay.dts"
+#include "waipio_overlay_common.dtsi"
+#include "wly_20846_overlay_common.dtsi"
+#include "oplus_chg/oplus-chg-2084A.dtsi"
+#include "nfc/wly-nfc-sn100t.dtsi"
+#include "sensor/wly-oplus-sensor.dtsi"
+
+/ {
+    model = "Qualcomm Technologies, Inc. Waipio MTP with PM8010, wly";
+
+    oplus,project-id = <0x2084a>;
+    oplus,hw-id = <OPLUS_T0 OPLUS_EVT1 OPLUS_EVT2 OPLUS_DVT1 OPLUS_PVT1>;
+};
