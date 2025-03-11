@@ -2269,6 +2269,28 @@ static int nu1669_standby_config(struct oplus_chg_ic_dev *dev, bool en)
 	return rc;
 }
 
+static int nu1669_get_tx_id(struct oplus_chg_ic_dev *dev, int *tx_id)
+{
+	struct oplus_nu1669 *chip;
+	int rc;
+
+	if (dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL\n");
+		return -ENODEV;
+	}
+	chip = oplus_chg_ic_get_drvdata(dev);
+
+	rc = nu1669_info_obj_read(chip, &chip->info.tx_manu_id, sizeof(chip->info.tx_manu_id));
+	if (rc < 0) {
+		chg_err("read tx_id err, rc=%d\n", rc);
+		return rc;
+	}
+	*tx_id = chip->info.tx_manu_id;
+	chg_info("<~WPC~> tx_id:0x%x.\n", *tx_id);
+
+	return 0;
+}
+
 static bool nu1669_vac_acdrv_check(struct oplus_nu1669 *chip)
 {
 	int rc;
@@ -2831,6 +2853,10 @@ static void *oplus_chg_rx_get_func(struct oplus_chg_ic_dev *ic_dev,
 	case OPLUS_IC_FUNC_RX_SET_COMU:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_RX_SET_COMU,
 			nu1669_set_rx_comu);
+		break;
+	case OPLUS_IC_FUNC_RX_GET_TX_ID:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_RX_GET_TX_ID,
+			nu1669_get_tx_id);
 		break;
 	default:
 		chg_err("this func(=%d) is not supported\n", func_id);

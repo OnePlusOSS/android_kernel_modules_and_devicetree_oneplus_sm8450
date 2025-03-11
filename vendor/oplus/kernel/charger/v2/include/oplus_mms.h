@@ -71,6 +71,7 @@ struct mms_item {
 	struct mms_item_desc desc;
 	bool updated;
 	rwlock_t lock;
+	bool disabled;
 	struct mutex update_lock;
 	union mms_msg_data data;
 	union mms_msg_data pre_data;
@@ -214,5 +215,7 @@ void oplus_mms_unregister(struct oplus_mms *mms);
 void *oplus_mms_get_drvdata(struct oplus_mms *mms);
 int oplus_mms_set_update_mode(struct oplus_mms *mms, bool update);
 int oplus_mms_get_update_mode(struct oplus_mms *mms);
+int oplus_mms_set_item_enable(struct oplus_mms *mms, u32 item_id);
+int oplus_mms_set_item_disable(struct oplus_mms *mms, u32 item_id);
 
 #endif /* __OPLUS_MMS_H__ */

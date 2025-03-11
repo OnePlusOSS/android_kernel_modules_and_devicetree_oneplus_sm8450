@@ -9797,6 +9797,7 @@ static void oplus_plugin_irq_work(struct work_struct *work)
 				    oplus_vooc_get_fastchg_to_warm() == false) {      /*plug out by normal*/
 					printk(KERN_ERR "[%s]: plug out normal\n", __func__);
 					smbchg_set_chargerid_switch_val(0);
+					oplus_ufcs_variables_reset(0);
 					chip->chargerid_volt = 0;
 					chip->chargerid_volt_got = false;
 					chip->charger_type = POWER_SUPPLY_TYPE_UNKNOWN;

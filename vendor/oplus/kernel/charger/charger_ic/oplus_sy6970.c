@@ -862,12 +862,12 @@ static int sy6970_enable_charger(struct sy6970 *bq)
 		&& g_oplus_chip->slave_charger_enable) {
 		if (!sy6970_is_usb(bq)) {
 			chg_debug("enable slave charger.\n");
-			if (!g_oplus_chip->sub_chg_ops) {
+			if (g_oplus_chip->sub_chg_ops) {
 				ret = g_oplus_chip->sub_chg_ops->charging_enable();
 			}
 		} else {
 			chg_debug("disable slave charger.\n");
-			if (!g_oplus_chip->sub_chg_ops) {
+			if (g_oplus_chip->sub_chg_ops) {
 				ret = g_oplus_chip->sub_chg_ops->charging_disable();
 			}
 		}
@@ -1759,7 +1759,6 @@ static int sy6970_request_dpdm(struct sy6970 *chip, bool enable)
 
 static void oplus_chg_awake_init(struct sy6970 *bq)
 {
-	bq->suspend_ws = NULL;
 	if (!bq) {
 		pr_err("[%s]bq is null\n", __func__);
 		return;
@@ -1789,7 +1788,6 @@ static void oplus_chg_wakelock(struct sy6970 *bq, bool awake)
 
 static void oplus_keep_resume_awake_init(struct sy6970 *bq)
 {
-	bq->keep_resume_ws = NULL;
 	if (!bq) {
 		pr_err("[%s]bq is null\n", __func__);
 		return;
@@ -3112,6 +3110,7 @@ static int oplus_sy6970_set_aicr(int current_ma)
 	aicl_point_temp = aicl_point;
 	sy6970_set_input_current_limit(g_bq, usb_icl[i]);
 	msleep(AICL_DELAY_MS);
+	chg_vol = sy6970_adc_read_vbus_volt(g_bq);
 	if (chg_vol < aicl_point_temp) {
 		i =  i - 2;//1.5
 		goto aicl_pre_step;

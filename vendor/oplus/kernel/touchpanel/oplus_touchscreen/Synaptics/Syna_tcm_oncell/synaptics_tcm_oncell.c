@@ -3613,7 +3613,7 @@ static int syna_trx_short_test(struct seq_file *s, struct syna_tcm_data *tcm_inf
         u_data8 = buf[i];
         store_to_file(syna_testdata->fd, "0x%02x, ", u_data8);
         for (j = 0; j < 8; j++) {
-            if (1 == (u_data8 & (1 << j))) {
+			if (u_data8 & (1 << j)) {
                 TPD_INFO("trx short test failed at %d bits.\n", checked_bits + 1);
                 if (!error_count)
                     seq_printf(s, "trx short test failed at %d bits.\n", checked_bits + 1);

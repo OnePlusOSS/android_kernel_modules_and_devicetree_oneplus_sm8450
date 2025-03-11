@@ -104,6 +104,11 @@ enum wls_err_reason {
 	WLS_ERR_Q_VALUE_DISCONNECT,
 	WLS_ERR_TX_Q_VALUE_ERROR,
 	WLS_ERR_SET_TEC_TIMEOUT,
+	WLS_ERR_FW_UPDATE_FORCE,
+	WLS_ERR_FW_UPDATE_BOOT,
+	WLS_ERR_FW_UPDATE_FAIL,
+	WLS_ERR_EPP_FORCE_TO_BPP,
+	WLS_ERR_EPP_QUICK_DISCONNECT_TO_BPP,
 	WLS_ERR_OTHER,
 };
 
@@ -376,6 +381,8 @@ struct oplus_chg_wls_status {
 	u8 adapter_power;
 	u8 charge_type;
 	bool tx_product_id_done;
+	int tx_manu_id;
+	int last_cep;
 	enum oplus_chg_wls_rx_state current_rx_state;
 	enum oplus_chg_wls_rx_state next_rx_state;
 	enum oplus_chg_wls_rx_state target_rx_state;
@@ -488,6 +495,11 @@ struct oplus_chg_wls_status {
 	struct wls_third_part_auth_result aes_verfity_data;
 
 	int epp_chg_level;
+	unsigned long epp_check_timeout;
+	bool epp_force_to_bpp_flag;
+	int epp_to_bpp_reason_record;
+	unsigned long epp_disconnect_time;
+	unsigned long epp_to_bpp_connect_time;
 
 	struct hrtimer wls_adapter_curve_timer;
 	int wls_adapter_curve_gear_cnt;
@@ -496,7 +508,9 @@ struct oplus_chg_wls_status {
 	int tx_q_val_frm_rx;
 	int q_val_done;
 	int ploss_fod_warn_count;
+	int ta_uv_count;
 	u32 track_error_flag;
+	int adapter_curve_pwr;
 };
 
 struct oplus_chg_wls {
@@ -555,6 +569,8 @@ struct oplus_chg_wls {
 	struct delayed_work enter_rx_mode_work;
 	struct delayed_work wls_match_q_work;
 	struct delayed_work wls_ploss_warn_work;
+	struct delayed_work wls_epp_force_to_bpp_checkwork;
+	struct delayed_work wls_epp_check_flag_clear_work;
 	struct work_struct wls_err_handler_work;
 	struct work_struct wls_present_handler_work;
 	struct work_struct wls_online_handler_work;
@@ -564,6 +580,7 @@ struct oplus_chg_wls {
 	struct work_struct fcc_gear_update_work;
 	struct work_struct cool_down_update_work;
 	struct work_struct batt_bal_curr_limit_work;
+	struct work_struct adapter_curve_vote_work;
 	struct wakeup_source *rx_wake_lock;
 	struct wakeup_source *trx_wake_lock;
 	struct mutex connect_lock;
@@ -585,6 +602,7 @@ struct oplus_chg_wls {
 	struct votable *insert_disable_votable;
 	struct votable *quiet_mode_votable;
 	struct votable *rx_comu_votable;
+	struct votable *force_bpp_mode_votable;
 
 	struct oplus_wls_chg_rx *wls_rx;
 	struct oplus_wls_chg_fast *wls_fast;
@@ -849,6 +867,11 @@ static const char * const wls_err_reason_text[] = {
 	[WLS_ERR_Q_VALUE_DISCONNECT] = "q_value_disconnect",
 	[WLS_ERR_TX_Q_VALUE_ERROR] = "q_value_error",
 	[WLS_ERR_SET_TEC_TIMEOUT] = "set_tec_timeout",
+	[WLS_ERR_FW_UPDATE_FORCE] = "fw_update_force",
+	[WLS_ERR_FW_UPDATE_BOOT] = "fw_update_boot",
+	[WLS_ERR_FW_UPDATE_FAIL] = "fw_update_fail",
+	[WLS_ERR_EPP_FORCE_TO_BPP] = "epp_force_to_bpp",
+	[WLS_ERR_EPP_QUICK_DISCONNECT_TO_BPP] = "epp_quick_disconnect_to_bpp",
 	[WLS_ERR_OTHER] = "other",
 };
 
@@ -888,7 +911,7 @@ static int oplus_chg_wls_track_upload_wls_err_info(struct oplus_chg_wls *wls_dev
 static void oplus_chg_wls_rx_msg_callback(void *dev_data, u8 data[]);
 static void oplus_chg_wls_ploss_warn_ta_uv(struct oplus_chg_wls *wls_dev, u8 err_type);
 static int oplus_chg_wls_set_tec_power(struct oplus_chg_wls *wls_dev, int power);
-static int oplus_chg_wls_entry_rx_mode(struct oplus_chg_wls *wls_dev, enum oplus_chg_wls_rx_mode rx_mode);
+static int oplus_chg_wls_entry_rx_mode(struct oplus_chg_wls *wls_dev, enum oplus_chg_wls_rx_mode rx_mode, const char *client_str);
 static int oplus_chg_wls_rx_set_rx_mode_safety(struct oplus_chg_wls *wls_dev, enum oplus_chg_wls_rx_mode rx_mode);
 static int oplus_chg_wls_send_raw_data(struct oplus_chg_wls *wls_dev, u8 msg[2], u8 data[3], int wait_time_s);
 static int oplus_chg_wls_send_match_q(struct oplus_chg_wls *wls_dev);
@@ -1008,6 +1031,18 @@ static int oplus_chg_wls_get_base_power_max(u8 id)
 	return pwr;
 }
 
+static void oplus_chg_wls_adapter_curve_vote_work(struct work_struct *work)
+{
+	struct oplus_chg_wls *wls_dev =
+		container_of(work, struct oplus_chg_wls, adapter_curve_vote_work);
+	struct oplus_chg_wls_status *wls_status = &wls_dev->wls_status;
+	struct oplus_chg_wls_dynamic_config *dynamic_cfg = &wls_dev->dynamic_config;
+
+	chg_info("wls_status adapter_curve_pwr:%d\n", wls_status->adapter_curve_pwr);
+	vote(wls_dev->fcc_votable, RX_ADAPTER_CURVE_VOTER, true,
+	     (wls_status->adapter_curve_pwr * 1000 * 1000 / dynamic_cfg->svooc_vol_mv), false);
+}
+
 static int oplus_wls_adapter_curve_timer_start(struct oplus_chg_wls *wls_dev)
 {
 	if (!wls_dev) {
@@ -1044,7 +1079,6 @@ enum hrtimer_restart wls_adapter_curve_timer_callback(struct hrtimer *timer) {
 	int i;
 	struct oplus_chg_wls_status *wls_status = container_of(timer, struct oplus_chg_wls_status, wls_adapter_curve_timer);
 	struct oplus_chg_wls *wls_dev = container_of(wls_status, struct oplus_chg_wls, wls_status);
-	struct oplus_chg_wls_dynamic_config *dynamic_cfg = &wls_dev->dynamic_config;
 	u8 f2_id = wls_status->adapter_power & 0x7F;
 	int count = wls_status->wls_adapter_curve_gear_cnt;
 
@@ -1079,8 +1113,8 @@ enum hrtimer_restart wls_adapter_curve_timer_callback(struct hrtimer *timer) {
 		wls_dev->tec_init_power = 1;
 	}
 
-	vote(wls_dev->fcc_votable, RX_ADAPTER_CURVE_VOTER, true,
-			(pwr * 1000 * 1000 / dynamic_cfg->svooc_vol_mv), false);
+	wls_status->adapter_curve_pwr = pwr;
+	schedule_work(&wls_dev->adapter_curve_vote_work);
 
 	if (time < 0)
 		goto out;
@@ -2186,6 +2220,20 @@ static int oplus_chg_wls_comu_vote_callback(struct votable *votable, void *data,
 	return 0;
 }
 
+static int oplus_chg_wls_force_bpp_mode_vote_callback(struct votable *votable, void *data,
+				int bpp_mode_set, const char *client, bool step)
+{
+	struct oplus_chg_wls *wls_dev = data;
+
+	if (!!bpp_mode_set)
+		wls_dev->force_rx_mode = OPLUS_CHG_WLS_RX_MODE_BPP;
+	else
+		wls_dev->force_rx_mode = OPLUS_CHG_WLS_RX_MODE_UNKNOWN;
+	chg_info("bpp_mode_set %d, by %s\n", bpp_mode_set, client);
+
+	return 0;
+}
+
 static void  oplus_chg_wls_set_charging_disable(
 		struct oplus_chg_wls *wls_dev, bool disable)
 {
@@ -2869,21 +2917,38 @@ static void oplus_chg_wls_tx_error_msg_handler(struct oplus_chg_wls *wls_dev,
 		msg_ok = true;
 		break;
 	case WLS_TX_ERROR_ASK_TIMEOUT:
+		if (oplus_chg_wls_track_get_track_error_flag(wls_dev, WLS_TX_ERROR_ASK_TIMEOUT) == 0) {
+			oplus_chg_wls_track_set_track_error_flag(wls_dev, WLS_TX_ERROR_ASK_TIMEOUT);
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_TX, WLS_ERR_ASK_TIMEOUT);
+		}
 		msg_ok = true;
 		break;
 	case WLS_TX_ERROR_TA_UV:
+		wls_dev->wls_status.ta_uv_count++;
 		oplus_chg_wls_track_set_track_error_flag(wls_dev, WLS_TX_ERROR_TA_UV);
 		oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_TX, WLS_ERR_TA_UV);
 		oplus_chg_wls_ploss_warn_ta_uv(wls_dev, data[0]);
 		msg_ok = true;
 		break;
 	case WLS_TX_ERROR_CEP_TIMEOUT:
+		if (oplus_chg_wls_track_get_track_error_flag(wls_dev, WLS_TX_ERROR_CEP_TIMEOUT) == 0) {
+			oplus_chg_wls_track_set_track_error_flag(wls_dev, WLS_TX_ERROR_CEP_TIMEOUT);
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_TX, WLS_ERR_CEP_TIMEOUT);
+		}
 		msg_ok = true;
 		break;
 	case WLS_TX_ERROR_RPP_TIMEOUT:
+		if (oplus_chg_wls_track_get_track_error_flag(wls_dev, WLS_TX_ERROR_RPP_TIMEOUT) == 0) {
+			oplus_chg_wls_track_set_track_error_flag(wls_dev, WLS_TX_ERROR_RPP_TIMEOUT);
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_TX, WLS_ERR_RPP_TIMEOUT);
+		}
 		msg_ok = true;
 		break;
 	case WLS_TX_ERROR_OTP:
+		if (oplus_chg_wls_track_get_track_error_flag(wls_dev, WLS_TX_ERROR_OTP) == 0) {
+			oplus_chg_wls_track_set_track_error_flag(wls_dev, WLS_TX_ERROR_OTP);
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_TX, WLS_ERR_TX_OTP);
+		}
 		msg_ok = true;
 		break;
 	case WLS_TX_ERROR_TA_CAPCHANGE:
@@ -3868,6 +3933,7 @@ static void oplus_chg_wls_reset_variables(struct oplus_chg_wls *wls_dev) {
 	wls_status->q_val_done = 0;
 	wls_dev->tx_tec_power = 0;
 	wls_status->ploss_fod_warn_count = 0;
+	wls_status->ta_uv_count = 0;
 	wls_dev->wls_status.track_error_flag = 0;
 	wls_dev->tx_ploss_voted = 0;
 	wls_dev->tec_init_power = 0;
@@ -3893,9 +3959,15 @@ static void oplus_chg_wls_reset_variables(struct oplus_chg_wls *wls_dev) {
 	wls_status->verify_by_aes = false;
 	wls_status->tx_extern_cmd_done = false;
 	wls_status->tx_product_id_done = false;
+	if (wls_status->rx_present) {
+		wls_status->vendor_id = 0;
+		wls_status->product_id = 0;
+		wls_status->tx_manu_id = 0;
+	}
 	wls_dev->mms_info.event_code = WLS_EVENT_RX_UNKNOWN;
 	memset(&wls_status->encrypt_data, 0, ARRAY_SIZE(wls_status->encrypt_data));
 	memset(&wls_status->verfity_data, 0, sizeof(struct wls_auth_result));
+	wls_status->adapter_curve_pwr = 0;
 
 	if (!wls_dev->usb_present)
 		vote(wls_dev->nor_icl_votable, USER_VOTER, true, wls_status->rx_present ? 0 : 100, false);
@@ -4034,10 +4106,10 @@ static void oplus_chg_wls_update_track_info(struct oplus_chg_wls *wls_dev,
 			snprintf(v30_info_buf, OPLUS_CHG_TRACK_V30_INFO_LEN,
 				",coil:%d,tx_q=%d,tx_power=%d,"
 				"tx_mag=%d,ta_type=%d,ploss_fod_warn_count=%d,"
-				"rx_proto_ver=%d",
+				"ta_uv_count=%d,rx_proto_ver=%d",
 				wls_status->tx_coil, wls_status->tx_q_val, wls_status->tx_pwr_max_mw,
 				wls_status->tx_mag, wls_status->ta_typ, wls_status->ploss_fod_warn_count,
-				wls_dev->rx_protocol_version);
+				wls_status->ta_uv_count, wls_dev->rx_protocol_version);
 		}
 		snprintf(crux_info,
 			OPLUS_CHG_TRACK_CURX_INFO_LEN,
@@ -4046,13 +4118,15 @@ static void oplus_chg_wls_update_track_info(struct oplus_chg_wls *wls_dev,
 			"iout=%d,break_count=%d,wpc_chg_err=%d,"
 			"highest_temp=%d,max_iout=%d,min_cool_down=%d,"
 			"min_skewing_current=%d,wls_auth_fail=%d,work_silent_mode=%d,"
-			"magcvr=%d,verify_by_aes=%d" "%s",
+			"magcvr=%d,verify_by_aes=%d,tx_manu_id=%d,"
+			"vendor_id=%d,product_id=%d,last_cep=%d,epp_to_bpp_connect_time=%lums" "%s",
 			trx_version, rx_version, wls_status->adapter_type,
 			wls_status->adapter_id, wls_status->fastchg_started, wls_status->vout_mv,
 			wls_status->iout_ma, wls_status->break_count, wls_status->trx_err,
 			highest_temp, max_iout, min_cool_down,
 			min_skewing_current, !wls_status->verity_pass, wls_status->switch_quiet_mode,
-			wls_dev->magcvr_status, wls_status->verify_by_aes, v30_info_buf);
+			wls_dev->magcvr_status, wls_status->verify_by_aes, wls_status->tx_manu_id,
+			wls_status->vendor_id, wls_status->product_id, wls_status->last_cep, wls_status->epp_to_bpp_connect_time, v30_info_buf);
 		chg_info("%s\n", crux_info);
 	}
 }
@@ -5398,8 +5472,8 @@ static void oplus_chg_rx_mode_check_work(struct work_struct *work)
 	struct oplus_chg_wls *wls_dev = container_of(dwork, struct oplus_chg_wls, rx_mode_check_work);
 
 	chg_info("time out exit rx_mode_bpp\n");
-	wls_dev->force_rx_mode = OPLUS_CHG_WLS_RX_MODE_UNKNOWN;
-	oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_UNKNOWN);
+	vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER, false, 0, false);
+	oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_UNKNOWN, WLS_CAMERA_MODE_VOTER);
 }
 
 static void oplus_chg_wls_ploss_warn_work(struct work_struct *work)
@@ -6378,11 +6452,13 @@ static int oplus_chg_wls_rx_handle_state_default(struct oplus_chg_wls *wls_dev)
 		wls_status->epp_working = true;
 		wls_status->wls_type = OPLUS_CHG_WLS_EPP;
 		wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_EPP;
+		(void)oplus_chg_wls_rx_get_tx_id(wls_dev->wls_rx->rx_ic, &wls_status->tx_manu_id);
 		goto out;
 	case OPLUS_CHG_WLS_RX_MODE_EPP_PLUS:
 		wls_status->epp_working = true;
 		wls_status->wls_type = OPLUS_CHG_WLS_EPP_PLUS;
 		wls_status->target_rx_state = OPLUS_CHG_WLS_RX_STATE_EPP_PLUS;
+		(void)oplus_chg_wls_rx_get_tx_id(wls_dev->wls_rx->rx_ic, &wls_status->tx_manu_id);
 		goto out;
 	default:
 		break;
@@ -6905,7 +6981,8 @@ static int oplus_chg_wls_rx_enter_state_epp(struct oplus_chg_wls *wls_dev)
 	switch(wls_status->state_sub_step) {
 	case 0:
 		if (wls_dev->force_rx_mode == OPLUS_CHG_WLS_RX_MODE_BPP) {
-			oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP);
+			if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER) > 0)
+				oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP, WLS_CAMERA_MODE_VOTER);
 			return 200;
 		}
 		vote(wls_dev->nor_fcc_votable, USER_VOTER, true, 2800, false);
@@ -7148,7 +7225,8 @@ static int oplus_chg_wls_rx_enter_state_epp_plus(struct oplus_chg_wls *wls_dev)
 	switch(wls_status->state_sub_step) {
 	case 0:
 		if (wls_dev->force_rx_mode == OPLUS_CHG_WLS_RX_MODE_BPP) {
-			oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP);
+			if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER) > 0)
+				oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP, WLS_CAMERA_MODE_VOTER);
 			wait_time_ms = 200;
 			return wait_time_ms;
 		}
@@ -8861,12 +8939,16 @@ static void oplus_chg_wls_upgrade_fw_work(struct work_struct *work)
 		vote(wls_dev->insert_disable_votable, UPGRADE_VOTER, false, 0, false);
 		vote(wls_dev->wrx_en_votable, UPGRADE_VOTER, false, 0, false);
 		vote(wls_dev->rx_disable_votable, UPGRADE_VOTER, false, 0, false);
-		wls_dev->force_upgrade = false;
 		if (rc < 0) {
 			retry_num++;
 			chg_err("upgrade error, retry_num=%d, rc=%d\n", retry_num, rc);
 			goto out;
 		}
+		if (wls_dev->force_upgrade)
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_UPDATE, WLS_ERR_FW_UPDATE_FORCE);
+		else
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_UPDATE, WLS_ERR_FW_UPDATE_BOOT);
+		wls_dev->force_upgrade = false;
 	}
 	chg_info("update successed\n");
 
@@ -8875,6 +8957,8 @@ static void oplus_chg_wls_upgrade_fw_work(struct work_struct *work)
 out:
 	if (retry_num >= 5) {
 		retry_num = 0;
+		wls_dev->force_upgrade = false;
+		oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_UPDATE, WLS_ERR_FW_UPDATE_FAIL);
 		return;
 	}
 	schedule_delayed_work(&wls_dev->wls_upgrade_fw_work, msecs_to_jiffies(1000));
@@ -8901,7 +8985,8 @@ static int oplus_chg_wls_rx_set_rx_mode_safety(struct oplus_chg_wls *wls_dev, en
 	return oplus_chg_wls_rx_set_rx_mode(wls_dev->wls_rx->rx_ic, rx_mode);
 }
 
-static int oplus_chg_wls_entry_rx_mode(struct oplus_chg_wls *wls_dev, enum oplus_chg_wls_rx_mode rx_mode)
+static int oplus_chg_wls_entry_rx_mode(struct oplus_chg_wls *wls_dev, enum oplus_chg_wls_rx_mode rx_mode,
+				       const char *client_str)
 {
 	if (wls_dev == NULL) {
 		chg_err("wls_dev is NULL\n");
@@ -8927,21 +9012,23 @@ static int oplus_chg_wls_entry_rx_mode(struct oplus_chg_wls *wls_dev, enum oplus
 		if (wls_dev->wls_status.rx_present) {
 			wls_dev->wls_status.online_keep = true;
 			oplus_chg_wls_set_status_keep(wls_dev->wls_topic, WLS_SK_BY_FORCE_BPP);
-			vote(wls_dev->rx_disable_votable, WLS_CAMERA_MODE_VOTER, true, 1, false);
+			vote(wls_dev->rx_disable_votable, client_str, true, 1, false);
 			msleep(200);
-			vote(wls_dev->rx_disable_votable, WLS_CAMERA_MODE_VOTER, false, 1, false);
+			vote(wls_dev->rx_disable_votable, client_str, false, 1, false);
 		}
 	} else if (rx_mode == OPLUS_CHG_WLS_RX_MODE_BPP &&
 		   wls_dev->wls_status.wls_type != OPLUS_CHG_WLS_RX_MODE_BPP) {
 		if (wls_dev->wls_status.rx_present) {
 			wls_dev->wls_status.online_keep = true;
 			oplus_chg_wls_set_status_keep(wls_dev->wls_topic, WLS_SK_BY_FORCE_BPP);
-			vote(wls_dev->rx_disable_votable, WLS_CAMERA_MODE_VOTER, true, 1, false);
+			vote(wls_dev->rx_disable_votable, client_str, true, 1, false);
 			msleep(200);
-			vote(wls_dev->rx_disable_votable, WLS_CAMERA_MODE_VOTER, false, 1, false);
+			vote(wls_dev->rx_disable_votable, client_str, false, 1, false);
 			oplus_chg_wls_rx_set_rx_mode_safety(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP);
 		}
-		schedule_delayed_work(&wls_dev->rx_mode_check_work, msecs_to_jiffies(OPLUS_CHG_WLS_RX_MODE_CHECK_DELAY));
+
+		if (strcmp(client_str, WLS_CAMERA_MODE_VOTER) == 0)
+			schedule_delayed_work(&wls_dev->rx_mode_check_work, msecs_to_jiffies(OPLUS_CHG_WLS_RX_MODE_CHECK_DELAY));
 	}
 
 	return 0;
@@ -8952,7 +9039,7 @@ static void oplus_chg_enter_rx_mode_work(struct work_struct *work)
 	struct delayed_work *dwork = to_delayed_work(work);
 	struct oplus_chg_wls *wls_dev = container_of(dwork, struct oplus_chg_wls, enter_rx_mode_work);
 
-	oplus_chg_wls_entry_rx_mode(wls_dev, wls_dev->force_rx_mode);
+	oplus_chg_wls_entry_rx_mode(wls_dev, wls_dev->force_rx_mode, WLS_CAMERA_MODE_VOTER);
 }
 
 #define DELTA_IOUT_500MA	500
@@ -9079,6 +9166,7 @@ static void oplus_chg_wls_data_update_work(struct work_struct *work)
 		wls_status->fastchg_ibat_max_ma, ibat_ma,
 		wls_status->vout_mv, wls_status->vrect_mv,
 		cep);
+	wls_status->last_cep = cep;
 	oplus_chg_wls_fast_cep_check(wls_dev, cep);
 
 out:
@@ -9113,6 +9201,7 @@ static void oplus_chg_wls_skewing_work(struct work_struct *work)
 		chg_err("can't get cep, rc=%d\n", rc);
 		goto out;
 	}
+	wls_status->last_cep = cep;
 
 	switch (wls_status->wls_type) {
 	case OPLUS_CHG_WLS_EPP:
@@ -11030,7 +11119,7 @@ static ssize_t oplus_chg_wls_proc_user_sleep_mode_write(struct file *file,
 		chg_info("set user mode: %d, call audio mode\n", pmw_pulse);
 	} else if (pmw_pulse == WLS_EXIT_CAMERA_MODE && wls_dev->rx_protocol_version >= WLS_RX_PROTOCOL_VERSION_30) {
 		if (wls_dev->force_rx_mode != OPLUS_CHG_WLS_RX_MODE_UNKNOWN) {
-			wls_dev->force_rx_mode = OPLUS_CHG_WLS_RX_MODE_UNKNOWN;
+			vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER, false, 0, false);
 			schedule_delayed_work(&wls_dev->enter_rx_mode_work, 0);
 			cancel_delayed_work(&wls_dev->rx_mode_check_work);
 			chg_info("set user mode: %d, exit camera mode\n", pmw_pulse);
@@ -11041,7 +11130,7 @@ static ssize_t oplus_chg_wls_proc_user_sleep_mode_write(struct file *file,
 			schedule_delayed_work(&wls_dev->rx_mode_check_work,
 					      msecs_to_jiffies(OPLUS_CHG_WLS_RX_MODE_CHECK_DELAY));
 		} else {
-			wls_dev->force_rx_mode = OPLUS_CHG_WLS_RX_MODE_BPP;
+			vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER, true, 1, false);
 			schedule_delayed_work(&wls_dev->enter_rx_mode_work, 0);
 			schedule_delayed_work(&wls_dev->rx_mode_check_work,
 					      msecs_to_jiffies(OPLUS_CHG_WLS_RX_MODE_CHECK_DELAY));
@@ -12001,6 +12090,154 @@ static void oplus_chg_wls_err_handler_work(struct work_struct *work)
 	}
 }
 
+static void oplus_chg_wls_epp_force_to_bpp_flag_clear_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct oplus_chg_wls *wls_dev = container_of(dwork, struct oplus_chg_wls, wls_epp_check_flag_clear_work);
+	struct oplus_chg_wls_status *wls_status = &wls_dev->wls_status;
+
+	if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_FORCE_EPP_TO_BPP_VOTER) > 0) {
+		vote(wls_dev->force_bpp_mode_votable, WLS_FORCE_EPP_TO_BPP_VOTER, false, 0, false);
+		oplus_chg_wls_rx_set_rx_mode_safety(wls_dev, OPLUS_CHG_WLS_RX_MODE_UNKNOWN);
+	}
+	wls_status->epp_check_timeout = 0;
+	wls_status->epp_to_bpp_connect_time = 0;
+	wls_status->epp_disconnect_time = 0;
+	wls_status->epp_to_bpp_reason_record = 0;
+	chg_info("oplus_chg_wls_epp_force_to_bpp_flag_clear_work\n");
+
+	return;
+}
+
+static int oplus_wls_get_batt_full_status(struct oplus_chg_wls *wls_dev)
+{
+	bool batt_full = 0;
+	union mms_msg_data data = { 0 };
+	int rc;
+
+	if (!wls_dev || !wls_dev->comm_topic) {
+		chg_err("comm_topic not ready\n");
+		return -1;
+	}
+
+	rc = oplus_mms_get_item_data(wls_dev->comm_topic, COMM_ITEM_CHG_FULL, &data,
+				     true);
+	if (!rc)
+		batt_full = data.intval;
+
+	chg_info("get batt_full status = %d\n", batt_full);
+	return batt_full;
+}
+
+#define EPP_CHECK_WORK_DELAY_SEC	70
+#define EPP_FORCE_TO_BPP_TOGGLE_MS		3500
+#define EPP_FORCE_TO_BPP_MODE_TIMEOUT_MS	6200
+#define EPP_FORCE_TO_BPP_IOUT_THRESHTOLD	200
+
+static void oplus_chg_wls_epp_force_to_bpp_checkwork(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct oplus_chg_wls *wls_dev = container_of(dwork, struct oplus_chg_wls, wls_epp_force_to_bpp_checkwork);
+	int iout_ma = 0;
+	struct oplus_chg_wls_status *wls_status = &wls_dev->wls_status;
+	bool batt_full = false;
+
+	if (wls_dev->rx_protocol_version < WLS_RX_PROTOCOL_VERSION_30)
+		return;
+
+	if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER) > 0)
+		goto out;
+
+	chg_info("oplus_chg_wls_epp_force_to_bpp_checkwork\n");
+	oplus_chg_wls_rx_get_iout(wls_dev->wls_rx->rx_ic, &iout_ma);
+	batt_full = oplus_wls_get_batt_full_status(wls_dev);
+
+	if (wls_dev->mms_info.rx_present && iout_ma < EPP_FORCE_TO_BPP_IOUT_THRESHTOLD && !batt_full) {
+		vote(wls_dev->force_bpp_mode_votable, WLS_FORCE_EPP_TO_BPP_VOTER, true, 1, false);
+		wls_status->epp_check_timeout = 0;
+		wls_status->epp_disconnect_time = jiffies;
+		wls_status->epp_force_to_bpp_flag = true;
+		wls_status->epp_to_bpp_reason_record = WLS_ERR_EPP_FORCE_TO_BPP;
+		cancel_delayed_work(&wls_dev->wls_epp_check_flag_clear_work);
+		schedule_delayed_work(&wls_dev->wls_epp_check_flag_clear_work, msecs_to_jiffies(EPP_FORCE_TO_BPP_MODE_TIMEOUT_MS));
+		oplus_chg_wls_entry_rx_mode(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP, WLS_FORCE_EPP_TO_BPP_VOTER);
+		return;
+	}
+
+out:
+	cancel_delayed_work(&wls_dev->wls_epp_check_flag_clear_work);
+	schedule_delayed_work(&wls_dev->wls_epp_check_flag_clear_work, 0);
+
+	return;
+}
+
+static void oplus_chg_wls_epp_force_to_bpp_check_handler(struct oplus_chg_wls *wls_dev)
+{
+	enum oplus_chg_wls_rx_mode rx_mode;
+	struct oplus_chg_wls_status *wls_status = &wls_dev->wls_status;
+	int rc = 0;
+
+	if (wls_dev->rx_protocol_version < WLS_RX_PROTOCOL_VERSION_30)
+		return;
+
+	if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER) > 0)
+		goto out;
+
+	if (wls_dev->mms_info.rx_present == 1) {
+		wls_status->epp_check_timeout = 0;
+		wls_status->epp_force_to_bpp_flag = false;
+		oplus_chg_wls_rx_get_rx_mode(wls_dev->wls_rx->rx_ic, &rx_mode);
+		if (rc < 0) {
+			chg_err("get rx mode error, rc=%d\n", rc);
+			goto out;
+		}
+		chg_info("rx_mode:%d, jiffies:%lu, epp_check_timeout=%lu n",
+			rx_mode, jiffies, wls_status->epp_check_timeout);
+
+		if ((rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP_5W || rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP ||
+		    rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP_PLUS) && !get_client_vote(wls_dev->force_bpp_mode_votable, WLS_FORCE_EPP_TO_BPP_VOTER)) {
+			wls_status->epp_check_timeout = jiffies + EPP_CHECK_WORK_DELAY_SEC * HZ;
+			cancel_delayed_work(&wls_dev->wls_epp_force_to_bpp_checkwork);
+			wls_status->epp_to_bpp_connect_time = 0;
+			wls_status->epp_disconnect_time = 0;
+			schedule_delayed_work(&wls_dev->wls_epp_force_to_bpp_checkwork, msecs_to_jiffies(EPP_CHECK_WORK_DELAY_SEC * 1000));
+			return;
+		}
+
+		if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_FORCE_EPP_TO_BPP_VOTER) && rx_mode == OPLUS_CHG_WLS_RX_MODE_BPP) {
+			cancel_delayed_work(&wls_dev->wls_epp_check_flag_clear_work);
+			wls_status->epp_to_bpp_connect_time = jiffies_to_msecs(jiffies - wls_status->epp_disconnect_time);
+			oplus_chg_wls_track_upload_wls_err_info(wls_dev, WLS_ERR_SCENE_TX, wls_status->epp_to_bpp_reason_record);
+			return;
+		}
+
+	} else {
+		cancel_delayed_work(&wls_dev->wls_epp_force_to_bpp_checkwork);
+		if (time_before(jiffies, wls_status->epp_check_timeout)) {
+			chg_info("epp disconnect: jiffies:%lu, epp_check_timeout:%lu\n", jiffies, wls_status->epp_check_timeout);
+			cancel_delayed_work(&wls_dev->wls_epp_check_flag_clear_work);
+			cancel_delayed_work(&wls_dev->wls_epp_force_to_bpp_checkwork);
+			schedule_delayed_work(&wls_dev->wls_epp_check_flag_clear_work, msecs_to_jiffies(EPP_FORCE_TO_BPP_TOGGLE_MS));
+			vote(wls_dev->force_bpp_mode_votable, WLS_FORCE_EPP_TO_BPP_VOTER, true, 1, false);
+			wls_status->epp_force_to_bpp_flag = true;
+			wls_status->epp_check_timeout = 0;
+			wls_status->epp_disconnect_time = jiffies;
+			wls_status->epp_to_bpp_reason_record = WLS_ERR_EPP_QUICK_DISCONNECT_TO_BPP;
+			oplus_chg_wls_rx_set_rx_mode_safety(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP);
+			return;
+		}
+
+		if (wls_status->epp_force_to_bpp_flag)
+			return;
+	}
+
+out:
+	cancel_delayed_work(&wls_dev->wls_epp_check_flag_clear_work);
+	schedule_delayed_work(&wls_dev->wls_epp_check_flag_clear_work, 0);
+	return;
+}
+
+
 static void oplus_chg_wls_present_handler_work(struct work_struct *work)
 {
 	struct oplus_chg_wls *wls_dev =
@@ -12015,9 +12252,11 @@ static void oplus_chg_wls_present_handler_work(struct work_struct *work)
 
 	wls_dev->mms_info.rx_present = oplus_chg_wls_rx_is_connected(wls_dev->wls_rx->rx_ic);
 	chg_info("wls present=%d\n", wls_dev->mms_info.rx_present);
-	if (wls_dev->mms_info.rx_present == 1)
+	if (wls_dev->mms_info.rx_present == 1) {
+		if (wls_dev->force_rx_mode == OPLUS_CHG_WLS_RX_MODE_BPP)
+			vote(wls_dev->rx_disable_votable, CONNECT_VOTER, false, 0, false);
 		oplus_chg_wls_rx_set_rx_mode_safety(wls_dev, OPLUS_CHG_WLS_RX_MODE_UNKNOWN);
-	else if (wls_dev->force_rx_mode == OPLUS_CHG_WLS_RX_MODE_BPP)
+	} else if (get_client_vote(wls_dev->force_bpp_mode_votable, WLS_CAMERA_MODE_VOTER) > 0)
 		oplus_chg_wls_rx_set_rx_mode_safety(wls_dev, OPLUS_CHG_WLS_RX_MODE_BPP);
 	oplus_chg_wls_early_reset_variables(wls_dev);
 	oplus_chg_wls_wireless_notifier_call(wls_dev, WLS_ITEM_PRESENT);
@@ -12031,6 +12270,8 @@ static void oplus_chg_wls_present_handler_work(struct work_struct *work)
 		chg_err("publish wls present msg error, rc=%d\n", rc);
 		kfree(msg);
 	}
+
+	oplus_chg_wls_epp_force_to_bpp_check_handler(wls_dev);
 }
 
 static void oplus_chg_wls_online_handler_work(struct work_struct *work)
@@ -12111,8 +12352,10 @@ static void oplus_chg_wls_event_changed_handler_work(struct work_struct *work)
 		oplus_chg_wls_rx_get_rx_mode(wls_dev->wls_rx->rx_ic, &rx_mode);
 		if (rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP_5W ||
 		    rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP ||
-		    rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP_PLUS)
+		    rx_mode == OPLUS_CHG_WLS_RX_MODE_EPP_PLUS) {
 			oplus_chg_wls_nor_set_vindpm(wls_dev->wls_nor->nor_ic, WLS_VINDPM_EPP);
+			(void)oplus_chg_wls_rx_get_tx_id(wls_dev->wls_rx->rx_ic, &wls_dev->wls_status.tx_manu_id);
+		}
 		break;
 	case WLS_EVENT_RX_UVP_ALARM:
 		vote(wls_dev->nor_input_disable_votable, UOVP_VOTER, true, 0, false);
@@ -13416,6 +13659,16 @@ static int oplus_chg_wls_driver_probe(struct platform_device *pdev)
 		goto create_rx_comu_votable_err;
 	}
 
+	wls_dev->force_bpp_mode_votable = create_votable("WLS_FORCE_BPP_MODE",
+				VOTE_SET_ANY,
+				oplus_chg_wls_force_bpp_mode_vote_callback,
+				wls_dev);
+	if (IS_ERR(wls_dev->force_bpp_mode_votable)) {
+		rc = PTR_ERR(wls_dev->force_bpp_mode_votable);
+		wls_dev->force_bpp_mode_votable = NULL;
+		goto create_force_bpp_mode_votable_err;
+	}
+
 	wls_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
 	wls_dev->misc_dev.name = "wls_dev";
 	wls_dev->misc_dev.fops = &oplus_chg_wls_dev_fops;
@@ -13482,6 +13735,8 @@ static int oplus_chg_wls_driver_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&wls_dev->wls_mms_init_work, oplus_chg_wls_mms_init_work);
 	INIT_DELAYED_WORK(&wls_dev->wls_otg_enable_work, oplus_chg_wls_otg_enable_item_work);
 	INIT_DELAYED_WORK(&wls_dev->wls_ploss_warn_work, oplus_chg_wls_ploss_warn_work);
+	INIT_DELAYED_WORK(&wls_dev->wls_epp_force_to_bpp_checkwork, oplus_chg_wls_epp_force_to_bpp_checkwork);
+	INIT_DELAYED_WORK(&wls_dev->wls_epp_check_flag_clear_work, oplus_chg_wls_epp_force_to_bpp_flag_clear_work);
 	INIT_WORK(&wls_dev->wls_err_handler_work, oplus_chg_wls_err_handler_work);
 	INIT_WORK(&wls_dev->wls_present_handler_work, oplus_chg_wls_present_handler_work);
 	INIT_WORK(&wls_dev->wls_online_handler_work, oplus_chg_wls_online_handler_work);
@@ -13491,6 +13746,7 @@ static int oplus_chg_wls_driver_probe(struct platform_device *pdev)
 	INIT_WORK(&wls_dev->fcc_gear_update_work, oplus_chg_wls_fcc_gear_update_work);
 	INIT_WORK(&wls_dev->cool_down_update_work, oplus_chg_wls_cool_down_update_work);
 	INIT_WORK(&wls_dev->batt_bal_curr_limit_work, oplus_chg_wls_batt_bal_curr_limit_work);
+	INIT_WORK(&wls_dev->adapter_curve_vote_work, oplus_chg_wls_adapter_curve_vote_work);
 	init_completion(&wls_dev->msg_ack);
 	init_completion(&wls_dev->nor_ic_ack);
 	mutex_init(&wls_dev->connect_lock);
@@ -13588,6 +13844,8 @@ create_fcc_votable_err:
 		gpio_free(wls_dev->wrx_en_gpio);
 create_rx_comu_votable_err:
 	destroy_votable(wls_dev->rx_comu_votable);
+create_force_bpp_mode_votable_err:
+	destroy_votable(wls_dev->force_bpp_mode_votable);
 gpio_init_err:
 	if (wls_dev->support_fastchg)
 		oplus_chg_wls_fast_remove(wls_dev);

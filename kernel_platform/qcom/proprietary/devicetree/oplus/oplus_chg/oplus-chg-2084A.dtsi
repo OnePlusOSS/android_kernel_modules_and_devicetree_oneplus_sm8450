@@ -232,6 +232,7 @@
 	qcom,sw_vfloat_over_protect_enable;
 	qcom,usbtemp_batttemp_gap = <12>;
 	qcom,fg_info_package_read_support;
+	oplus,support_check_usbin_status;
 
 	//for PD9V or QC9V
 	//qcom,vbatt_pdqc_to_5v_thr = <4100>;

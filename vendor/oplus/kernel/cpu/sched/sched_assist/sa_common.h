@@ -106,6 +106,7 @@
 extern pid_t save_audio_tgid;
 extern pid_t save_top_app_tgid;
 extern unsigned int top_app_type;
+extern int global_lowend_plat_opt;
 
 /* define for boost threshold unit */
 #define BOOST_THRESHOLD_UNIT (51)
@@ -625,6 +626,7 @@ static inline u32 task_wts_sum(struct task_struct *tsk)
 bool is_min_cluster(int cpu);
 bool is_max_cluster(int cpu);
 bool is_mid_cluster(int cpu);
+bool is_top(struct task_struct *p);
 bool task_is_runnable(struct task_struct *task);
 int get_ux_state(struct task_struct *task);
 
@@ -647,6 +649,7 @@ void unset_inherit_ux_value(struct task_struct *task, int type, int value);
 void inc_inherit_ux_refs(struct task_struct *task, int type);
 void clear_all_inherit_type(struct task_struct *p);
 
+bool is_heavy_load_top_task(struct task_struct *p);
 bool test_task_is_fair(struct task_struct *task);
 bool test_task_is_rt(struct task_struct *task);
 

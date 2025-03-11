@@ -198,6 +198,7 @@ struct oplus_monitor {
 	int wls_vout_mv;
 	int wls_icl_ma;
 	int wls_charge_type;
+	int wls_pre_type;
 	int wls_magcvr_status;
 	unsigned int wls_err_code;
 	bool wls_online;

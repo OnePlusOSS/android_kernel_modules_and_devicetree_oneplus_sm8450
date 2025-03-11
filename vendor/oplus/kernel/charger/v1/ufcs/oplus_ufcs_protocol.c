@@ -2482,8 +2482,11 @@ static void oplus_ufcs_protocol_reply_adapter(struct work_struct *work)
 	if (rc < 0)
 		ufcs_err("reply to adapter failed!\n");
 
-	if (chip->soft_reset)
-		oplus_ufcs_protocol_send_soft_reset();
+	if (chip->soft_reset) {
+		rc = oplus_ufcs_protocol_send_soft_reset();
+		if (rc < 0)
+			ufcs_err("failed to send soft reset!\n");
+	}
 
 	oplus_ufcs_protocol_set_awake(chip, false);
 	oplus_ufcs_protocol_release_chip_lock();

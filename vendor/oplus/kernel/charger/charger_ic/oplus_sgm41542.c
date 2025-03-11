@@ -53,6 +53,7 @@ extern int oplus_chg_get_pd_type(void);
 extern int oplus_chg_pd_setup(void);
 extern int oplus_chg_get_charger_subtype(void);
 #endif
+extern int oplus_check_pd_usb_type(void);
 
 struct chip_sgm41542 {
 	struct device		*dev;
@@ -108,6 +109,8 @@ static struct chip_sgm41542 *charger_ic = NULL;
 static int aicl_result = 500;
 static bool btb_detect_over;
 static bool dumpreg_by_irq = 0;
+
+#define PORT_PD_WITH_USB 2
 
 static const unsigned int SGM41515D_IPRECHG_CURRENT_STABLE[IPRECHG_CURRENT_STABLE_LEN] = {
 	5, 10, 15, 20, 30, 40, 50, 60,
@@ -409,16 +412,50 @@ int sgm41542_chg_get_dyna_aicl_result(void)
 }
 
 #define BATT_VOL_4V14	4140
+#define BATT_VOL_4V30	4300
 #define SGM41542_INP_VOL_4V44	4440
 #define SGM41542_INP_VOL_4V5	4500
 #define SGM41542_INP_VOL_4V52	4520
 #define SGM41542_INP_VOL_4V535	4535
+#define SGM41542_INP_VOL_4V65	4650
+#define SGM41542_INP_VOL_4V665	4665
+
+static void sgm41545d_set_aicl_point(int vbatt)
+{
+	struct chip_sgm41542 *chip = charger_ic;
+	static int pre_hw_aicl_point = 0;
+
+	if (!chip)
+		return;
+
+	if (vbatt > BATT_VOL_4V30) {
+		chip->hw_aicl_point = SGM41542_INP_VOL_4V65;
+		chip->sw_aicl_point = SGM41542_INP_VOL_4V665;
+	} else if (vbatt > BATT_VOL_4V14) {
+		chip->hw_aicl_point = SGM41542_INP_VOL_4V52;
+		chip->sw_aicl_point = SGM41542_INP_VOL_4V535;
+	} else {
+		chip->hw_aicl_point = SGM41542_INP_VOL_4V44;
+		chip->sw_aicl_point = SGM41542_INP_VOL_4V5;
+	}
+	if (chip->hw_aicl_point != pre_hw_aicl_point) {
+		pre_hw_aicl_point = chip->hw_aicl_point;
+		sgm41542_set_vindpm_vol(chip->hw_aicl_point);
+		chg_info("pre_hw_aicl_point:%d, hw_aicl_point:%d\n",
+			pre_hw_aicl_point, chip->hw_aicl_point);
+	}
+}
+
 void sgm41542_set_aicl_point(int vbatt)
 {
 	struct chip_sgm41542 *chip = charger_ic;
 
 	if (!chip)
 		return;
+	if (chip->part_id == REG0B_SGM41515D_PART_ID) {
+		sgm41545d_set_aicl_point(vbatt);
+		return;
+	}
 
 	if (chip->hw_aicl_point == SGM41542_INP_VOL_4V44 && vbatt > BATT_VOL_4V14) {
 		chip->hw_aicl_point = SGM41542_INP_VOL_4V52;
@@ -651,7 +688,10 @@ aicl_return:
 		rc = sgm41542_input_current_limit_without_aicl(sgm41542_usb_icl[i]);
 		chip->charger_current_pre = sgm41542_usb_icl[i];
 	}
-	rc = sgm41542_set_vindpm_vol(chip->hw_aicl_point);
+	if (chip->part_id == REG0B_SGM41515D_PART_ID)
+		sgm41542_set_aicl_point(oplus_chg_get_batt_volt());
+	else
+		rc = sgm41542_set_vindpm_vol(chip->hw_aicl_point);
 	return rc;
 }
 
@@ -1202,6 +1242,7 @@ int sgm41542_enable_charging(void)
 {
 	int rc = 0;
 	struct chip_sgm41542 *chip = charger_ic;
+	struct oplus_chg_chip *g_oplus_chip = oplus_chg_get_chg_struct();
 
 	if (!chip)
 		return 0;
@@ -1210,7 +1251,8 @@ int sgm41542_enable_charging(void)
 		return 0;
 
 	sgm41542_enable_gpio(chip, true);
-	sgm41542_otg_disable();
+	if (!g_oplus_chip || !g_oplus_chip->otg_online)
+		sgm41542_otg_disable();
 	rc = sgm41542_config_interface(chip, REG01_SGM41542_ADDRESS,
 			REG01_SGM41542_CHARGING_ENABLE,
 			REG01_SGM41542_CHARGING_MASK);
@@ -1225,6 +1267,7 @@ int sgm41542_disable_charging(void)
 {
 	int rc = 0;
 	struct chip_sgm41542 *chip = charger_ic;
+	struct oplus_chg_chip *g_oplus_chip = oplus_chg_get_chg_struct();
 
 	if (!chip)
 		return 0;
@@ -1234,7 +1277,8 @@ int sgm41542_disable_charging(void)
 
 	chip->charger_current_pre = -1;
 	sgm41542_enable_gpio(chip, false);
-	sgm41542_otg_disable();
+	if (!g_oplus_chip || !g_oplus_chip->otg_online)
+		sgm41542_otg_disable();
 	rc = sgm41542_config_interface(chip, REG01_SGM41542_ADDRESS,
 			REG01_SGM41542_CHARGING_DISABLE,
 			REG01_SGM41542_CHARGING_MASK);
@@ -1826,7 +1870,10 @@ int sgm41542_hardware_init(void)
 
 	sgm41542_set_rechg_voltage(WPC_RECHARGE_VOLTAGE_OFFSET);
 
-	sgm41542_set_vindpm_vol(chip->hw_aicl_point);
+	if (chip->part_id == REG0B_SGM41515D_PART_ID)
+		sgm41542_set_aicl_point(oplus_chg_get_batt_volt());
+	else
+		sgm41542_set_vindpm_vol(chip->hw_aicl_point);
 
 	sgm41542_set_otg_voltage();
 
@@ -1850,6 +1897,8 @@ static int sgm41542_get_charger_type(void)
 	if (!chip || !g_oplus_chip)
 		return POWER_SUPPLY_TYPE_UNKNOWN;
 
+	if (oplus_check_pd_usb_type() == PORT_PD_WITH_USB)
+		return POWER_SUPPLY_TYPE_USB_PD_SDP;
 
 	if (chip->oplus_charger_type != g_oplus_chip->charger_type && g_oplus_chip->usb_psy)
 		power_supply_changed(g_oplus_chip->usb_psy);

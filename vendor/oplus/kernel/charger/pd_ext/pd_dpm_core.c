@@ -248,7 +248,7 @@ static void dpm_build_sink_pdo_info(struct dpm_pdo_info_t *sink,
 	sink->ma = request_i;
 }
 
-static bool dpm_build_request_info_with_new_src_cap(
+__maybe_unused static bool dpm_build_request_info_with_new_src_cap(
 		struct pd_port *pd_port, struct dpm_rdo_info_t *req_info,
 		struct pd_port_power_caps *src_cap, uint8_t charging_policy)
 {
@@ -368,7 +368,6 @@ static bool dpm_build_request_info(
 	uint8_t charging_policy = pd_port->dpm_charging_policy;
 	struct pd_port_power_caps *src_cap = &pd_port->pe_data.remote_src_cap;
 	struct tcpc_device __maybe_unused *tcpc = pd_port->tcpc;
-	struct pd_event *pd_event = pd_get_curr_pd_event(pd_port);
 
 	memset(req_info, 0, sizeof(struct dpm_rdo_info_t));
 
@@ -376,13 +375,6 @@ static bool dpm_build_request_info(
 
 	for (i = 0; i < src_cap->nr; i++)
 		DPM_INFO("SrcCap%d: 0x%08x\n", i+1, src_cap->pdos[i]);
-
-	if (pd_event_data_msg_match(pd_event, PD_DATA_SOURCE_CAP) &&
-		pd_port->pe_data.explicit_contract) {
-		if (dpm_build_request_info_with_new_src_cap(
-				pd_port, req_info, src_cap, charging_policy))
-			return true;
-	}
 
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
 	if ((charging_policy & DPM_CHARGING_POLICY_MASK)

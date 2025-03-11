@@ -49,6 +49,7 @@
 
 #include "oplus_sy6974b.h"
 
+extern int oplus_check_pd_usb_type(void);
 extern int oplus_chg_get_pd_type(void);
 extern int oplus_chg_pd_setup(void);
 extern int oplus_chg_get_charger_subtype(void);
@@ -115,6 +116,7 @@ static int aicl_result = 500;
 #define OPLUS_BC12_DELAY_CNT 18
 #define INIT_WORK_NORMAL_DELAY 1500
 #define INIT_WORK_OTHER_DELAY 1000
+#define PORT_PD_WITH_USB 2
 
 static bool dumpreg_by_irq = 0;
 static int sy6974b_debug = 0;
@@ -2645,6 +2647,9 @@ int opchg_get_charger_type(void)
 
 	if (!chip || !g_oplus_chip)
 		return POWER_SUPPLY_TYPE_UNKNOWN;
+
+	if (oplus_check_pd_usb_type() == PORT_PD_WITH_USB)
+		return POWER_SUPPLY_TYPE_USB_PD_SDP;
 
 	if (chip->oplus_charger_type != g_oplus_chip->charger_type && g_oplus_chip->usb_psy)
 		power_supply_changed(g_oplus_chip->usb_psy);

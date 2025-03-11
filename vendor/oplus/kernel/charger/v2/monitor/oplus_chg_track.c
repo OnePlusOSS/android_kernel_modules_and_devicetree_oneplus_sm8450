@@ -156,6 +156,7 @@
 #define TRACK_T_THD_1000_MS				1000
 #define TRACK_T_THD_500_MS				500
 #define TRACK_T_THD_6000_MS				6000
+#define TRACK_T_THD_2000_MS				2000
 
 #define TRACK_LOCAL_T_NS_TO_MS_THD			1000000
 #define TRACK_LOCAL_T_NS_TO_S_THD			1000000000
@@ -366,6 +367,7 @@ struct oplus_chg_track_cfg {
 	int fast_chg_break_t_thd;
 	int general_chg_break_t_thd;
 	int wls_chg_break_t_thd;
+	int wls_normal_chg_break_t_thd;
 	int voocphy_type;
 	int wired_fast_chg_scheme;
 	int wls_fast_chg_scheme;
@@ -1011,6 +1013,7 @@ static struct flag_reason_table track_flag_reason_table[] = {
 	{ TRACK_NOTIFY_FLAG_EIS_INFO, "EisInfo" },
 	{ TRACK_NOTIFY_FLAG_PLC_INFO, "PlcInfo" },
 	{ TRACK_NOTIFY_FLAG_ANTI_EXPANSION_INFO, "AntiExpansionInfo" },
+	{ TRACK_NOTIFY_FLAG_WIRED_RETENTION_ONLINE, "WiredRetentionOnline" },
 
 	{ TRACK_NOTIFY_FLAG_NO_CHARGING, "NoCharging" },
 	{ TRACK_NOTIFY_FLAG_NO_CHARGING_OTG_ONLINE, "OtgOnline" },
@@ -1059,7 +1062,6 @@ static struct flag_reason_table track_flag_reason_table[] = {
 	{ TRACK_NOTIFY_FLAG_DUMMY_START_ABNORMAL, "DummyStartClearError" },
 	{ TRACK_NOTIFY_FLAG_WIRED_ONLINE_ERROR, "WiredOnlineStatusError" },
 	{ TRACK_NOTIFY_FLAG_UISOC_KEEP_2_ERROR, "UisocKeep2Error" },
-	{ TRACK_NOTIFY_FLAG_WIRED_RETENTION_ONLINE, "WiredRetentionOnline" },
 	{ TRACK_NOTIFY_FLAG_BCC_SI_ABNORMAL, "BccSiAbnormal" },
 	{ TRACK_NOTIFY_FLAG_EIS_ABNORMAL, "EisAbnormal" }
 };
@@ -3101,6 +3103,13 @@ static int oplus_chg_track_parse_dt(struct oplus_chg_track *track_dev)
 		track_dev->track_cfg.wls_chg_break_t_thd = TRACK_T_THD_6000_MS;
 	}
 
+	rc = of_property_read_u32(node, "track,wls_normal_chg_break_t_thd",
+				  &(track_dev->track_cfg.wls_normal_chg_break_t_thd));
+	if (rc < 0) {
+		chg_err("track,wls_normal_chg_break_t_thd reading failed, rc=%d\n", rc);
+		track_dev->track_cfg.wls_normal_chg_break_t_thd = TRACK_T_THD_2000_MS;
+	}
+
 	rc = of_property_read_u32(
 		node, "track,wired_fast_chg_scheme",
 		&(track_dev->track_cfg.wired_fast_chg_scheme));
@@ -4042,7 +4051,7 @@ static void oplus_chg_track_wired_retention_online_trigger_work(struct work_stru
 		chg_err("wired_retention_online_trigger memery alloc fail\n");
 		return;
 	}
-	chip->wired_retention_online_trigger->type_reason = TRACK_NOTIFY_TYPE_CHARGING_BREAK;
+	chip->wired_retention_online_trigger->type_reason = TRACK_NOTIFY_TYPE_GENERAL_RECORD;
 	chip->wired_retention_online_trigger->flag_reason = TRACK_NOTIFY_FLAG_WIRED_RETENTION_ONLINE;
 
 	oplus_chg_track_get_charger_type(monitor, track_status,
@@ -5740,6 +5749,10 @@ static void oplus_chg_track_record_break_charging_info(
 					  OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
 					  "$$match_power@@%d",
 					  (track_status->power_info.wls_info.power >= track_status->wls_max_power));
+		index += snprintf(&(track_chip->wls_charging_break_trigger.crux_info[index]),
+				  OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
+				  "$$delta_time_ms@@%llu",
+				  track_status->wls_attach_time_ms - track_status->wls_detach_time_ms);
 		if (strlen(sub_crux_info)) {
 			index += snprintf(
 				&(track_chip->wls_charging_break_trigger
@@ -5924,10 +5937,12 @@ static bool oplus_chg_track_wls_is_status_keep(struct oplus_chg_track *track_chi
 	if (!track_chip || !track_chip->monitor || !track_chip->monitor->wls_topic)
 		return false;
 	rc = oplus_mms_get_item_data(track_chip->monitor->wls_topic, WLS_ITEM_STATUS_KEEP, &data, true);
-	if (rc < 0)
+	if (rc < 0) {
 		chg_err("can't get status_keep, rc=%d\n", rc);
-	else
-		return !!data.intval;
+		return false;
+	}
+	if (data.intval == WLS_SK_BY_KERNEL || data.intval == WLS_SK_BY_HAL || data.intval == WLS_SK_WAIT_TIMEOUT)
+		return true;
 
 	return false;
 }
@@ -5941,6 +5956,7 @@ int oplus_chg_track_check_wls_charging_break(int wls_connect)
 	static bool break_recording = 0;
 	static bool pre_wls_connect = false;
 	unsigned long long delta_time_ms;
+	bool is_normal_chg;
 
 	if (!g_track_chip)
 		return -1;
@@ -5951,14 +5967,25 @@ int oplus_chg_track_check_wls_charging_break(int wls_connect)
 
 	if (pre_wls_connect == wls_connect)
 		return 0;
-
+	switch (monitor->wls_pre_type) {
+	case OPLUS_CHG_WLS_BPP:
+	case OPLUS_CHG_WLS_EPP:
+	case OPLUS_CHG_WLS_EPP_PLUS:
+		is_normal_chg = true;
+		break;
+	default:
+		is_normal_chg = false;
+		break;
+	}
 	if (wls_connect) {
 		track_status->wls_status_keep = oplus_chg_track_wls_is_status_keep(track_chip);
 		track_status->wls_attach_time_ms = local_clock() / TRACK_LOCAL_T_NS_TO_MS_THD;
 		delta_time_ms = track_status->wls_attach_time_ms - track_status->wls_detach_time_ms;
-		if (delta_time_ms < track_chip->track_cfg.wls_chg_break_t_thd && track_status->wls_status_keep) {
+		if ((delta_time_ms < track_chip->track_cfg.wls_chg_break_t_thd && track_status->wls_status_keep && !is_normal_chg) ||
+		    (delta_time_ms < track_chip->track_cfg.wls_normal_chg_break_t_thd && track_status->wls_status_keep && is_normal_chg)) {
 			if (!break_recording) {
 				break_recording = true;
+				oplus_chg_track_get_wls_adapter_type_info(monitor->wls_pre_type, track_status);
 				track_chip->wls_charging_break_trigger.flag_reason =
 					TRACK_NOTIFY_FLAG_WLS_CHARGING_BREAK;
 				oplus_chg_track_record_break_charging_info(track_chip, monitor,
@@ -5974,6 +6001,7 @@ int oplus_chg_track_check_wls_charging_break(int wls_connect)
 			/*record one time in 6s*/
 			break_recording = 0;
 		}
+		monitor->wls_pre_type = 0;
 		chg_info("pre_wls_connect[%d], wls_connect[%d], break_recording[%d], status_keep[%d], "
 			"detal_t:%llu, wls_attach_time:%llu\n",
 			pre_wls_connect, wls_connect, break_recording, track_status->wls_status_keep,
@@ -6950,11 +6978,17 @@ static int oplus_chg_track_upload_ic_err_info(struct oplus_chg_track *track)
 	}
 	track_buf = track->ic_err_msg_load_trigger.crux_info;
 
+	if (NULL == data.strval) {
+		chg_err("data.strval is NULL");
+		return -EINVAL;
+	}
+
 	msg_buf = kzalloc(TOPIC_MSG_STR_BUF, GFP_KERNEL);
 	if (msg_buf == NULL) {
 		chg_err("alloc msg buf error");
 		return -ENOMEM;
 	}
+
 	copy_size = strlen(data.strval) > TOPIC_MSG_STR_BUF ? TOPIC_MSG_STR_BUF : strlen(data.strval);
 	memcpy(msg_buf, data.strval, copy_size);
 
@@ -9968,6 +10002,8 @@ static int oplus_chg_track_debugfs_init(struct oplus_chg_track *track_dev)
 			   &(track_dev->track_cfg.general_chg_break_t_thd));
 	debugfs_create_u32("debug_wls_chg_break_t_thd", 0644, debugfs_general,
 			   &(track_dev->track_cfg.wls_chg_break_t_thd));
+	debugfs_create_u32("debug_wls_normal_chg_break_t_thd", 0644, debugfs_general,
+			   &(track_dev->track_cfg.wls_normal_chg_break_t_thd));
 	debugfs_create_u32("debug_chg_notify_flag", 0644, debugfs_general,
 			   &(track_dev->track_status.debug_chg_notify_flag));
 	debugfs_create_u32("debug_chg_notify_code", 0644, debugfs_general,

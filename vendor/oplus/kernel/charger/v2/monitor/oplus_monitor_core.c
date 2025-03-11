@@ -200,6 +200,7 @@ static void oplus_monitor_update_charge_info(struct oplus_monitor *chip)
 			chip->wls_vout_mv = data.intval;
 			oplus_mms_get_item_data(chip->wls_topic, WLS_ITEM_WLS_TYPE, &data, true);
 			chip->wls_charge_type = data.intval;
+			chip->wls_pre_type = chip->wls_charge_type;
 			oplus_mms_get_item_data(chip->wls_topic, WLS_ITEM_MAGCVR, &data, true);
 			chip->wls_magcvr_status = data.intval;
 		}
@@ -585,12 +586,12 @@ static void oplus_monitor_retention_subs_callback(struct mms_subscribe *subs,
 			if (chip->pre_retention_state != chip->retention_state && !chip->retention_state &&
 				chip->total_disconnect_count > 0)
 				oplus_chg_track_upload_wired_retention_online_info(chip);
+			chip->pre_retention_state = chip->retention_state;
 			break;
 		case RETENTION_ITEM_TOTAL_DISCONNECT_COUNT:
 			oplus_mms_get_item_data(chip->retention_topic, id, &data, false);
 			if (data.intval > 0)
 				chip->total_disconnect_count = data.intval - chip->vooc_normal_connect_count_level;
-			chip->pre_retention_state = chip->retention_state;
 			if (!chip->retention_state)
 				chip->vooc_normal_connect_count_level = 0;
 			break;

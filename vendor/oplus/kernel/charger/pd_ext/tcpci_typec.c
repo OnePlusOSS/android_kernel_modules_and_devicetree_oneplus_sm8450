@@ -2296,16 +2296,17 @@ static inline int typec_handle_src_toggle_timeout(struct tcpc_device *tcpc)
 		return 0;
 #endif	/* CONFIG_TYPEC_CAP_ROLE_SWAP */
 	rv = tcpci_get_chip_vid(tcpc,&chip_vid);
-	if (tcpc->typec_state == typec_unattached_src) {
-		typec_unattached_snk_and_drp_entry(tcpc);
+	if (tcpc->typec_state == typec_unattached_snk && !rv && SOUTHCHIP_PD_VID == chip_vid) {
+		typec_unattached_src_and_drp_entry(tcpc);
 		typec_wait_ps_change(tcpc, TYPEC_WAIT_PS_DISABLE);
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
 		typec_try_enter_norp_src(tcpc);
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
+		return 0;
 	}
 
-	if (tcpc->typec_state == typec_unattached_snk && !rv && SOUTHCHIP_PD_VID == chip_vid) {
-		typec_unattached_src_and_drp_entry(tcpc);
+	if (tcpc->typec_state == typec_unattached_src) {
+		typec_unattached_snk_and_drp_entry(tcpc);
 		typec_wait_ps_change(tcpc, TYPEC_WAIT_PS_DISABLE);
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
 		typec_try_enter_norp_src(tcpc);

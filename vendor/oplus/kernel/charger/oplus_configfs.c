@@ -2641,20 +2641,23 @@ static ssize_t protocol_type_show(struct device *dev,
 {
 	struct oplus_chg_chip *chip = NULL;
 	int fast_chg_type = CHARGER_SUBTYPE_DEFAULT;
+	static int last_fast_chg_type = CHARGER_SUBTYPE_DEFAULT;
 	int subtype = CHARGER_SUBTYPE_DEFAULT;
 	int rc = 0;
 	bool wls_online = false;
 	bool vooc_online = false;
 	static int pre_fast_chg_type = CHARGER_SUBTYPE_DEFAULT;
-	union oplus_chg_mod_propval pval = {
-		0,
-	};
+	union oplus_chg_mod_propval pval = {0, };
 
 	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_common_dir);
 	if (!chip) {
 		chg_err("chip is NULL\n");
 		return -EINVAL;
 	}
+
+	if ((last_fast_chg_type != CHARGER_SUBTYPE_DEFAULT) &&
+		oplus_quirks_keep_connect_status() == 1)
+		return sprintf(buf, "%d\n", last_fast_chg_type);
 
 	if ((oplus_vooc_get_fastchg_started() == true) ||
 		(oplus_vooc_get_fastchg_to_normal() == true) ||
@@ -2692,13 +2695,13 @@ static ssize_t protocol_type_show(struct device *dev,
 				fast_chg_type = CHARGER_SUBTYPE_FASTCHG_SVOOC;
 			else
 				fast_chg_type = CHARGER_SUBTYPE_DEFAULT;
-		} else {
-			fast_chg_type = CHARGER_SUBTYPE_DEFAULT;
 		}
 	}
 
 	if (protocol_type_by_user > 0)
 		fast_chg_type = protocol_type_by_user;
+
+	last_fast_chg_type = fast_chg_type;
 
 	return sprintf(buf, "%d\n", fast_chg_type);
 }
@@ -2725,6 +2728,7 @@ static ssize_t ui_power_show(struct device *dev,
 	int adapter_power = 0;
 	int project_power = 0;
 	int ui_power = 0;
+	static int last_ui_power = -1;
 	int pps_or_ufcs_power = 0;
 	bool ufcs_online = false;
 	bool pps_online = false;
@@ -2736,6 +2740,9 @@ static ssize_t ui_power_show(struct device *dev,
 		chg_err("chip is NULL\n");
 		return -EINVAL;
 	}
+
+	if ((last_ui_power != -1) && oplus_quirks_keep_connect_status() == 1)
+		return sprintf(buf, "%u\n", last_ui_power);
 
 	if (fast_chg_type_by_user > 0)
 		adapter_power = oplus_get_vooc_adapter_power(fast_chg_type_by_user) * 1000;
@@ -2769,6 +2776,8 @@ static ssize_t ui_power_show(struct device *dev,
 		ui_power = pre_ui_power;
 	else if (ui_power != 0)
 		pre_ui_power = ui_power;
+
+	last_ui_power = ui_power;
 
 	chg_info("ui_power_show: %d %d %d %d %d %d %d\n",
 		adapter_power, project_power, ufcs_online, pps_online,

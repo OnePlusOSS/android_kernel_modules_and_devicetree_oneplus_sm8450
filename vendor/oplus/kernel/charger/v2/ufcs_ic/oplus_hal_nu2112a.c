@@ -881,17 +881,30 @@ static bool nu2112a_get_pd_svooc_config(struct oplus_voocphy_manager *chip)
 		return false;
 }
 
-static int nu2112a_set_chg_pmid2out(bool enable)
+static int nu2112a_set_chg_pmid2out(bool enable, int reason)
 {
 	if (!oplus_voocphy_mg) {
 		chg_err("Failed\n");
 		return 0;
 	}
 
-	if (enable)
-		return nu2112a_write_byte(oplus_voocphy_mg->client, NU2112A_REG_05, 0x33); /*PMID/2-VOUT < 10%VOUT*/
-	else
-		return nu2112a_write_byte(oplus_voocphy_mg->client, NU2112A_REG_05, 0xA3); /*PMID/2-VOUT < 10%VOUT*/
+	if (enable) {
+		if (reason == SETTING_REASON_SVOOC)
+			return nu2112a_write_byte(oplus_voocphy_mg->client, NU2112A_REG_05, 0x31); /*PMID/2-VOUT < 10%VOUT*/
+		else if (reason == SETTING_REASON_VOOC)
+			return nu2112a_write_byte(oplus_voocphy_mg->client, NU2112A_REG_05, 0x33);
+		else
+			chg_err("no type for set_chg_pmid2out\n");
+	} else {
+		if (reason == SETTING_REASON_SVOOC)
+			return nu2112a_write_byte(oplus_voocphy_mg->client, NU2112A_REG_05, 0xB1); /*PMID/2-VOUT < 10%VOUT*/
+		else if (reason == SETTING_REASON_VOOC)
+			return nu2112a_write_byte(oplus_voocphy_mg->client, NU2112A_REG_05, 0xA3);
+		else
+			chg_err("no type for set_chg_pmid2out\n");
+	}
+
+	return 0;
 }
 
 static bool nu2112a_get_chg_pmid2out(void)

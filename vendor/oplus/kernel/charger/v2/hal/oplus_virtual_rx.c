@@ -1389,6 +1389,34 @@ static int oplus_chg_vr_set_comu(struct oplus_chg_ic_dev *ic_dev, int comu)
 	return rc;
 }
 
+static int oplus_chg_vr_get_tx_id(struct oplus_chg_ic_dev *ic_dev, int *tx_id)
+{
+	struct oplus_virtual_rx_ic *vr;
+	int i;
+	int rc = 0;
+
+	if (ic_dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL\n");
+		return -ENODEV;
+	}
+
+	vr = oplus_chg_ic_get_drvdata(ic_dev);
+	for (i = 0; i < vr->child_num; i++) {
+		if (!func_is_support(&vr->child_list[i],
+				     OPLUS_IC_FUNC_RX_GET_TX_ID)) {
+			rc = (rc == 0) ? -ENOTSUPP : rc;
+			continue;
+		}
+		rc = oplus_chg_ic_func(vr->child_list[i].ic_dev,
+			OPLUS_IC_FUNC_RX_GET_TX_ID, tx_id);
+		if (rc < 0)
+			chg_err("child ic[%d] get_tx_id error, rc=%d\n", i, rc);
+		break;
+	}
+
+	return rc;
+}
+
 static void *oplus_chg_vr_get_func(struct oplus_chg_ic_dev *ic_dev,
 				   enum oplus_chg_ic_func func_id)
 {
@@ -1556,6 +1584,10 @@ static void *oplus_chg_vr_get_func(struct oplus_chg_ic_dev *ic_dev,
 	case OPLUS_IC_FUNC_RX_SET_COMU:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_RX_SET_COMU,
 			    oplus_chg_vr_set_comu);
+		break;
+	case OPLUS_IC_FUNC_RX_GET_TX_ID:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_RX_GET_TX_ID,
+			    oplus_chg_vr_get_tx_id);
 		break;
 	default:
 		chg_err("this func(=%d) is not supported\n", func_id);

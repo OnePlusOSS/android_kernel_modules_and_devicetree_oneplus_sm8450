@@ -44,6 +44,7 @@
 #define PPS_START_DEF_CURR_MA		1500
 #define PPS_START_DEF_VOL_MV		5500
 #define PPS_MONITOR_TIME_MS		500
+#define PD_SVOOC_WAIT_MS		300
 #define OPLUS_FIXED_PDO_CURR_MA		3000
 #define OPLUS_FIXED_PDO_DEF_VOL		5000
 #define OPLUS_PPS_UW_MV_TRANSFORM	1000
@@ -309,6 +310,7 @@ struct oplus_pps {
 	struct mutex read_lock;
 	struct mutex cmd_data_lock;
 	struct completion cmd_ack;
+	struct completion pd_svooc_wait_ack;
 	struct pps_dev_cmd cmd;
 	bool cmd_data_ok;
 
@@ -1381,8 +1383,15 @@ static void oplus_pps_switch_check_work(struct work_struct *work)
 		return;
 	}
 
+	if (!chip->pdsvooc_id_adapter) {
+		reinit_completion(&chip->pd_svooc_wait_ack);
+		rc = wait_for_completion_timeout(&chip->pd_svooc_wait_ack,
+			msecs_to_jiffies(PD_SVOOC_WAIT_MS));
+		if (rc)
+			chg_info("svid wait timeout\n");
+	}
 	rc = oplus_mms_get_item_data(chip->wired_topic, WIRED_ITEM_REAL_CHG_TYPE,
-				&data, false);
+				&data, true);
 	if (rc < 0)
 		wired_type = OPLUS_CHG_USB_TYPE_UNKNOWN;
 	else
@@ -3264,6 +3273,8 @@ static void oplus_pps_wired_online_work(struct work_struct *work)
 			vote(chip->wired_icl_votable, BTB_TEMP_OVER_VOTER,
 			     false, 0, true);
 		chip->wired_type = OPLUS_CHG_USB_TYPE_UNKNOWN;
+		chip->pdsvooc_id_adapter = false;
+		complete_all(&chip->pd_svooc_wait_ack);
 	} else {
 		chip->retention_state_ready = false;
 		if (READ_ONCE(chip->disconnect_change) && !chip->pps_online &&
@@ -3555,6 +3566,8 @@ static void oplus_pps_wired_subs_callback(struct mms_subscribe *subs,
 			oplus_mms_get_item_data(chip->wired_topic, id, &data,
 						false);
 			chip->pdsvooc_id_adapter = !!data.intval;
+			if (chip->pdsvooc_id_adapter)
+				complete(&chip->pd_svooc_wait_ack);
 			break;
 		case WIRED_ITEM_PRESENT:
 			oplus_mms_get_item_data(chip->wired_topic, id, &data, false);
@@ -5059,6 +5072,7 @@ static int oplus_pps_probe(struct platform_device *pdev)
 	INIT_WORK(&chip->gauge_update_work, oplus_pps_gauge_update_work);
 	INIT_WORK(&chip->close_cp_work, oplus_pps_close_cp_work);
 	INIT_WORK(&chip->retention_disconnect_work, oplus_pps_retention_disconnect_work);
+	init_completion(&chip->pd_svooc_wait_ack);
 
 	rc = oplus_pps_init_imp_node(chip);
 	if (rc < 0)

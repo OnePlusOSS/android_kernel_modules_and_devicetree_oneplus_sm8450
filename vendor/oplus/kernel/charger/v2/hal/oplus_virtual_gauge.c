@@ -1493,6 +1493,37 @@ static int oplus_chg_vg_get_device_type(struct oplus_chg_ic_dev *ic_dev,
 	return rc;
 }
 
+static int oplus_chg_vg_set_seal_flag(struct oplus_chg_ic_dev *ic_dev,
+					int seal_flag)
+{
+	struct oplus_virtual_gauge_ic *chip;
+	int i;
+	int rc = 0;
+
+	if (ic_dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_chg_ic_get_drvdata(ic_dev);
+	for (i = 0; i < chip->child_num; i++) {
+		if (!func_is_support(&chip->child_list[i],
+				     OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG)) {
+			rc = (rc == 0) ? -ENOTSUPP : rc;
+			continue;
+		}
+		rc = oplus_chg_ic_func(chip->child_list[i].ic_dev,
+				       OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG,
+				       seal_flag);
+		if (rc < 0)
+			chg_err("child ic[%d] set seal flag error, rc=%d\n",
+				i, rc);
+		break;
+	}
+
+	return rc;
+}
+
 static int
 oplus_chg_vg_get_device_type_for_vooc(struct oplus_chg_ic_dev *ic_dev,
 				       int *type)
@@ -3250,6 +3281,11 @@ static void *oplus_chg_vg_get_func(struct oplus_chg_ic_dev *ic_dev,
 		func = OPLUS_CHG_IC_FUNC_CHECK(
 			OPLUS_IC_FUNC_GAUGE_GET_DEVICE_TYPE,
 			oplus_chg_vg_get_device_type);
+		break;
+	case OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG:
+		func = OPLUS_CHG_IC_FUNC_CHECK(
+			OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG,
+			oplus_chg_vg_set_seal_flag);
 		break;
 	case OPLUS_IC_FUNC_GAUGE_GET_DEVICE_TYPE_FOR_VOOC:
 		func = OPLUS_CHG_IC_FUNC_CHECK(

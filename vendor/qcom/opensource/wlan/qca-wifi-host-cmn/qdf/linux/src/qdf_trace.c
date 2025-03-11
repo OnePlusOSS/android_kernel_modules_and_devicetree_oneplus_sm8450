@@ -1604,8 +1604,6 @@ void qdf_dp_log_proto_pkt_info(uint8_t *sa, uint8_t *da, uint8_t type,
 	switch (subtype) {
 	case QDF_PROTO_EAPOL_M2:
 	case QDF_PROTO_EAPOL_M4:
-	case QDF_PROTO_DHCP_DISCOVER:
-	case QDF_PROTO_DHCP_REQUEST:
 		if (dir == QDF_RX) {
 			hostapd_send_eapol_uevent(type, subtype, status);
 		}

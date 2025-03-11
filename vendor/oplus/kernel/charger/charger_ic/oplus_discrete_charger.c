@@ -751,12 +751,18 @@ static void smbchg_enter_shipmode(struct oplus_chg_chip *chip)
 {
 #ifndef CONFIG_OPLUS_CHARGER_MTK
 	int i = 0;
-	struct smb_charger *chg = &chip->pmic_spmi.smb5_chip->chg;
+	struct smb_charger *chg;
 
 	if (!chip) {
 		printk(KERN_ERR "[OPLUS_CHG][%s]: discrete_charger not ready!\n", __func__);
 		return;
 	}
+	if (!chip->pmic_spmi.smb5_chip) {
+		printk(KERN_ERR "[OPLUS_CHG][%s]: smb5_chip not ready!\n", __func__);
+		return;
+	}
+
+	chg = &chip->pmic_spmi.smb5_chip->chg;
 
 	if (oplus_ship_check_is_gpio(chip) == true) {
 		chg_debug("select gpio control\n");
@@ -949,7 +955,7 @@ static void oplus_ccdetect_work(struct work_struct *work)
 
 		if (oplus_get_otg_switch_status() == false)
 			oplus_ccdetect_disable();
-		if(g_oplus_chip->usb_status == USB_TEMP_HIGH) {
+		if (g_oplus_chip && g_oplus_chip->usb_status == USB_TEMP_HIGH) {
 			schedule_delayed_work(&usbtemp_recover_work, 0);
 		}
 	}
@@ -1388,9 +1394,20 @@ void oplus_wake_up_usbtemp_thread(void)
 static int oplus_chg_parse_custom_dt(struct oplus_chg_chip *chip)
 {
 	int rc = 0;
-	struct device_node *node = chip->dev->of_node;
+	struct device_node *node;
 #ifndef CONFIG_OPLUS_CHARGER_MTK
-	struct smb_charger *chg = &chip->pmic_spmi.smb5_chip->chg;
+	struct smb_charger *chg;
+#endif
+
+	if (!chip)
+		return -EINVAL;
+
+	node = chip->dev->of_node;
+#ifndef CONFIG_OPLUS_CHARGER_MTK
+	if (!chip->pmic_spmi.smb5_chip)
+		return -EINVAL;
+
+	chg = &chip->pmic_spmi.smb5_chip->chg;
 #endif
 	if (!node) {
 		pr_err("device tree node missing\n");
@@ -1477,7 +1494,7 @@ static int oplus_chg_parse_custom_dt(struct oplus_chg_chip *chip)
 				} else {
 					oplus_shortc_gpio_init(g_oplus_chip);
 					if (rc)
-						chg_err("unable to init ship-gpio:%d\n", g_oplus_chip->normalchg_gpio.ship_gpio);
+						chg_err("unable to init shortc-gpio:%d\n", g_oplus_chip->normalchg_gpio.shortc_gpio);
 				}
 			}
 			chg_err("shortc-gpio:%d\n", g_oplus_chip->normalchg_gpio.shortc_gpio);

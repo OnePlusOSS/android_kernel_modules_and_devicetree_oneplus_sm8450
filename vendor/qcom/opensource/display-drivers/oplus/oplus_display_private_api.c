@@ -799,7 +799,8 @@ static ssize_t oplus_display_get_panel_serial_number(struct kobject *obj,
 			panel_serial_info.year		= (read[panel_serial_info.reg_index] & 0xF0) >> 0x4;
 			panel_serial_info.year += 1;
 		} else if ((!strcmp(display->panel->name, "tianma nt37705 dsc cmd mode panel"))
-		|| (!strcmp(display->panel->name, "senna22623 ab575 tm nt37705 dsc cmd mode panel"))) {
+		|| (!strcmp(display->panel->name, "senna22623 ab575 tm nt37705 dsc cmd mode panel"))
+		|| (!strcmp(display->panel->name, "BOE AB241 NT37701A"))) {
 			panel_serial_info.year		= (read[panel_serial_info.reg_index] & 0xF0) >> 0x4;
 			panel_serial_info.year += 10;
 		} else {
@@ -3338,6 +3339,7 @@ static OPLUS_ATTR(dimlayer_hbm, S_IRUGO | S_IWUSR, oplus_ofp_get_dimlayer_hbm_at
 static OPLUS_ATTR(notify_fppress, S_IRUGO | S_IWUSR, NULL, oplus_ofp_notify_fp_press_attr);
 static OPLUS_ATTR(aod_light_mode_set, S_IRUGO | S_IWUSR, oplus_ofp_get_aod_light_mode_attr, oplus_ofp_set_aod_light_mode_attr);
 static OPLUS_ATTR(ultra_low_power_aod_mode, S_IRUGO | S_IWUSR, oplus_ofp_get_ultra_low_power_aod_mode_attr, oplus_ofp_set_ultra_low_power_aod_mode_attr);
+static OPLUS_ATTR(longrui_aod, S_IRUGO | S_IWUSR, oplus_ofp_get_longrui_aod_config_attr, oplus_ofp_set_longrui_aod_mode_attr);
 #endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 
 /*
@@ -3398,6 +3400,7 @@ static struct attribute *oplus_display_attrs[] = {
 	&oplus_attr_notify_fppress.attr,
 	&oplus_attr_aod_light_mode_set.attr,
 	&oplus_attr_ultra_low_power_aod_mode.attr,
+	&oplus_attr_longrui_aod.attr,
 #endif /* OPLUS_FEATURE_DISPLAY_ONSCREENFINGERPRINT */
 	NULL,	/* need to NULL terminate the list of attributes */
 };

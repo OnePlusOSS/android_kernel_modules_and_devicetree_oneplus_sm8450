@@ -66,6 +66,7 @@ static irqreturn_t sc8547_protect_interrupt_handler(struct oplus_voocphy_manager
 #define DEFUALT_VBUS_HIGH 200
 #define I2C_ERR_NUM 10
 #define MAIN_I2C_ERROR (1 << 0)
+#define I2C_SMBUS_BLOCK_MAX	32
 
 static int sc8547_get_chg_enable(struct oplus_voocphy_manager *chip, u8 *data);
 static int sc8547_track_upload_i2c_err_info(struct oplus_voocphy_manager *chip, int err_type, u8 reg);
@@ -1544,21 +1545,9 @@ static int sc8547a_read_byte(struct oplus_sc8547a_ufcs *chip, u8 addr, u8 *data)
 	int rc = 0;
 
 	mutex_lock(&i2c_rw_lock);
-	rc = i2c_master_send(chip->client, &addr_buf, 1);
-	if (rc < 1) {
-		ufcs_err("write 0x%04x error, rc = %d \n", addr, rc);
-		if (oplus_voocphy_mg)
-			sc8547_track_upload_i2c_err_info(oplus_voocphy_mg, -ENOTCONN, addr);
-		rc = rc < 0 ? rc : -EIO;
-		goto error;
-	}
-
-	rc = i2c_master_recv(chip->client, data, 1);
-	if (rc < 1) {
-		pr_err("read 0x%04x error, rc = %d \n", addr, rc);
-		if (oplus_voocphy_mg)
-			sc8547_track_upload_i2c_err_info(oplus_voocphy_mg, -ENOTCONN, addr);
-		rc = rc < 0 ? rc : -EIO;
+	rc = i2c_smbus_read_i2c_block_data(chip->client, addr_buf, 1, data);
+	if (rc < 0) {
+		chg_err("read 0x%04x error, rc = %d \n", addr, rc);
 		goto error;
 	}
 	mutex_unlock(&i2c_rw_lock);
@@ -1576,22 +1565,26 @@ static int sc8547a_read_data(struct oplus_sc8547a_ufcs *chip, u8 addr, u8 *buf, 
 	int rc = 0;
 
 	mutex_lock(&i2c_rw_lock);
-	rc = i2c_master_send(chip->client, &addr_buf, 1);
-	if (rc < 1) {
-		pr_err("read 0x%04x error, rc=%d\n", addr, rc);
-		if (oplus_voocphy_mg)
-			sc8547_track_upload_i2c_err_info(oplus_voocphy_mg, -ENOTCONN, addr);
-		rc = rc < 0 ? rc : -EIO;
-		goto error;
-	}
+	if (len <= I2C_SMBUS_BLOCK_MAX) {
+		rc = i2c_smbus_read_i2c_block_data(chip->client, addr_buf, len, buf);
+		if (rc < 0) {
+			chg_err("read 0x%04x error, rc=%d\n", addr, rc);
+			goto error;
+		}
+	} else {
+		rc = i2c_master_send(chip->client, &addr_buf, 1);
+		if (rc < 1) {
+			chg_err("write 0x%04x error, rc=%d\n", addr, rc);
+			rc = rc < 0 ? rc : -EIO;
+			goto error;
+		}
 
-	rc = i2c_master_recv(chip->client, buf, len);
-	if (rc < len) {
-		pr_err("read 0x%04x error, rc=%d\n", addr, rc);
-		if (oplus_voocphy_mg)
-			sc8547_track_upload_i2c_err_info(oplus_voocphy_mg, -ENOTCONN, addr);
-		rc = rc < 0 ? rc : -EIO;
-		goto error;
+		rc = i2c_master_recv(chip->client, buf, len);
+		if (rc < len) {
+			chg_err("read 0x%04x error, rc=%d\n", addr, rc);
+			rc = rc < 0 ? rc : -EIO;
+			goto error;
+		}
 	}
 	mutex_unlock(&i2c_rw_lock);
 	oplus_ufcs_protocol_i2c_err_clr();

@@ -87,6 +87,7 @@
 #define BC_PPS_OPLUS                    0x65
 #define BC_ADSP_NOTIFY_TRACK				0x66
 #define BC_ABNORMAL_PD_SVOOC_ADAPTER 0x67
+#define BC_PD_SOURCECAP_DONE 0x79
 #endif
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
@@ -101,6 +102,7 @@
 #define USB_OTG_CURR_LIMIT_HIGH  1700
 #define USB_OTG_REAL_SOC_MIN     10
 #define FFC_FULL_DELTA_ITEARM_MA 400
+#define FFC_FULL_DELTA_ITEARM_MA_LOW	400
 #endif
 
 /* Generic definitions */
@@ -506,6 +508,7 @@ struct battery_chg_dev {
 	struct delayed_work	recheck_input_current_work;
 	struct delayed_work	apsd_done_work;
 	struct delayed_work	unsuspend_usb_work;
+	struct delayed_work	pd_set_aicl_work;
 /*#ifdef OPLUS_CHG_OP_DEF*/
 	struct delayed_work ctrl_lcm_frequency;
 /*#endif*/
@@ -575,6 +578,8 @@ struct battery_chg_dev {
 	int otg_scheme;
 	bool pmic_is_pm7250b;
 	int ffc_full_delta_iterm_ma;
+	int ffc_full_delta_iterm_ma_low;
+	bool common_charge_icl_support;
 	int otg_boost_src;
 	int otg_curr_limit_max;
 	int otg_curr_limit_high;
@@ -614,6 +619,7 @@ struct battery_chg_dev {
 	struct mutex	pps_read_buffer_lock;
 	struct completion	 pps_read_ack;
 	struct oem_read_buffer_resp_msg  pps_read_buffer_dump;
+	bool plugin_already_run;
 #endif
 	/* To track the driver initialization status */
 	bool				initialized;

@@ -102,6 +102,8 @@ static const struct panel_ioctl_desc panel_ioctls[] = {
 	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_PWM_TURBO, oplus_display_panel_get_pwm_turbo),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_PWM_PULSE, oplus_display_panel_set_pwm_pulse),
 	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_PWM_PULSE, oplus_display_panel_get_pwm_pulse),
+	PANEL_IOCTL_DEF(PANEL_IOCTL_SET_LONGRUI_AOD, oplus_ofp_set_longrui_aod_mode),
+	PANEL_IOCTL_DEF(PANEL_IOCTL_GET_LONGRUI_AOD, oplus_ofp_get_longrui_aod_config),
 };
 
 int oplus_display_fix_apollo_level(void)

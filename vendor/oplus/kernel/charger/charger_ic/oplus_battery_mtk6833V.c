@@ -77,6 +77,7 @@
 #define OPLUS_MIN_PDO_VOL	5000
 #define OPLUS_MIN_PDO_CUR	3000
 #define TEMP_25C 250
+#define OTG_VBUS_CURRENT_LIMIT_DEFAULT	1100000
 
 int oplus_mtk_hv_flashled_plug(int plug);
 int oplus_chg_get_mmi_status(void);
@@ -213,6 +214,22 @@ struct mtk_hv_flashled_pinctrl mtkhv_flashled_pinctrl;
 static int charge_pump_mode = OPLUS_DIVIDER_WORK_MODE_AUTO;
 extern int oplus_set_divider_work_mode(int work_mode);
 #endif
+
+static enum mtk_pd_connect_type pd_connect_tbl[] = {
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_PE_READY_SNK,
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_PE_READY_SNK_PD30,
+	MTK_PD_CONNECT_NONE,
+	MTK_PD_CONNECT_PE_READY_SNK_APDO,
+	MTK_PD_CONNECT_HARD_RESET,
+	MTK_PD_CONNECT_SOFT_RESET,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+	MTK_PD_CONNECT_TYPEC_ONLY_SNK,
+};
 
 static struct temp_param sub_board_temp_table[] = {
 	{-40, 4397119}, {-39, 4092874}, {-38, 3811717}, {-37, 3551749}, {-36, 3311236}, {-35, 3088599}, {-34, 2882396}, {-33, 2691310},
@@ -2306,6 +2323,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	info->charger_thread_polling = false;
 	info->dpdmov_stat = false;
 	info->lst_dpdmov_stat = false;
+	info->pd_reset = false;
 
 	pdata1->disable_charging_count = 0;
 	pdata1->input_current_limit_by_aicl = -1;
@@ -2788,10 +2806,11 @@ static void kpoc_power_off_check(struct mtk_charger *info)
 
 	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
 	/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
-	if (boot_mode == 8 || boot_mode == 9) {
+	if (boot_mode == KERNEL_POWER_OFF_CHARGING_BOOT ||
+	    boot_mode == LOW_POWER_OFF_CHARGING_BOOT) {
 		vbus = get_vbus(info);
 		if (vbus >= 0 && vbus < 2500 && !mtk_is_charger_on(info) &&
-			!info->ta_hardreset) {
+			!info->pd_reset) {
 			chr_err("Unplug Charger/USB in KPOC mode, vbus=%d, shutdown\n", vbus);
 			while (1) {
 				if (info->is_suspend == false) {
@@ -3287,7 +3306,7 @@ static int charger_routine_thread(void *arg)
 		kpoc_power_off_check(info);
 
 		if (!info->cs_hw_disable)
-			chr_err("Vbat=%d vbat2=%d vbats=%d vbus:%d ibus:%d I=%d I2=%d T=%d uisoc:%d type:%s>%s idx:%d ta_stat:%d swchg_ibat:%d cv:%d cmd_pp:%d\n",
+			chr_err("Vbat=%d vbat2=%d vbats=%d vbus:%d ibus:%d I=%d I2=%d T=%d uisoc:%d type:%s>%s idx:%d ta_stat:%d swchg_ibat:%d cv:%d cmd_pp:%d, pd_reset:%d\n",
 				get_battery_voltage(info),
 				cs_vbat,
 				vbat_min,
@@ -3299,9 +3318,9 @@ static int charger_routine_thread(void *arg)
 				get_uisoc(info),
 				dump_charger_type(info->chr_type, info->usb_type),
 				dump_charger_type(get_charger_type(info), get_usb_type(info)), info->select_adapter_idx,
-				info->ta_status[info->select_adapter_idx], get_ibat(info), chg_cv, info->cmd_pp);
+				info->ta_status[info->select_adapter_idx], get_ibat(info), chg_cv, info->cmd_pp, info->pd_reset);
 		else
-			chr_err("Vbat=%d vbats=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s idx:%d ta_stat:%d swchg_ibat:%d cv:%d cmd_pp:%d\n",
+			chr_err("Vbat=%d vbats=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s idx:%d ta_stat:%d swchg_ibat:%d cv:%d cmd_pp:%d pd_reset:%d\n",
 				get_battery_voltage(info),
 				vbat_min,
 				get_vbus(info),
@@ -3311,7 +3330,7 @@ static int charger_routine_thread(void *arg)
 				get_uisoc(info),
 				dump_charger_type(info->chr_type, info->usb_type),
 				dump_charger_type(get_charger_type(info), get_usb_type(info)), info->select_adapter_idx,
-				info->ta_status[info->select_adapter_idx], get_ibat(info), chg_cv, info->cmd_pp);
+				info->ta_status[info->select_adapter_idx], get_ibat(info), chg_cv, info->cmd_pp, info->pd_reset);
 
 		if (is_disable_charger(info) == false &&
 			is_charger_on == true &&
@@ -3827,6 +3846,11 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	info->support_ntc_01c_precision = of_property_read_bool(np, "qcom,support_ntc_01c_precision");
 	chr_debug("%s: support_ntc_01c_precision: %d\n",
 		__func__, info->support_ntc_01c_precision);
+
+	if (of_property_read_u32(np, "oplus,otg_current_limit", &val)>= 0)
+		info->otg_current_limit = val;
+	else
+		info->otg_current_limit = OTG_VBUS_CURRENT_LIMIT_DEFAULT;
 #endif
 }
 
@@ -5378,10 +5402,6 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mtk_chg_alg_notify_call(pinfo, EVT_DETACH, 0);
 		_wake_up_charger(pinfo);
 		/* reset PE40 */
-#ifdef OPLUS_FEATURE_CHG_BASIC
-		pinfo->in_good_connect = false;
-		chr_err("MTK_PD_CONNECT_NONE in_good_connect false\n");
-#endif
 		break;
 
 	case TA_ATTACH:
@@ -5390,10 +5410,6 @@ int notify_adapter_event(struct notifier_block *notifier,
 		pinfo->ta_status[index] = TA_ATTACH;
 		mutex_unlock(&pinfo->ta_lock);
 		_wake_up_charger(pinfo);
-#ifdef OPLUS_FEATURE_CHG_BASIC
-		pinfo->in_good_connect = false;
-		chr_err("TA_ATTACH in_good_connect false\n");
-#endif
 		/* reset PE40 */
 		break;
 
@@ -5414,12 +5430,6 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_unlock(&pinfo->ta_lock);
 		_wake_up_charger(pinfo);
 		/* PD is ready */
-#ifdef OPLUS_FEATURE_CHG_BASIC
-		oplus_chg_track_record_chg_type_info();
-		pinfo->in_good_connect = true;
-		oplus_get_adapter_svid();
-		chr_err("MTK_PD_CONNECT_PE_READY_SNK_PD30 in_good_connect true\n");
-#endif
 		break;
 
 	case TA_SOFT_RESET:
@@ -5429,12 +5439,6 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_unlock(&pinfo->ta_lock);
 		_wake_up_charger(pinfo);
 		/* PD30 is ready */
-#ifdef OPLUS_FEATURE_CHG_BASIC
-		oplus_chg_track_record_chg_type_info();
-		pinfo->in_good_connect = true;
-		oplus_get_adapter_svid();
-		chr_err("MTK_PD_CONNECT_PE_READY_SNK_PD30 in_good_connect true\n");
-#endif
 		break;
 	case MTK_TYPEC_WD_STATUS:
 		chr_err("wd status = %d\n", *(bool *)val);
@@ -5444,10 +5448,18 @@ int notify_adapter_event(struct notifier_block *notifier,
 			pinfo->record_water_detected = true;
 			if (boot_mode == 8 || boot_mode == 9)
 				pinfo->enable_hv_charging = false;
+			oplus_set_usb_status(USB_WATER_DETECT);
+			oplus_vooc_set_disable_adapter_output(true);
+			if (g_oplus_chip && g_oplus_chip->usb_psy)
+				power_supply_changed(g_oplus_chip->usb_psy);
 		} else {
 			pinfo->notify_code &= ~CHG_TYPEC_WD_STATUS;
 			if (boot_mode == 8 || boot_mode == 9)
 				pinfo->enable_hv_charging = true;
+			oplus_clear_usb_status(USB_WATER_DETECT);
+			oplus_vooc_set_disable_adapter_output(false);
+			if (g_oplus_chip && g_oplus_chip->usb_psy)
+				power_supply_changed(g_oplus_chip->usb_psy);
 		}
 		mtk_chgstat_notify(pinfo);
 		report_psy = boot_mode == 8 || boot_mode == 9;
@@ -7836,22 +7848,21 @@ EXPORT_SYMBOL(oplus_chg_get_mmi_status);
 #define IBUS_3A	3000
 int oplus_chg_get_pd_type(void)
 {
-	int rp;
-	int cap_type;
-
-	rp = adapter_dev_get_property(pinfo->adapter_dev[PD], TYPEC_RP_LEVEL);
-	cap_type = adapter_dev_get_property(pinfo->adapter_dev[PD], CAP_TYPE);
-	if (cap_type == MTK_PD &&
-			rp != 500 &&
-			pinfo->chr_type != POWER_SUPPLY_TYPE_USB &&
-			pinfo->chr_type != POWER_SUPPLY_TYPE_USB_CDP)
-		return PD_ACTIVE;
-
-	if (cap_type == MTK_PD_APDO &&
-			rp != 500 &&
-			pinfo->chr_type != POWER_SUPPLY_TYPE_USB &&
-			pinfo->chr_type != POWER_SUPPLY_TYPE_USB_CDP)
-		return PD_PPS_ACTIVE;
+	if (pinfo != NULL) {
+		chg_err("pd_type: %d\n", pinfo->pd_type);
+		if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+				pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
+			return PD_ACTIVE;
+		} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
+			if (oplus_pps_get_chg_status() != PPS_NOT_SUPPORT) {
+				return PD_PPS_ACTIVE;
+			} else {
+				return PD_ACTIVE;
+			}
+		} else {
+			return PD_INACTIVE;
+		}
+	}
 
 	return PD_INACTIVE;
 }
@@ -7990,7 +8001,7 @@ int oplus_mt6360_pd_setup_forsvooc(void)
 				&& chip->temperature <= 420 && chip->cool_down_force_5v == false) {
 			oplus_voocphy_set_pdqc_config();
 			if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
-				adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &cap);
+				adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD_APDO, &cap);
 				for (i = 0; i < cap.nr; i++) {
 					printk(KERN_ERR "PD APDO cap %d: mV:%d,%d mA:%d type:%d pwr_limit:%d pdp:%d\n", i,
 						cap.max_mv[i], cap.min_mv[i], cap.ma[i],
@@ -8008,7 +8019,7 @@ int oplus_mt6360_pd_setup_forsvooc(void)
 				}
 			} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK
 				|| pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
-				adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &cap);
+				adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD, &cap);
 				for (i = 0; i < cap.nr; i++) {
 					printk(KERN_ERR "PD cap %d: mV:%d,%d mA:%d type:%d\n", i,
 						cap.max_mv[i], cap.min_mv[i], cap.ma[i], cap.type[i]);
@@ -8059,12 +8070,12 @@ int oplus_mt6360_pd_setup_forsvooc(void)
 		if (!chip->calling_on && chip->charger_volt < 6500 && chip->soc < 90
 				&& chip->temperature <= 530 && chip->cool_down_force_5v == false
 				&& (chip->batt_volt < chip->limits.vbatt_pdqc_to_9v_thr)) {
-				if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
-					adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &cap);
+			if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
+				adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD_APDO, &cap);
 				for (i = 0; i < cap.nr; i++) {
 					printk(KERN_ERR "PD APDO cap %d: mV:%d,%d mA:%d type:%d pwr_limit:%d pdp:%d\n", i,
-						cap.max_mv[i], cap.min_mv[i], cap.ma[i],
-						cap.type[i], cap.pwr_limit[i], cap.pdp);
+							cap.max_mv[i], cap.min_mv[i], cap.ma[i],
+							cap.type[i], cap.pwr_limit[i], cap.pdp);
 				}
 
 				for (i = 0; i < cap.nr; i++) {
@@ -8078,7 +8089,7 @@ int oplus_mt6360_pd_setup_forsvooc(void)
 				}
 			} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK
 				|| pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
-				adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &cap);
+				adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD, &cap);
 				for (i = 0; i < cap.nr; i++) {
 					printk(KERN_ERR "PD cap %d: mV:%d,%d mA:%d type:%d\n", i,
 						cap.max_mv[i], cap.min_mv[i], cap.ma[i], cap.type[i]);
@@ -8155,7 +8166,7 @@ int oplus_mt6360_pd_setup(void)
 		if (!chip->calling_on && !chip->camera_on && chip->charger_volt < 6500 && chip->soc < 90
 			&& chip->temperature <= 420 && chip->cool_down_force_5v == false) {
 			if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
-				adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &cap);
+				adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD_APDO, &cap);
 				for (i = 0; i < cap.nr; i++) {
 					printk(KERN_ERR "PD APDO cap %d: mV:%d,%d mA:%d type:%d pwr_limit:%d pdp:%d\n", i,
 						cap.max_mv[i], cap.min_mv[i], cap.ma[i],
@@ -8173,7 +8184,7 @@ int oplus_mt6360_pd_setup(void)
 				}
 			} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK
 				|| pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
-				adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &cap);
+				adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD, &cap);
 				for (i = 0; i < cap.nr; i++) {
 					printk(KERN_ERR "PD cap %d: mV:%d,%d mA:%d type:%d\n", i,
 						cap.max_mv[i], cap.min_mv[i], cap.ma[i], cap.type[i]);
@@ -8439,8 +8450,9 @@ int oplus_pps_pd_exit(void)
 int oplus_chg_get_charger_subtype(void)
 {
 	int charg_subtype = CHARGER_SUBTYPE_DEFAULT;
+	struct oplus_chg_chip *chip = g_oplus_chip;
 
-	if (!pinfo)
+	if (!pinfo || !chip)
 		return CHARGER_SUBTYPE_DEFAULT;
 
 	if (!oplus_chg_is_support_qcpd())
@@ -8453,12 +8465,19 @@ int oplus_chg_get_charger_subtype(void)
 
 	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
 		pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
-		return CHARGER_SUBTYPE_PD;
+		if (chip->pd_svooc || mt_power_supply_type_check() == POWER_SUPPLY_TYPE_USB_PD_SDP)
+			return CHARGER_SUBTYPE_DEFAULT;
+		else
+			return CHARGER_SUBTYPE_PD;
 	} else if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
 		if (oplus_pps_check_third_pps_support())
 			return CHARGER_SUBTYPE_PPS;
-		else
-			return CHARGER_SUBTYPE_PD;
+		else {
+			if (chip->pd_svooc || mt_power_supply_type_check() == POWER_SUPPLY_TYPE_USB_PD_SDP)
+				return CHARGER_SUBTYPE_DEFAULT;
+			else
+				return CHARGER_SUBTYPE_PD;
+		}
 	}
 
 #ifdef CONFIG_OPLUS_HVDCP_SUPPORT
@@ -9002,7 +9021,6 @@ void oplus_otg_disable_by_buckboost(void)
 	}
 }
 
-
 void oplus_gauge_set_event(int event)
 {
 	if (NULL != pinfo) {
@@ -9029,7 +9047,7 @@ static int proc_dump_log_show(struct seq_file *m, void *v)
 	if (pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO) {
 		seq_puts(m, "********** PD APDO cap Dump **********\n");
 
-		adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &cap);
+		adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD_APDO, &cap);
 		for (i = 0; i < cap.nr; i++) {
 			seq_printf(m,
 			"%d: mV:%d,%d mA:%d type:%d pwr_limit:%d pdp:%d\n", i,
@@ -9040,7 +9058,7 @@ static int proc_dump_log_show(struct seq_file *m, void *v)
 		|| pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30) {
 		seq_puts(m, "********** PD cap Dump **********\n");
 
-		adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &cap);
+		adapter_dev_get_cap(pinfo->adapter_dev[PD], MTK_PD, &cap);
 		for (i = 0; i < cap.nr; i++) {
 			seq_printf(m, "%d: mV:%d,%d mA:%d type:%d\n", i,
 			cap.max_mv[i], cap.min_mv[i], cap.ma[i], cap.type[i]);
@@ -9376,14 +9394,15 @@ void set_charger_ic(int sel)
 }
 EXPORT_SYMBOL(set_charger_ic);
 
-#define OTG_VBUS_CURRENT_LIMIT	1800000
 struct delayed_work wd0_detect_work;
 static int pd_tcp_notifier_call(struct notifier_block *nb,
 				unsigned long event, void *data)
 {
 	struct tcp_notify *noti = data;
 	bool vbus_on;
+	struct oplus_pps_chip *pps_chip;
 
+	pr_err("%s: event:%lu", __func__, event);
 	switch (event) {
 	case TCP_NOTIFY_WD0_STATE:
 		pinfo->wd0_detect = noti->wd0_state.wd0;
@@ -9414,7 +9433,7 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			} else {
 				charger_dev_enable_otg(primary_charger, true);
 				charger_dev_set_boost_current_limit(primary_charger,
-						OTG_VBUS_CURRENT_LIMIT);
+						pinfo->otg_current_limit);
 			}
 		} else {
 			/* Modify for OTG */
@@ -9429,6 +9448,89 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			}
 		}
 		break;
+
+	case TCP_NOTIFY_PD_STATE:
+		chr_err("%s: PD state received:%d\n", __func__, noti->pd_state.connected);
+		switch (noti->pd_state.connected) {
+		case PD_CONNECT_NONE:
+			mutex_lock(&pinfo->pd_lock);
+			chr_err("PD Notify Detach\n");
+			pinfo->pd_type = pd_connect_tbl[PD_CONNECT_NONE];
+			mutex_unlock(&pinfo->pd_lock);
+			pinfo->in_good_connect = false;
+			pps_chip = oplus_pps_get_pps_chip();
+			if (pps_chip) {
+				pps_chip->adapter_info.svid = 0;
+				pps_chip->adapter_info.pid = 0;
+				pps_chip->adapter_info.bcd = 0;
+				pps_chip->adapter_info.nr = 0;
+			}
+			chr_err("PD_CONNECT_NONE in_good_connect false\n");
+			/* reset PE40 */
+			break;
+
+		case PD_CONNECT_HARD_RESET:
+			mutex_lock(&pinfo->pd_lock);
+			chr_err("PD Notify HardReset\n");
+			pinfo->pd_type = pd_connect_tbl[PD_CONNECT_NONE];
+			pinfo->pd_reset = true;
+			mutex_unlock(&pinfo->pd_lock);
+			_wake_up_charger(pinfo);
+			pinfo->in_good_connect = false;
+			chr_err("PD_CONNECT_HARD_RESET in_good_connect false\n");
+			/* reset PE40 */
+			break;
+
+		case PD_CONNECT_PE_READY_SNK:
+			mutex_lock(&pinfo->pd_lock);
+			chr_err("PD Notify fixe voltage ready\n");
+			pinfo->pd_type = pd_connect_tbl[PD_CONNECT_PE_READY_SNK];
+			mutex_unlock(&pinfo->pd_lock);
+			oplus_chg_track_record_chg_type_info();
+			pinfo->in_good_connect = true;
+			oplus_get_adapter_svid();
+			chr_err("PD_CONNECT_PE_READY_SNK_PD30 in_good_connect true\n");
+			/* PD is ready */
+			break;
+
+		case PD_CONNECT_PE_READY_SNK_PD30:
+			mutex_lock(&pinfo->pd_lock);
+			chr_err("PD Notify PD30 ready\r\n");
+			pinfo->pd_type = pd_connect_tbl[PD_CONNECT_PE_READY_SNK_PD30];
+			mutex_unlock(&pinfo->pd_lock);
+			oplus_chg_track_record_chg_type_info();
+			pinfo->in_good_connect = true;
+			oplus_get_adapter_svid();
+			chr_err("PD_CONNECT_PE_READY_SNK_PD30 in_good_connect true\n");
+			/* PD30 is ready */
+			break;
+
+		case PD_CONNECT_PE_READY_SNK_APDO:
+			mutex_lock(&pinfo->pd_lock);
+			chr_err("PD Notify APDO Ready\n");
+			pinfo->pd_type = pd_connect_tbl[PD_CONNECT_PE_READY_SNK_APDO];
+			mutex_unlock(&pinfo->pd_lock);
+			/* PE40 is ready */
+			_wake_up_charger(pinfo);
+			oplus_chg_track_record_chg_type_info();
+			pinfo->in_good_connect = true;
+			oplus_get_adapter_svid();
+			chr_err("PD_CONNECT_PE_READY_SNK_APDO in_good_connect true\n");
+			oplus_chg_pps_get_source_cap(pinfo);
+			oplus_chg_wake_update_work();
+			break;
+
+		case PD_CONNECT_TYPEC_ONLY_SNK:
+			mutex_lock(&pinfo->pd_lock);
+			chr_err("PD Notify Type-C Ready\n");
+			pinfo->pd_type = pd_connect_tbl[PD_CONNECT_TYPEC_ONLY_SNK];
+			mutex_unlock(&pinfo->pd_lock);
+			/* type C is ready */
+			_wake_up_charger(pinfo);
+			break;
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -9837,7 +9939,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	if (info != NULL && info->bootmode != 8 && info->bootmode != 9)
 		mtk_charger_force_disable_power_path(info, CHG1_SETTING, true);
 
-	pr_err("Kiran - %s charger thread started,,!!", __func__);
+	pr_err("%s charger thread started,,!!", __func__);
 	kthread_run(charger_routine_thread, info, "charger_thread");
 #ifdef OPLUS_FEATURE_CHG_BASIC
 	INIT_DELAYED_WORK(&pinfo->step_charging_work, mt6360_step_charging_work);
@@ -9845,7 +9947,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	chg_err("oplus_chg_wake_update_work!\n");
 	oplus_chg_wake_update_work();
 #endif
-	pr_err("Kiran - %s done successfully,,!!", __func__);
+	pr_err("%s done successfully,,!!", __func__);
 	return 0;
 }
 

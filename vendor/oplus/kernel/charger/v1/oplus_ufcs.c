@@ -3362,11 +3362,12 @@ void oplus_ufcs_set_vbatt_diff(bool diff)
 static bool oplus_ufcs_voter_charging_start(void)
 {
 	struct oplus_ufcs_chip *chip = g_ufcs_chip;
-	int stop_voter = chip->ufcs_stop_status;
+	int stop_voter = 0;
 	bool restart_voter = false;
 
 	if (!chip || !chip->ufcs_support_type)
 		return restart_voter;
+	stop_voter = chip->ufcs_stop_status;
 
 	switch (stop_voter) {
 	case UFCS_STOP_VOTER_TBATT_OVER:

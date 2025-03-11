@@ -1770,6 +1770,47 @@ int oplus_get_gauge_type(void)
 	return gauge_type;
 }
 
+int oplus_gauge_set_seal_flag(struct oplus_mms *topic, int seal_flag)
+{
+	int rc = 0;
+	int i;
+	struct oplus_mms_gauge *chip;
+	struct oplus_chg_ic_dev *ic;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL");
+		return -ENODEV;
+	}
+
+	chip = oplus_mms_get_drvdata(topic);
+	if (!chip)
+		return -EINVAL;
+
+	if (topic == chip->gauge_topic) {
+		for (i = 0; i < chip->child_num; i++) {
+			ic = chip->child_list[i].ic_dev;
+			rc = oplus_chg_ic_func(ic, OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG, seal_flag);
+			if (rc < 0 && rc != -ENOTSUPP) {
+				chg_err("gauge[%d](%s): can't set seal flag, rc=%d\n", i, ic->manu_name, rc);
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < chip->child_num; i++) {
+			if (topic != chip->gauge_topic_parallel[i])
+				continue;
+			ic = chip->gauge_ic_comb[i];
+			rc = oplus_chg_ic_func(ic, OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG, seal_flag);
+			if (rc < 0 && rc != -ENOTSUPP) {
+				chg_err("gauge[%d](%s): can't set seal flag, rc=%d\n", i, ic->manu_name, rc);
+			}
+			break;
+		}
+	}
+
+	return rc;
+}
+
 static int oplus_mms_gauge_set_err_code(struct oplus_mms_gauge *chip,
 					unsigned int err_code)
 {
@@ -3073,7 +3114,9 @@ static int oplus_mms_gauge_update_rm(struct oplus_mms *mms, union mms_msg_data *
 static int oplus_mms_gauge_update_cc(struct oplus_mms *mms, union mms_msg_data *data)
 {
 	struct oplus_mms_gauge *chip;
-	int cc, main_cc, sub_cc;
+	int cc = 0;
+	int main_cc = 0;
+	int sub_cc = 0;
 	int rc;
 
 	if (mms == NULL) {
@@ -3815,6 +3858,15 @@ static struct mms_item oplus_mms_gauge_item[] = {
 			.down_thr_enable = false,
 			.dead_thr_enable = false,
 			.update = oplus_mms_gauge_update_car_c,
+		}
+	}, {
+		.desc = {
+			.item_id = GAUGE_ITEM_RATIO_LIMIT_CURR,
+			.str_data = false,
+			.up_thr_enable = false,
+			.down_thr_enable = false,
+			.dead_thr_enable = false,
+			.update = oplus_mms_gauge_update_ratio_limit_curr,
 		}
 	}
 };
@@ -4699,6 +4751,11 @@ static int oplus_mms_gauge_topic_init(struct oplus_mms_gauge *chip)
 	oplus_mms_wait_topic("wireless", oplus_mms_gauge_subscribe_wls_topic, chip);
 	oplus_mms_wait_topic("batt_bal", oplus_mms_gauge_subscribe_batt_bal_topic, chip);
 
+	if (chip->deep_spec.limit_curr_curves.nums <= 0) {
+		rc = oplus_mms_set_item_disable(chip->gauge_topic, GAUGE_ITEM_RATIO_LIMIT_CURR);
+		if (rc < 0)
+			chg_err("disabe GAUGE_ITEM_RATIO_LIMIT_CURR fail rc=%d\n", rc);
+	}
 	return 0;
 }
 

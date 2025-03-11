@@ -107,6 +107,7 @@ struct oplus_chg_plc {
 	bool wired_online;
 	bool ufcs_online;
 	bool ufcs_charging;
+	bool oplus_ufcs_adapter;
 	int plc_curr;
 	int ui_soc;
 	int sm_soc;
@@ -175,7 +176,7 @@ static int oplus_plc_get_vote_curr(struct oplus_chg_plc *chip)
 {
 	int curr_vote = -EINVAL;
 
-	if (chip->ufcs_online && chip->plc_support == CHG_PROTOCOL_UFCS)
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter && chip->plc_support == CHG_PROTOCOL_UFCS)
 		curr_vote = get_effective_result(chip->ufcs_curr_votable);
 
 	return curr_vote;
@@ -185,7 +186,7 @@ static int oplus_plc_get_vote_disalbe_retry(struct oplus_chg_plc *chip)
 {
 	int value = -EINVAL;
 
-	if (chip->ufcs_online && chip->plc_support == CHG_PROTOCOL_UFCS)
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter && chip->plc_support == CHG_PROTOCOL_UFCS)
 		value = get_client_vote(chip->ufcs_disable_votable, PLC_RETRY_VOTER);
 
 	return value;
@@ -195,7 +196,7 @@ static int oplus_plc_get_vote_allow_plc(struct oplus_chg_plc *chip)
 {
 	int value = -EINVAL;
 
-	if (chip->ufcs_online && chip->plc_support == CHG_PROTOCOL_UFCS)
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter && chip->plc_support == CHG_PROTOCOL_UFCS)
 		value = get_client_vote(chip->ufcs_not_allow_votable, PLC_VOTER);
 
 	return value;
@@ -204,7 +205,7 @@ static int oplus_plc_get_vote_allow_soc(struct oplus_chg_plc *chip)
 {
 	int value = -EINVAL;
 
-	if (chip->ufcs_online && chip->plc_support == CHG_PROTOCOL_UFCS)
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter && chip->plc_support == CHG_PROTOCOL_UFCS)
 		value = get_client_vote(chip->ufcs_not_allow_votable, PLC_SOC_VOTER);
 
 	return value;
@@ -696,7 +697,8 @@ static void oplus_plc_ibat_check(struct oplus_chg_plc *chip)
 		oplus_plc_get_deleta_track_msg(chip, PLC_TRACK_IBUS_ENTER);
 	}
 
-	if (chip->ufcs_online && (chip->plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT)) {
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter &&
+	    (chip->plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT)) {
 		chip->plc_curr = ibus_plc;
 		oplus_plc_push_plc_curr(chip);
 	}
@@ -715,7 +717,8 @@ static void oplus_plc_monitor_current_work(struct work_struct *work)
 		return;
 
 	if ((chip->plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT) &&
-		(chip->ufcs_online && chip->plc_support == CHG_PROTOCOL_UFCS) && !chip->plc_buck) {
+	    (chip->ufcs_online && chip->oplus_ufcs_adapter && chip->plc_support == CHG_PROTOCOL_UFCS) &&
+	    !chip->plc_buck) {
 		oplus_plc_init_status(chip);
 		oplus_plc_read_ibatt(chip);
 		if (chip->data.plc_check)
@@ -738,7 +741,7 @@ static void oplus_plc_disable_wait_work(struct work_struct *work)
 	enable_vote = get_client_vote(chip->plc_enable_votable, PLC_VOTER);
 
 	if (get_client_vote(chip->plc_enable_votable, PLC_VOTER) == PLC_STATUS_WAIT) {
-		if (!chip->ufcs_online)
+		if (!chip->ufcs_online || !chip->oplus_ufcs_adapter)
 			vote(chip->plc_enable_votable, PLC_VOTER, true, PLC_STATUS_NOT_ALLOW, false);
 		else
 			vote(chip->plc_enable_votable, PLC_VOTER, true, PLC_STATUS_DISABLE, false);
@@ -751,7 +754,7 @@ static void oplus_plc_vote_enable_work(struct work_struct *work)
 	struct oplus_chg_plc *chip =
 		container_of(dwork, struct oplus_chg_plc, plc_vote_work);
 
-	if (chip->ufcs_online)
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter)
 		vote(chip->plc_enable_votable, PLC_VOTER, true, PLC_STATUS_DISABLE, false);
 	else
 		vote(chip->plc_enable_votable, PLC_VOTER, true, PLC_STATUS_NOT_ALLOW, false);
@@ -886,6 +889,10 @@ static void oplus_plc_ufcs_subs_callback(struct mms_subscribe *subs,
 				&& !chip->plc_buck)
 				schedule_delayed_work(&chip->plc_current_work, 0);
 			break;
+		case UFCS_ITEM_OPLUS_ADAPTER:
+			oplus_mms_get_item_data(chip->ufcs_topic, id, &data, false);
+			chip->oplus_ufcs_adapter = !!data.intval;
+			break;
 		default:
 			break;
 		}
@@ -913,12 +920,15 @@ static void oplus_plc_subscribe_ufcs_topic(struct oplus_mms *topic, void *prv_da
 	chip->ufcs_charging = !!data.intval;
 	oplus_mms_get_item_data(topic, UFCS_ITEM_ONLINE, &data, true);
 	chip->ufcs_online = !!data.intval;
+	oplus_mms_get_item_data(topic, UFCS_ITEM_OPLUS_ADAPTER, &data, true);
+	chip->oplus_ufcs_adapter = !!data.intval;
 
 	chip->data.plc_check = false;
 	chip->data.ibat_cnts = 0;
 	chip->data.init_status = false;
 
-	if (chip->ufcs_online && chip->plc_support == CHG_PROTOCOL_UFCS && is_ufcs_curr_votable_available(chip)
+	if (chip->ufcs_online && chip->oplus_ufcs_adapter && chip->plc_support == CHG_PROTOCOL_UFCS &&
+	    is_ufcs_curr_votable_available(chip)
 		&& (chip->plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT)) {
 		chip->plc_curr = PLC_IBUS_DEFAULT;
 		oplus_plc_push_plc_curr(chip);

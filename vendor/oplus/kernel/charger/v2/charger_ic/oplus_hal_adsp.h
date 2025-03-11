@@ -273,6 +273,7 @@ enum battery_property_id {
 	BATT_SET_USED_FLAG,
 	BATT_DEEP_DISCHG_LAST_CC,
 	BATT_GET_UFCS_RUNNING_STATE,
+	BATT_VOLT_MIN,
 #endif
 	BATT_PROP_MAX,
 };
@@ -632,6 +633,7 @@ struct battery_chg_dev {
 	struct delayed_work	oem_lcm_en_check_work;
 	struct delayed_work	ctrl_lcm_frequency;
 	struct delayed_work	sourcecap_done_work;
+	struct delayed_work	sourcecap_suspend_recovery_work;
 	u32			oem_misc_ctl_data;
 	bool			oem_usb_online;
 	bool			oem_lcm_check;
@@ -716,6 +718,7 @@ struct battery_chg_dev {
 	struct completion	 ufcs_read_ack;
 
 	bool calib_info_init;
+	bool real_mvolts_min_support;
 	int cp_work_mode;
 	bool gauge_data_initialized;
 	int otg_scheme;

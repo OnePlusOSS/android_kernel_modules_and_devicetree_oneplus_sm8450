@@ -60,10 +60,12 @@ struct oplus_gki_device {
 	struct votable *vooc_curr_votable;
 	struct votable *ufcs_curr_votable;
 	struct votable *pps_curr_votable;
+	struct votable *wired_suspend_votable;
 
 	struct delayed_work status_keep_clean_work;
 	struct delayed_work status_keep_delay_unlock_work;
 	struct delayed_work retention_checkout_work;
+	struct delayed_work usb_phy_suspend_recovery_work;
 	struct wakeup_source *status_wake_lock;
 	bool status_wake_lock_on;
 	bool is_ui_keep;
@@ -98,6 +100,8 @@ struct oplus_gki_device {
 	int charger_cycle;
 	bool vooc_charging;
 	bool vooc_started;
+	bool vooc_by_normal_path;
+	bool vooc_online;
 
 	bool wls_online;
 
@@ -171,6 +175,14 @@ is_pps_curr_votable_available(struct oplus_gki_device *chip)
 	if (!chip->pps_curr_votable)
 		chip->pps_curr_votable = find_votable("PPS_CURR");
 	return !!chip->pps_curr_votable;
+}
+
+__maybe_unused static bool
+is_wired_suspend_votable_available(struct oplus_gki_device *chip)
+{
+	if (!chip->wired_suspend_votable)
+		chip->wired_suspend_votable = find_votable("WIRED_CHARGE_SUSPEND");
+	return !!chip->wired_suspend_votable;
 }
 
 static bool is_main_gauge_topic_available(struct oplus_gki_device *chip)
@@ -418,14 +430,53 @@ static int usb_psy_get_prop(struct power_supply *psy,
 	return 0;
 }
 
+#define CLEAN_SUSPEND_VOTE_DELAY_MS 2000
+static void oplus_usb_phy_suspend_recovery_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct oplus_gki_device *chip = container_of(dwork, struct oplus_gki_device,
+		usb_phy_suspend_recovery_work);
+
+	if (is_wired_suspend_votable_available(chip))
+		vote(chip->wired_suspend_votable, USB_PSY_VOTER, false, 0, false);
+}
+
+#define USB_PHY_SUSPEND_CURR 100
+static void usb_psy_set_icl(struct oplus_gki_device *chip, int curr_ua)
+{
+	if (!chip) {
+		chg_err("chip null\n");
+		return;
+	}
+
+	if (!is_wired_suspend_votable_available(chip)) {
+		chg_err("wired_suspend_votable not available\n");
+		return;
+	}
+
+	if((chip->wired_type == OPLUS_CHG_USB_TYPE_SDP ||
+		chip->wired_type == OPLUS_CHG_USB_TYPE_PD_SDP) &&
+		((curr_ua / 1000) < USB_PHY_SUSPEND_CURR)) {
+		cancel_delayed_work_sync(&chip->usb_phy_suspend_recovery_work);
+		vote(chip->wired_suspend_votable, USB_PSY_VOTER, true, 1, false);
+		schedule_delayed_work(&chip->usb_phy_suspend_recovery_work,
+			msecs_to_jiffies(CLEAN_SUSPEND_VOTE_DELAY_MS));
+	} else {
+		vote(chip->wired_suspend_votable, USB_PSY_VOTER, false, 0, false);
+	}
+}
+
 static int usb_psy_set_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		const union power_supply_propval *pval)
 {
 	int rc = 0;
+	struct oplus_gki_device *chip = power_supply_get_drvdata(psy);
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
+		if (oplus_chg_get_common_charge_icl_support_flags())
+			usb_psy_set_icl(chip, pval->intval);
 		break;
 	default:
 		chg_err("set prop %d is not supported\n", prop);
@@ -740,6 +791,8 @@ static int battery_psy_get_prop(struct power_supply *psy,
 
 #define TTF_UPDATE_UEVENT_BIT		BIT(30)
 #define TTF_VALUE_MASK			GENMASK(29, 0)
+#define FASTCHG_ICL_MIN			1500
+
 static int battery_psy_set_prop(struct power_supply *psy,
 		enum power_supply_property prop,
 		const union power_supply_propval *pval)
@@ -769,7 +822,14 @@ static int battery_psy_set_prop(struct power_supply *psy,
 				if (is_pps_curr_votable_available(chip))
 					vote(chip->pps_curr_votable, HIDL_VOTER, false, 0, false);
 			} else {
-				vote(chip->wired_icl_votable, HIDL_VOTER, (val == 0) ? false : true, val, true);
+				if ((chip->vooc_online && !chip->vooc_by_normal_path) ||
+				    chip->ufcs_online || chip->pps_online) {
+					vote(chip->wired_icl_votable, HIDL_VOTER, (val == 0) ? false : true,
+					    (val < FASTCHG_ICL_MIN) ? FASTCHG_ICL_MIN : val, true);
+				} else {
+					vote(chip->wired_icl_votable, HIDL_VOTER, (val == 0) ? false : true,
+					    val, true);
+				}
 				if (is_vooc_curr_votable_available(chip))
 					vote(chip->vooc_curr_votable, HIDL_VOTER, (val == 0) ? false : true, val, false);
 				if (is_ufcs_curr_votable_available(chip))
@@ -1108,6 +1168,9 @@ static void oplus_gki_wired_online_update_work(struct work_struct *work)
 			chip->last_wired_type = POWER_SUPPLY_TYPE_UNKNOWN;
 			usb_psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		}
+		if (oplus_chg_get_common_charge_icl_support_flags() &&
+			is_wired_suspend_votable_available(chip))
+			vote(chip->wired_suspend_votable, USB_PSY_VOTER, false, 0, false);
 	} else {
 		if (!chip->retention_state && chip->wired_type)
 			chip->last_wired_type = chip->wired_type;
@@ -1490,6 +1553,16 @@ static void oplus_gki_vooc_subs_callback(struct mms_subscribe *subs,
 			if (!IS_ERR_OR_NULL(chip->batt_psy))
 				power_supply_changed(chip->batt_psy);
 			break;
+		case VOOC_ITEM_VOOC_BY_NORMAL_PATH:
+			oplus_mms_get_item_data(chip->vooc_topic, id, &data,
+				false);
+			chip->vooc_by_normal_path = !!data.intval;
+			break;
+		case VOOC_ITEM_ONLINE:
+			oplus_mms_get_item_data(chip->vooc_topic, id, &data,
+					false);
+			chip->vooc_online = !!data.intval;
+			break;
 		default:
 			break;
 		}
@@ -1521,6 +1594,13 @@ static void oplus_gki_subscribe_vooc_topic(struct oplus_mms *topic,
 	oplus_mms_get_item_data(chip->vooc_topic, VOOC_ITEM_VOOC_STARTED,
 				&data, true);
 	chip->vooc_started = !!data.intval;
+
+	oplus_mms_get_item_data(chip->vooc_topic, VOOC_ITEM_VOOC_BY_NORMAL_PATH,
+				&data, true);
+	chip->vooc_by_normal_path = !!data.intval;
+
+	oplus_mms_get_item_data(chip->vooc_topic, VOOC_ITEM_ONLINE, &data, true);
+	chip->vooc_online = !!data.intval;
 }
 
 static void oplus_gki_ufcs_subs_callback(struct mms_subscribe *subs,
@@ -1751,6 +1831,8 @@ static __init int oplus_chg_gki_init(void)
 	INIT_WORK(&gki_dev->gauge_update_work, oplus_gki_gauge_update_work);
 	INIT_WORK(&gki_dev->wired_online_update_work, oplus_gki_wired_online_update_work);
 	INIT_DELAYED_WORK(&gki_dev->retention_checkout_work, oplus_gki_retention_checkout_work);
+	INIT_DELAYED_WORK(&gki_dev->usb_phy_suspend_recovery_work,
+		oplus_usb_phy_suspend_recovery_work);
 
 	oplus_mms_wait_topic("gauge", oplus_gki_subscribe_gauge_topic, gki_dev);
 	oplus_mms_wait_topic("wired", oplus_gki_subscribe_wired_topic, gki_dev);

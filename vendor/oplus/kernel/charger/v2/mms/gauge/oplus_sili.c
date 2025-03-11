@@ -942,10 +942,72 @@ static void oplus_gauge_init_sili_status(struct oplus_mms_gauge *chip)
 		chip->deep_spec.sili_err, chip->deep_spec.support);
 }
 
+#ifdef CONFIG_OPLUS_CHARGER_MTK
+#define BAT_TYPE_MESSAGE_LEN       25
+#define OPLUS_SILICON_TYPE_TAG     "silicon"
+
+static char __oplus_chg_cmdline[BAT_TYPE_MESSAGE_LEN];
+static char *oplus_chg_cmdline = __oplus_chg_cmdline;
+
+static const char *oplus_battype_get_cmdline(void)
+{
+	struct device_node * of_chosen = NULL;
+	char *bat_type = NULL;
+
+	if (__oplus_chg_cmdline[0] != 0)
+		return oplus_chg_cmdline;
+
+	of_chosen = of_find_node_by_path("/chosen");
+	if (of_chosen) {
+		bat_type = (char *)of_get_property(
+					of_chosen, "bat_type", NULL);
+		if (!bat_type)
+			chg_err("failed to get bat_type\n");
+		else {
+			strcpy(__oplus_chg_cmdline, bat_type);
+			chg_debug("bat_type: %s\n", bat_type);
+		}
+	} else {
+		chg_err("failed to get /chosen \n");
+	}
+
+	return oplus_chg_cmdline;
+}
+#endif
+
 int oplus_gauge_get_battery_type_str(char *type)
 {
 #ifdef CONFIG_OPLUS_CHARGER_MTK
-	return -ENOTSUPP; /* todo read cmdline */
+	struct device_node *node;
+	char *str = NULL;
+	static bool boot_log = true;
+
+	if (!type)
+		return -ENOTSUPP;
+
+	node = of_find_node_by_path("/soc/oplus_chg_core");
+	if (node == NULL)
+		return -ENOTSUPP;
+	if (!of_property_read_bool(node, "oplus,battery_type_by_cmdline"))
+		return -ENOTSUPP;
+
+	if (NULL == oplus_battype_get_cmdline()) {
+		chg_err("oplus_battype_get_cmdline: cmdline is NULL!!!\n");
+		return -ENOTSUPP;
+	}
+
+	str = strstr(oplus_battype_get_cmdline(), OPLUS_SILICON_TYPE_TAG);
+	if (str == NULL) {
+		chg_err("oplus_battype_get_cmdline: get battery type is not supported!!!\n");
+		return -ENOTSUPP;
+	}
+	if (boot_log) {
+		chg_info("%s\n", str);
+		boot_log = false;
+	}
+
+	snprintf(type, OPLUS_BATTERY_TYPE_LEN, "%s", str);
+	return 0;
 #else
 	size_t smem_size;
 	static oplus_ap_feature_data *smem_data;
@@ -1218,6 +1280,28 @@ int oplus_gauge_parse_deep_spec(struct oplus_mms_gauge *chip)
 			&chip->deep_spec.config.soc);
 	if (rc < 0)
 		chip->deep_spec.config.soc = 10;
+
+	rc = of_property_read_u32(node, "deep_spec,curr_max_ma",
+			&chip->deep_spec.config.curr_max_ma);
+	if (rc < 0)
+		chip->deep_spec.config.curr_max_ma = 10900;
+
+	rc = of_property_read_u32(node, "deep_spec,curr_limit_ma",
+			&chip->deep_spec.config.curr_limit_ma);
+	if (rc < 0)
+		chip->deep_spec.config.curr_limit_ma = 9100;
+
+	rc = of_property_count_elems_of_size(node, "deep_spec,curr_limit_ratio", sizeof(u32));
+	if (rc < 0) {
+		chg_err("Count deep spec curr_limit_ratio curve failed, rc=%d\n", rc);
+	} else {
+		length = rc;
+		rc = of_property_read_u32_array(node, "deep_spec,curr_limit_ratio",
+			(u32 *)chip->deep_spec.limit_curr_curves.limits, length);
+		chip->deep_spec.limit_curr_curves.nums = length / 3;
+	}
+	chg_err("chip->deep_spec.limit_curr_curves.nums = %d\n",
+		chip->deep_spec.limit_curr_curves.nums);
 
 	chip->deep_spec.support = of_property_read_bool(node, "deep_spec,support");
 	chip->deep_spec.spare_power_support = of_property_read_bool(node, "deep_spec,spare_power_support");
@@ -2016,6 +2100,43 @@ int oplus_mms_gauge_update_ratio_trange(struct oplus_mms *mms, union mms_msg_dat
 
 	data->intval = chip->deep_spec.ddrc_tbatt.index_n;
 
+	return 0;
+}
+
+int oplus_mms_gauge_update_ratio_limit_curr(struct oplus_mms *mms, union mms_msg_data *data)
+{
+	struct oplus_mms_gauge *chip;
+	int i = 0, limit_curr = 0;
+
+	if (mms == NULL) {
+		chg_err("mms is NULL");
+		return -EINVAL;
+	}
+	if (data == NULL) {
+		chg_err("data is NULL");
+		return -EINVAL;
+	}
+	chip = oplus_mms_get_drvdata(mms);
+
+	if (!chip  || !chip->deep_spec.support)
+		return -EINVAL;
+
+	chg_info("ratio:%d ; cc:%d", chip->deep_spec.ratio, chip->deep_spec.cc);
+	if (chip->deep_spec.limit_curr_curves.nums) {
+		for (i = 0; i < chip->deep_spec.limit_curr_curves.nums; i++) {
+			if ((chip->deep_spec.ratio <= chip->deep_spec.limit_curr_curves.limits[i].ratio) &&
+			    (chip->deep_spec.cc <= chip->deep_spec.limit_curr_curves.limits[i].cc)) {
+				limit_curr = chip->deep_spec.config.curr_max_ma;
+				break;
+			} else {
+				limit_curr = chip->deep_spec.config.curr_limit_ma;
+			}
+		}
+	} else {
+		return -EINVAL;
+	}
+
+	data->intval = limit_curr;
 	return 0;
 }
 

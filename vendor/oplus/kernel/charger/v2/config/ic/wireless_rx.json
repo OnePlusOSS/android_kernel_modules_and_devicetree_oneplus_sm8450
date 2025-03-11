@@ -805,8 +805,30 @@
                 "write": false,
                 "overwrite": false
             }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_RX_GET_TX_ID",
+            "desc": {
+                "zh": "获取TX manufacturer id"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "TX manufacturer id的值"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
         }
     ],
 
-    "version": "V3.0:35:2a58af913fbaae2369bc6d7c1141d4c87b14dedd2a187eec6469ff0893a2e210"
+    "version": "V3.0:36:d4920f482c47143a04eb10bc40f0858ac0fb910e78081c4fea6476d4364023e6"
 }

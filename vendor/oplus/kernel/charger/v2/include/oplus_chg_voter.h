@@ -40,6 +40,7 @@ enum votable_type {
 #define BATT_VOL_VOTER		"BATT_VOL_VOTER"
 #define BATT_CURR_VOTER		"BATT_CURR_VOTER"
 #define IOUT_CURR_VOTER		"IOUT_CURR_VOTER"
+#define DEEP_RATIO_LIMIT_VOTER	"DEEP_RATIO_LIMIT_VOTER"
 #define SKIN_VOTER		"SKIN_VOTER"
 #define STARTUP_CEP_VOTER	"STARTUP_CEP_VOTER"
 #define HW_ERR_VOTER		"HW_ERR_VOTER"
@@ -139,6 +140,7 @@ enum votable_type {
 #define WLS_QUIET_MODE_VOTER	"WLS_QUIET_MODE_VOTER"
 #define WLS_AUDIO_MODE_VOTER	"WLS_AUDIO_MODE_VOTER"
 #define WLS_CAMERA_MODE_VOTER	"WLS_CAMERA_MODE_VOTER"
+#define WLS_FORCE_EPP_TO_BPP_VOTER	"WLS_FORCE_EPP_TO_BPP_VOTER"
 #define WLS_Q_VALUE_ERROR_VOTER	"WLS_Q_VALUE_ERROR_VOTER"
 #define BATT_FG_I2CREST_VOTER	"BATT_FG_I2CREST_VOTER"
 
@@ -151,6 +153,7 @@ enum votable_type {
 #define VOOC_TOPIC_VOTER	"VOOC_TOPIC_VOTER"
 #define UFCS_TOPIC_VOTER	"UFCS_TOPIC_VOTER"
 #define CPA_TOPIC_VOTER		"CPA_TOPIC_VOTER"
+#define USB_PSY_VOTER		"USB_PSY_VOTER"
 
 bool is_client_vote_enabled(struct votable *votable, const char *client_str);
 bool is_client_vote_enabled_locked(struct votable *votable,

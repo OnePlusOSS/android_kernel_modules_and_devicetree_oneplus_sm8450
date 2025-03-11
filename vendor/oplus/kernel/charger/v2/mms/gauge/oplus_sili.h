@@ -25,6 +25,7 @@ static char deep_id_info[DUMP_INFO_LEN] = { 0 };
 #define DEEP_INFO_LEN 1023
 #define DDB_RANGE_MAX 10
 #define DDC_CURVE_MAX 10
+#define DDI_CURVE_MAX 10
 #define DDT_COEFF_SIZE (sizeof(struct ddt_coeff) / sizeof(u32))
 struct oplus_mms_gauge;
 
@@ -77,6 +78,17 @@ struct dds_curves {
 	int nums;
 };
 
+struct ddi_curve {
+	int ratio;
+	int cc;
+	int index;
+};
+
+struct ddi_curves {
+	struct ddi_curve limits[DDI_CURVE_MAX];
+	int nums;
+};
+
 struct deep_track_info {
 	unsigned char msg[DEEP_INFO_LEN];
 	int index;
@@ -106,6 +118,9 @@ struct deep_dischg_limits {
 	int32_t index_t;
 	bool step_status;
 	uint8_t *ddrc_strategy_name;
+
+	int32_t curr_max_ma;
+	int32_t curr_limit_ma;
 };
 
 struct ddt_coeff {
@@ -129,6 +144,7 @@ struct deep_dischg_spec {
 	struct ddb_temp_range ddrc_tdefault;
 	struct ddb_curves batt_curves[DDB_RANGE_MAX];
 	struct dds_curves step_curves;
+	struct ddi_curves limit_curr_curves;
 	struct ddt_coeff term_coeff[DDC_CURVE_MAX];
 	struct deep_dischg_limits config;
 	struct ddb_tcnt cnts;
@@ -196,4 +212,5 @@ void oplus_mms_gauge_deep_dischg_init(struct oplus_mms_gauge *chip);
 void oplus_gauge_deep_dischg_check(struct oplus_mms_gauge *chip);
 int oplus_mms_gauge_update_deep_ratio(struct oplus_mms *mms, union mms_msg_data *data);
 int oplus_mms_gauge_update_ratio_trange(struct oplus_mms *mms, union mms_msg_data *data);
+int oplus_mms_gauge_update_ratio_limit_curr(struct oplus_mms *mms, union mms_msg_data *data);
 #endif /* __OPLUS_SILI_H__ */

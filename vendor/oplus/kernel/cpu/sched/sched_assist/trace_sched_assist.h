@@ -17,17 +17,18 @@
 
 TRACE_EVENT(set_ux_task_to_prefer_cpu,
 
-	TP_PROTO(struct task_struct *p, int target_cpu, int strict_cpu, int cls_nr, int start_cls),
+	TP_PROTO(struct task_struct *p,  char *msg, int target_cpu, int subopt_cpu, int cls_nr, int start_cls),
 
-	TP_ARGS(p, target_cpu, strict_cpu, cls_nr, start_cls),
+	TP_ARGS(p, msg, target_cpu, subopt_cpu, cls_nr, start_cls),
 
 	TP_STRUCT__entry(
 		__field(int,		pid)
 		__array(char,		comm, TASK_COMM_LEN)
 		__array(char,		cpus, 32)
 		__field(unsigned long,	util)
+		__array(char, msg, TASK_COMM_LEN)
 		__field(int,		target_cpu)
-		__field(int,		strict_cpu)
+		__field(int,		subopt_cpu)
 		__field(int,		cls_nr)
 		__field(int,		start_cls)),
 
@@ -36,14 +37,16 @@ TRACE_EVENT(set_ux_task_to_prefer_cpu,
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->util			= oplus_task_util(p);
 		scnprintf(__entry->cpus, sizeof(__entry->cpus), "%*pbl", cpumask_pr_args(&p->cpus_mask));
+        memcpy(__entry->msg, msg,
+            min((size_t) TASK_COMM_LEN, strlen(msg) + 1));
 		__entry->target_cpu		= target_cpu;
-		__entry->strict_cpu		= strict_cpu;
+		__entry->subopt_cpu		= subopt_cpu;
 		__entry->cls_nr			= cls_nr;
 		__entry->start_cls		= start_cls;),
 
-	TP_printk("pid=%d comm=%s util=%lu cpus_allowed=%s target_cpu=%d strict_cpu=%d cls_nr=%d start_cls=%d",
+	TP_printk("pid=%d comm=%s util=%lu cpus_allowed=%s target_cpu=%d subopt_cpu=%d cls_nr=%d start_cls=%d msg=%s",
 		__entry->pid, __entry->comm, __entry->util, __entry->cpus,
-		__entry->target_cpu, __entry->strict_cpu, __entry->cls_nr, __entry->start_cls)
+		__entry->target_cpu, __entry->subopt_cpu, __entry->cls_nr, __entry->start_cls, __entry->msg)
 );
 
 DECLARE_EVENT_CLASS(inherit_ux_template,

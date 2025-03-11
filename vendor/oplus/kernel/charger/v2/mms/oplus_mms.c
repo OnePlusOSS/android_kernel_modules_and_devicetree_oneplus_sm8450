@@ -90,6 +90,46 @@ int oplus_mms_get_update_mode(struct oplus_mms *mms)
 	return val;
 }
 
+int oplus_mms_set_item_enable(struct oplus_mms *mms, u32 item_id)
+{
+	struct mms_item *item;
+
+	if (mms == NULL || mms->desc == NULL ||
+	    !mms->desc->item_table) {
+		chg_err("mms or item_table is NULL");
+		return -ENODEV;
+	}
+	item = oplus_mms_get_item(mms, item_id);
+	if (item == NULL) {
+		chg_err("topic(=%s) item(=%d) not found\n", mms->desc->name,
+			item_id);
+		return -EINVAL;
+	}
+	item->disabled = false;
+
+	return 0;
+}
+
+int oplus_mms_set_item_disable(struct oplus_mms *mms, u32 item_id)
+{
+	struct mms_item *item;
+
+	if (mms == NULL || mms->desc == NULL ||
+	    !mms->desc->item_table) {
+		chg_err("mms or item_table is NULL");
+		return -ENODEV;
+	}
+	item = oplus_mms_get_item(mms, item_id);
+	if (item == NULL) {
+		chg_err("topic(=%s) item(=%d) not found\n", mms->desc->name,
+			item_id);
+		return -EINVAL;
+	}
+	item->disabled = true;
+
+	return 0;
+}
+
 int oplus_mms_get_item_data(struct oplus_mms *mms, u32 item_id,
 			    union mms_msg_data *data, bool update)
 {
@@ -110,6 +150,12 @@ int oplus_mms_get_item_data(struct oplus_mms *mms, u32 item_id,
 		chg_err("topic(=%s) item(=%d) not found\n", mms->desc->name,
 			item_id);
 		return -EINVAL;
+	}
+
+	if (item->disabled) {
+		chg_info("topic(=%s) item(=%d) is disabled\n",
+			 mms->desc->name, item_id);
+		return -ENOTSUPP;
 	}
 
 	if (update || mms->force_update)
@@ -357,6 +403,14 @@ static void oplus_mms_notify_caller(struct oplus_mms *mms, struct mms_msg *msg)
 	rcu_read_unlock();
 
 	/*
+	 * For messages with payload, you need to ensure that the
+	 * notification is bound to the message and is not interrupted
+	 * by other messages.
+	 */
+	if (msg->payload != MSG_LOAD_NULL)
+		oplus_mms_item_update_by_msg(mms, msg->item_id, msg);
+
+	/*
 	* The callback function needs to be called outside
 	* the RCU critical section.
 	*/
@@ -396,12 +450,8 @@ static int __oplus_mms_publish_msg(struct oplus_mms *mms, struct mms_msg *msg)
 	 * The message must be updated before being added to the message queue
 	 * to prevent the message from not being updated after it is sent.
 	 */
-	if (msg->type != MSG_TYPE_TIMER) {
-		if (msg->payload != MSG_LOAD_NULL)
-			oplus_mms_item_update_by_msg(mms, msg->item_id, msg);
-		else
-			update = oplus_mms_item_update(mms, msg->item_id, true);
-	}
+	if (msg->type != MSG_TYPE_TIMER && msg->payload == MSG_LOAD_NULL)
+		update = oplus_mms_item_update(mms, msg->item_id, true);
 
 	/*
 	 * Do not publish when the message does not
@@ -509,7 +559,7 @@ int oplus_mms_publish_ic_err_msg(struct oplus_mms *topic, u32 item_id,
 		return -ENOMEM;
 	}
 
-	rc = oplus_mms_publish_msg(topic, topic_msg);
+	rc = oplus_mms_publish_msg_sync(topic, topic_msg);
 	if (rc < 0) {
 		chg_err("publish topic msg error, rc=%d\n", rc);
 		kfree(topic_msg);
@@ -1051,6 +1101,7 @@ __oplus_mms_register(struct device *parent, const struct oplus_mms_desc *desc,
 	mutex_init(&mms->sync_msg_lock);
 	spin_lock_init(&mms->changed_lock);
 	for (i = 0; i < desc->item_num; i++) {
+		desc->item_table[i].disabled = false;
 		rwlock_init(&desc->item_table[i].lock);
 		mutex_init(&desc->item_table[i].update_lock);
 	}

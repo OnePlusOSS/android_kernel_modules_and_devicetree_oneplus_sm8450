@@ -118,6 +118,7 @@ ssize_t get_pwkey_stages(char *buf);
 void record_stage(const char *buf);
 int get_systemserver_pid(void);
 long get_timestamp_ms(void);
+bool is_slowkernel_skip(void);
 void set_timer_started(bool enable);
 void doPanic(void);
 void recovery_timer_func(struct timer_list *t);

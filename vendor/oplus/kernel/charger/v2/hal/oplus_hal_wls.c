@@ -419,6 +419,7 @@ int oplus_chg_wls_rx_send_match_q(struct oplus_chg_ic_dev *rx_ic, u8 data[])
 		chg_err("rx_ic is NULL\n");
 		return -ENODEV;
 	}
+
 	rc = oplus_chg_ic_func(rx_ic, OPLUS_IC_FUNC_RX_SEND_MATCH_Q, data);
 	if (rc < 0)
 		chg_err("can't send match q, rc=%d\n", rc);
@@ -580,7 +581,6 @@ int oplus_chg_wls_rx_get_bridge_mode(struct oplus_chg_ic_dev *rx_ic, int *mode)
 	}
 
 	rc = oplus_chg_ic_func(rx_ic, OPLUS_IC_FUNC_RX_GET_BRIDGE_MODE, mode);
-
 	if (rc < 0 && rc != -ENOTSUPP)
 		chg_err("can't get bridge mode, rc=%d\n", rc);
 
@@ -597,7 +597,6 @@ int oplus_chg_wls_rx_set_insert_disable(struct oplus_chg_ic_dev *rx_ic, bool en)
 	}
 
 	rc = oplus_chg_ic_func(rx_ic, OPLUS_IC_FUNC_RX_DIS_INSERT, en);
-
 	if (rc < 0 && rc != -ENOTSUPP)
 		chg_err("can't set insert disable, rc=%d\n", rc);
 
@@ -614,7 +613,6 @@ int oplus_chg_wls_rx_standby_config(struct oplus_chg_ic_dev *rx_ic, bool en)
 	}
 
 	rc = oplus_chg_ic_func(rx_ic, OPLUS_IC_FUNC_RX_STANDBY_CONFIG, en);
-
 	if (rc < 0 && rc != -ENOTSUPP)
 		chg_err("can't standby config, rc=%d\n", rc);
 
@@ -633,6 +631,22 @@ int oplus_chg_wls_rx_set_comu(struct oplus_chg_ic_dev *rx_ic, int comu)
 	rc = oplus_chg_ic_func(rx_ic, OPLUS_IC_FUNC_RX_SET_COMU, comu);
 	if (rc < 0 && rc != -ENOTSUPP)
 		chg_err("can't set comu, rc=%d\n", rc);
+
+	return rc;
+}
+
+int oplus_chg_wls_rx_get_tx_id(struct oplus_chg_ic_dev *rx_ic, int *tx_id)
+{
+	int rc;
+
+	if (rx_ic == NULL) {
+		chg_err("rx_ic is NULL\n");
+		return -ENODEV;
+	}
+
+	rc = oplus_chg_ic_func(rx_ic, OPLUS_IC_FUNC_RX_GET_TX_ID, tx_id);
+	if (rc < 0 && rc != -ENOTSUPP)
+		chg_err("can't get tx_id, rc=%d\n", rc);
 
 	return rc;
 }

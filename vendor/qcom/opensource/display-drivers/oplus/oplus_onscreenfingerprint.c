@@ -131,6 +131,7 @@ int oplus_ofp_init(void *dsi_panel)
 	int rc = 0;
 	unsigned int fp_type = 0;
 	struct dsi_panel *panel = dsi_panel;
+	unsigned int value = 0;
 	struct dsi_parser_utils *utils = NULL;
 	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
 
@@ -187,6 +188,17 @@ int oplus_ofp_init(void *dsi_panel)
 		/* indicates whether display on cmd(29h) needs to be sent after image data write before aod on or not */
 		p_oplus_ofp_params->need_to_wait_data_before_aod_on = utils->read_bool(utils->data, "oplus,ofp-need-to-wait-data-before-aod-on");
 		OFP_INFO("need_to_wait_data_before_aod_on:%d\n", p_oplus_ofp_params->need_to_wait_data_before_aod_on);
+
+		/* read by the framework for compatibility with different aod modes */
+		rc = utils->read_u32(utils->data, "oplus,ofp-longrui-aod-config", &value);
+		if (rc) {
+			OFP_INFO("failed to read oplus,ofp-longrui-aod-config, rc=%d\n", rc);
+			/* set default value to 0 */
+			p_oplus_ofp_params->longrui_aod_config = 0;
+		} else {
+			p_oplus_ofp_params->longrui_aod_config = value;
+		}
+		OFP_INFO("longrui_aod_config:0x%x\n", p_oplus_ofp_params->longrui_aod_config);
 
 		if (p_oplus_ofp_params->need_to_wait_data_before_aod_on) {
 			/* add workqueue to send display on(29) cmd */
@@ -1584,7 +1596,10 @@ bool oplus_ofp_backlight_filter(void *dsi_panel, unsigned int bl_level)
 	} else if (oplus_ofp_get_aod_state()) {
 		OFP_INFO("aod state is true, filter backlight %u setting\n", bl_level);
 		need_filter_backlight = true;
-	} else if (!oplus_ofp_get_aod_state() && (hbm_enable & OPLUS_OFP_PROPERTY_AOD_LAYER) && bl_level) {
+	} else if (!oplus_ofp_get_aod_state() && (hbm_enable & OPLUS_OFP_PROPERTY_AOD_LAYER) && bl_level
+		&& !(OPLUS_OFP_GET_OLED_CAPACITIVE_CONFIG(p_oplus_ofp_params->fp_type))
+			&& !((p_oplus_ofp_params->longrui_aod_config & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_CONFIG)
+				&& (p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_MODE))) {
 		OFP_INFO("aod layer exist, filter backlight %u setting\n", bl_level);
 		need_filter_backlight = true;
 	} else if (p_oplus_ofp_params->dimlayer_hbm || hbm_enable) {
@@ -2010,7 +2025,12 @@ int oplus_ofp_power_mode_handle(void *dsi_display, int power_mode)
 			OPLUS_OFP_TRACE_INT("oplus_ofp_doze_active", p_oplus_ofp_params->doze_active);
 		}
 
-		if (oplus_ofp_get_aod_state()) {
+		if (oplus_ofp_get_aod_state()
+			&& !((p_oplus_ofp_params->longrui_aod_config & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_CONFIG)
+				&& (p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_MODE)
+					&& (p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_AOD_ON)
+						&& !(oplus_ofp_optical_new_solution_is_enabled()
+							&& p_oplus_ofp_params->dimlayer_hbm))) {
 			rc = oplus_ofp_aod_off_handle(display);
 			if (rc) {
 				OFP_ERR("[%s] failed to handle aod off, rc=%d\n", display->name, rc);
@@ -3226,4 +3246,145 @@ ssize_t oplus_ofp_get_ultra_low_power_aod_mode_attr(struct kobject *obj,
 	OFP_DEBUG("end\n");
 
 	return sprintf(buf, "%u\n", p_oplus_ofp_params->ultra_low_power_aod_mode);
+}
+
+/* longrui_aod */
+int oplus_ofp_set_longrui_aod_mode(void *buf)
+{
+	int rc = 0;
+	unsigned int *longrui_aod_mode = buf;
+	struct dsi_display *display = oplus_display_get_current_display();
+	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+
+	OFP_DEBUG("start\n");
+
+	if (!buf || !display || !p_oplus_ofp_params) {
+		OFP_ERR("Invalid params\n");
+		return -EINVAL;
+	}
+	p_oplus_ofp_params->longrui_aod_mode = (*longrui_aod_mode);
+	OFP_INFO("longrui_aod_mode:0x%x\n", p_oplus_ofp_params->longrui_aod_mode);
+	OPLUS_OFP_TRACE_INT("oplus_ofp_longrui_aod_mode", p_oplus_ofp_params->longrui_aod_mode);
+
+	if (!oplus_ofp_is_supported()) {
+		OFP_DEBUG("ofp is not supported\n");
+		return 0;
+	} else if (oplus_ofp_get_hbm_state()) {
+		OFP_INFO("ignore longrui aod mode setting in hbm state\n");
+		return 0;
+	}
+
+	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_set_longrui_aod_mode");
+
+	if ((p_oplus_ofp_params->longrui_aod_config & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_CONFIG)
+			&& (p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_MODE)
+			&& !(p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_AOD_ON)) {
+		if (oplus_ofp_get_aod_state() && !p_oplus_ofp_params->doze_active) {
+			rc = oplus_ofp_aod_off_handle(display);
+			if (rc) {
+				OFP_ERR("[%s] failed to handle aod off, rc=%d\n", display->name, rc);
+			}
+		}
+	}
+
+	OPLUS_OFP_TRACE_END("oplus_ofp_set_longrui_aod_mode");
+
+	OFP_DEBUG("end\n");
+
+	return rc;
+}
+
+int oplus_ofp_get_longrui_aod_config(void *buf)
+{
+	unsigned int *longrui_aod_config = buf;
+	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+
+	OFP_DEBUG("start\n");
+
+	if (!buf || !p_oplus_ofp_params) {
+		OFP_ERR("Invalid params\n");
+		return -EINVAL;
+	}
+
+	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_get_longrui_aod_config");
+
+	*longrui_aod_config = p_oplus_ofp_params->longrui_aod_config;
+	OFP_INFO("longrui_aod_config:0x%x\n", *longrui_aod_config);
+
+	OPLUS_OFP_TRACE_END("oplus_ofp_get_longrui_aod_config");
+
+	OFP_DEBUG("end\n");
+
+	return 0;
+}
+
+ssize_t oplus_ofp_set_longrui_aod_mode_attr(struct kobject *obj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int rc = 0;
+	unsigned int longrui_aod_mode = 0;
+	struct dsi_display *display = oplus_display_get_current_display();
+	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+
+	OFP_DEBUG("start\n");
+
+	if (!buf || !display || !p_oplus_ofp_params) {
+		OFP_ERR("Invalid params\n");
+		return count;
+	}
+
+	sscanf(buf, "%u", &longrui_aod_mode);
+	p_oplus_ofp_params->longrui_aod_mode = longrui_aod_mode;
+	OFP_INFO("longrui_aod_mode:0x%x\n", p_oplus_ofp_params->longrui_aod_mode);
+	OPLUS_OFP_TRACE_INT("oplus_ofp_longrui_aod_mode", p_oplus_ofp_params->longrui_aod_mode);
+
+	if (!oplus_ofp_is_supported()) {
+		OFP_DEBUG("ofp is not supported\n");
+		return count;
+	} else if (oplus_ofp_get_hbm_state()) {
+		OFP_INFO("ignore longrui aod mode setting in hbm state\n");
+		return count;
+	}
+
+	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_set_longrui_aod_mode_attr");
+
+	if ((p_oplus_ofp_params->longrui_aod_config & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_CONFIG)
+			&& (p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_A_MIRROR_TO_THE_END_AOD_MODE)
+			&& !(p_oplus_ofp_params->longrui_aod_mode & OPLUS_OFP_AOD_ON)) {
+		if (oplus_ofp_get_aod_state() && !p_oplus_ofp_params->doze_active) {
+			rc = oplus_ofp_aod_off_handle(display);
+			if (rc) {
+				OFP_ERR("[%s] failed to handle aod off, rc=%d\n", display->name, rc);
+			}
+		}
+	}
+
+	OPLUS_OFP_TRACE_END("oplus_ofp_set_longrui_aod_mode_attr");
+
+	OFP_DEBUG("end\n");
+
+	return count;
+}
+
+ssize_t oplus_ofp_get_longrui_aod_config_attr(struct kobject *obj,
+	struct kobj_attribute *attr, char *buf)
+{
+	struct oplus_ofp_params *p_oplus_ofp_params = oplus_ofp_get_params(oplus_ofp_display_id);
+
+	OFP_DEBUG("start\n");
+
+	if (!buf || !p_oplus_ofp_params) {
+		OFP_ERR("Invalid params\n");
+		return -EINVAL;
+	}
+
+	OPLUS_OFP_TRACE_BEGIN("oplus_ofp_get_longrui_aod_config_attr");
+
+	OFP_INFO("longrui_aod_config:0x%x\n", p_oplus_ofp_params->longrui_aod_config);
+
+	OPLUS_OFP_TRACE_END("oplus_ofp_get_longrui_aod_config_attr");
+
+	OFP_DEBUG("end\n");
+
+	return sprintf(buf, "%u\n", p_oplus_ofp_params->longrui_aod_config);
 }

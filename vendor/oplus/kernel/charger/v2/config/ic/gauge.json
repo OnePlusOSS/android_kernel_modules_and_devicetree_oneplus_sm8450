@@ -2760,7 +2760,39 @@
                     }
                 }
             }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SET_SEAL_FLAG",
+            "desc": {
+                "zh": "设置芯片解锁加锁"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "1:解锁, 0:加锁"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
         }
     ],
-    "version": "V4.6:91:f07f33f9e5743620d877245eb23f8d50fad8f0b68ae584698490abea881f2c47"
+    "version": "V4.7:92:e9030888c6429bdfd1c2e25dbb960648918d0ca1e133040b3dbb82ed74bbf118"
 }

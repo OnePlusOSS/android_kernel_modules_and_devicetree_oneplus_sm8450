@@ -48,6 +48,7 @@ int oplus_chg_wls_rx_get_bridge_mode(struct oplus_chg_ic_dev *rx_ic, int *mode);
 int oplus_chg_wls_rx_set_insert_disable(struct oplus_chg_ic_dev *rx_ic, bool en);
 int oplus_chg_wls_rx_standby_config(struct oplus_chg_ic_dev *rx_ic, bool en);
 int oplus_chg_wls_rx_set_comu(struct oplus_chg_ic_dev *rx_ic, int coum);
+int oplus_chg_wls_rx_get_tx_id(struct oplus_chg_ic_dev *rx_ic, int *tx_id);
 
 /*wls nor APIs*/
 int oplus_chg_wls_nor_set_input_enable(struct oplus_chg_ic_dev *nor_ic, bool en);

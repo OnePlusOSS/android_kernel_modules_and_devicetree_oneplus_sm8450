@@ -41,6 +41,8 @@ int global_sched_assist_enabled;
 EXPORT_SYMBOL(global_sched_assist_enabled);
 int global_sched_assist_scene;
 EXPORT_SYMBOL(global_sched_assist_scene);
+int global_lowend_plat_opt;
+EXPORT_SYMBOL(global_lowend_plat_opt);
 
 pid_t global_ux_task_pid = -1;
 pid_t global_im_flag_pid = -1;
@@ -884,6 +886,41 @@ static ssize_t proc_sched_impt_task_read(struct file *file, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, buffer, len);
 }
 
+static ssize_t proc_lowend_plat_opt_write(struct file *file, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[8];
+	int err, val;
+
+	memset(buffer, 0, sizeof(buffer));
+
+	if (count > sizeof(buffer) - 1)
+		count = sizeof(buffer) - 1;
+
+	if (copy_from_user(buffer, buf, count))
+		return -EFAULT;
+
+	buffer[count] = '\0';
+	err = kstrtoint(strstrip(buffer), 10, &val);
+	if (err)
+		return err;
+
+	global_lowend_plat_opt = val;
+
+	return count;
+}
+
+static ssize_t proc_lowend_plat_opt_read(struct file *file, char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char buffer[32];
+	size_t len = 0;
+
+	len = snprintf(buffer, sizeof(buffer), "lowend_plat_opt=%d\n", global_lowend_plat_opt);
+
+	return simple_read_from_buffer(buf, count, ppos, buffer, len);
+}
+
 static const struct proc_ops proc_sched_assist_enabled_fops = {
 	.proc_write		= proc_sched_assist_enabled_write,
 	.proc_read		= proc_sched_assist_enabled_read,
@@ -927,6 +964,12 @@ static const struct proc_ops proc_im_flag_app_fops = {
 static const struct proc_ops proc_sched_impt_task_fops = {
 	.proc_write		= proc_sched_impt_task_write,
 	.proc_read		= proc_sched_impt_task_read,
+};
+
+static const struct proc_ops proc_lowend_plat_opt_fops = {
+	.proc_write		= proc_lowend_plat_opt_write,
+	.proc_read		= proc_lowend_plat_opt_read,
+	.proc_lseek		= default_llseek,
 };
 
 #if IS_ENABLED(CONFIG_OPLUS_FEATURE_LOADBALANCE)
@@ -998,6 +1041,11 @@ int oplus_sched_assist_proc_init(void)
 		remove_proc_entry("sched_impt_task", d_sched_assist);
 	}
 
+	proc_node = proc_create("lowend_plat_opt", 0666, d_sched_assist, &proc_lowend_plat_opt_fops);
+	if (!proc_node) {
+		ux_err("failed to create proc node lowend_plat_opt\n");
+		remove_proc_entry("lowend_plat_opt", d_sched_assist);
+	}
 #ifdef CONFIG_OPLUS_CPU_AUDIO_PERF
 	oplus_sched_assist_audio_proc_init(d_sched_assist);
 #endif
@@ -1040,6 +1088,7 @@ void oplus_sched_assist_proc_deinit(void)
 	remove_proc_entry("ux_task", d_sched_assist);
 	remove_proc_entry("sched_assist_scene", d_sched_assist);
 	remove_proc_entry("sched_assist_enabled", d_sched_assist);
+	remove_proc_entry("lowend_plat_opt", d_sched_assist);
 	remove_proc_entry(OPLUS_SCHEDASSIST_PROC_DIR, d_oplus_scheduler);
 	remove_proc_entry(OPLUS_SCHEDULER_PROC_DIR, NULL);
 }

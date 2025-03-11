@@ -77,10 +77,7 @@ static enum oplus_cp_work_mode g_cp_support_work_mode[] = {
 
 static int max77939_dump_registers(struct oplus_voocphy_manager *chip);
 
-#ifndef I2C_ERR_MAX
-#define I2C_ERR_MAX 2
-#endif
-
+#define I2C_ERR_MAX	10
 static void max77939_i2c_error(struct oplus_voocphy_manager *voocphy, bool happen)
 {
 	struct vphy_chip *v_chip = NULL;
@@ -1276,19 +1273,16 @@ static int max77939_track_upload_cp_err_info(struct oplus_voocphy_manager *chip,
 	upload_count++;
 	pre_upload_time = max77939_track_get_local_time_s();
 
-	index += snprintf(&(temp_str[index]), OPLUS_CHG_TRACK_CURX_INFO_LEN - index, "$$device_id@@%s", "max77939");
-	index += snprintf(&(temp_str[index]),
-			  OPLUS_CHG_TRACK_CURX_INFO_LEN - index, "$$err_scene@@%s",
+	index += snprintf(&(temp_str[index]), REASON_LENGTH_MAX - index, "$$device_id@@%s", "max77939");
+	index += snprintf(&(temp_str[index]), REASON_LENGTH_MAX - index, "$$err_scene@@%s",
 			  OPLUS_CHG_TRACK_SCENE_BIDIRECT_CP_ERR);
 
 	oplus_chg_track_get_bidirect_cp_err_reason(err_type, err_reason, sizeof(err_reason));
-	index += snprintf(&(temp_str[index]),
-			  OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
+	index += snprintf(&(temp_str[index]), REASON_LENGTH_MAX - index,
 			  "$$err_reason@@%s", err_reason);
 
 	max77939_get_int_reg_info(chip, dump_info, sizeof(dump_info));
-	index += snprintf(&(temp_str[index]),
-			  OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
+	index += snprintf(&(temp_str[index]), REASON_LENGTH_MAX - index,
 			  "$$reg_info@@%s", dump_info);
 
 	msg = oplus_mms_alloc_str_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM,
