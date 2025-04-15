@@ -131,6 +131,7 @@ enum oplus_chg_track_mos_device_error {
 #define OPLUS_CHG_TRACK_SCENE_GAGUE_DEFAULT	"default"
 #define OPLUS_CHG_TRACK_SCENE_GAGUE_SOC_1_PCT	"soc_smooth_to_1"
 #define OPLUS_CHG_TRACK_SCENE_GAUGE_BQFS_ERR "bqfs_err"
+#define OPLUS_CHG_TRACK_SCENE_GAUGE_CW_ERR "cw_err"
 enum oplus_chg_track_gague_device_error {
 	TRACK_GAGUE_ERR_DEFAULT,
 	TRACK_GAGUE_ERR_SEAL,
@@ -288,6 +289,7 @@ enum oplus_chg_track_info_flag {
 	TRACK_NOTIFY_FLAG_UISOH_INFO,
 	TRACK_NOTIFY_FLAG_GAUGE_INFO,
 	TRACK_NOTIFY_FLAG_GAUGE_MODE,
+	TRACK_NOTIFY_FLAG_RECHG_INFO,
 	TRACK_NOTIFY_FLAG_ANTI_EXPANSION_INFO,
 	TRACK_NOTIFY_FLAG_DEC_VOL_INFO,
 	TRACK_NOTIFY_FLAG_GENERAL_RECORD_LAST = TRACK_NOTIFY_FLAG_DEC_VOL_INFO,
@@ -458,4 +460,5 @@ int oplus_chg_olc_config_set(const char *buf);
 int oplus_chg_olc_config_get(char *buf);
 int oplus_track_upload_ntc_abnormal_info(int ntc_temp, char *ntc_name,
 						   char *scene, char *reason, char *other);
+int oplus_chg_track_upload_rechg_info(void);
 #endif

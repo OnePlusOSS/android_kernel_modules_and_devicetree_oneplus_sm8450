@@ -1716,6 +1716,86 @@ static int nu2112a_ufcs_disable(struct ufcs_dev *ufcs)
 
 	return 0;
 }
+
+static int nu2112a_get_wdt_reg_by_time(unsigned int time_ms, u8 *reg)
+{
+	if (reg == NULL)
+		return -EINVAL;
+
+	if (time_ms == 0) {
+		*reg = NU2112A_WATCHDOG_DIS;
+	} else if (time_ms <= 200) {
+		*reg = NU2112A_WATCHDOG_200MS;
+	} else if (time_ms <= 500) {
+		*reg = NU2112A_WATCHDOG_500MS;
+	} else if (time_ms <= 1000) {
+		*reg = NU2112A_WATCHDOG_1S;
+	} else if (time_ms <= 5000) {
+		*reg = NU2112A_WATCHDOG_5S;
+	} else if (time_ms <= 30000) {
+		*reg = NU2112A_WATCHDOG_30S;
+	} else {
+		chg_err("nu2112a watchdog not support %dms(>30s)\n", time_ms);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int nu2112a_ufcs_watchdog_config(struct ufcs_dev *ufcs, unsigned int time_ms)
+{
+	struct nu2112a_device *chip = ufcs->drv_data;
+	u8 reg_val = 0;
+	int rc = 0;
+
+	if (chip == NULL) {
+		chg_err("nu2112a chip is NULL\n");
+		return -ENODEV;
+	}
+
+	rc = nu2112a_get_wdt_reg_by_time(time_ms, &reg_val);
+	if (rc < 0)
+		return rc;
+
+	if (reg_val == NU2112A_WATCHDOG_DIS) {
+		rc = nu2112a_update_bits(chip->client, NU2112A_REG_08,
+		                         NU2112A_WATCHDOG_MASK, NU2112A_WATCHDOG_DIS); /* dsiable wdt */
+		chg_info("watchdog_config disable (%d) ok!\n", reg_val);
+	} else {
+		rc = nu2112a_update_bits(chip->client, NU2112A_REG_08,
+		                         NU2112A_WATCHDOG_MASK, reg_val);
+		chg_info("watchdog_config set (%d) ok!\n", reg_val);
+	}
+	if (rc < 0) {
+		chg_err("failed to cp_watchdog_config (%d)\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+static int nu2112a_ufcs_baudrate_end_check_config(struct ufcs_dev *ufcs)
+{
+	struct nu2112a_device *chip = ufcs->drv_data;
+	int rc = 0;
+
+	if (chip == NULL) {
+		chg_err("nu2112a chip is NULL\n");
+		return -ENODEV;
+	}
+
+	rc = nu2112a_update_bits(chip->client, NU2112A_ADDR_UFCS_OPTION,
+		NU2112A_BAUDRATE_CHECK_CONFIG | NU2112A_END_CHECK_ENABLE,
+		NU2112A_BAUDRATE_CHECK_CONFIG | NU2112A_END_CHECK_ENABLE);
+
+	if (rc < 0) {
+		chg_err("failed to config baud_check to +-20Per and enable end_check (%d)\n", rc);
+		return rc;
+	}
+
+	return 0;
+}
+
 static struct ufcs_dev_ops ufcs_ops = {
 	.init = nu2112a_ufcs_init,
 	.write_msg = nu2112a_ufcs_write_msg,
@@ -1726,6 +1806,8 @@ static struct ufcs_dev_ops ufcs_ops = {
 	.set_baud_rate = nu2112a_ufcs_set_baud_rate,
 	.enable = nu2112a_ufcs_enable,
 	.disable = nu2112a_ufcs_disable,
+	.watchdog_config = nu2112a_ufcs_watchdog_config,
+	.baudrate_end_check_config = nu2112a_ufcs_baudrate_end_check_config,
 };
 
 static int nu2112a_charger_choose(struct nu2112a_device *chip)
@@ -1808,6 +1890,36 @@ static int nu2112a_cp_adc_enable(struct oplus_chg_ic_dev *ic_dev, bool en)
 	return 0;
 }
 
+static int nu2112a_cp_wd_enable(struct oplus_chg_ic_dev *ic_dev, int timeout_ms)
+{
+	struct nu2112a_device *chip;
+	u8 reg_val = 0;
+	int ret = 0;
+
+	if (ic_dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL\n");
+		return -ENODEV;
+	}
+	chip = oplus_chg_ic_get_priv_data(ic_dev);
+
+	chg_info("set watchdog timeout to %dms\n", timeout_ms);
+
+	ret = nu2112a_get_wdt_reg_by_time(timeout_ms, &reg_val);
+	if (ret < 0)
+		return ret;
+
+	ret = nu2112a_update_bits(chip->client, NU2112A_REG_08,
+				NU2112A_WATCHDOG_MASK, reg_val);
+	chg_info("set watchdog reg to 0x%02x ok!\n", reg_val);
+
+	if (ret < 0) {
+		chg_err("failed to set watchdog reg to 0x%02x, ret=%d\n", reg_val, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static void *nu2112a_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum oplus_chg_ic_func func_id)
 {
 	void *func = NULL;
@@ -1873,6 +1985,9 @@ static void *nu2112a_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum oplus_chg
 		break;
 	case OPLUS_IC_FUNC_CP_SET_ADC_ENABLE:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_SET_ADC_ENABLE, nu2112a_cp_adc_enable);
+		break;
+	case OPLUS_IC_FUNC_CP_WATCHDOG_ENABLE:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_WATCHDOG_ENABLE, nu2112a_cp_wd_enable);
 		break;
 	default:
 		chg_err("this func(=%d) is not supported\n", func_id);

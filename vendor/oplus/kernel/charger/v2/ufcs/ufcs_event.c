@@ -556,6 +556,11 @@ static int ufcs_check_error_info(struct ufcs_class *class, unsigned int dev_err_
 
 	sender = &class->sender;
 
+	if (class->exit_ufcs_ack_received) {
+		ufcs_err("flag=0x%x exit ufcs ack received, ignore other messages\n", dev_err_flag);
+		goto err;
+	}
+
 	if (dev_err_flag & BIT(UFCS_HW_ERR_HARD_RESET)) {
 		if (class->start_cable_detect) {
 			ufcs_send_state(UFCS_NOTIFY_CABLE_HW_RESET, NULL);
@@ -597,6 +602,11 @@ static int ufcs_check_error_info(struct ufcs_class *class, unsigned int dev_err_
 		} else {
 			if (sender->status == MSG_WAIT_ACK) {
 				stop_ack_receive_timer(class);
+				if (sender->msg && sender->msg->head.type == UFCS_CTRL_MSG &&
+				    sender->msg->ctrl_msg.command == CTRL_MSG_EXIT_UFCS_MODE) {
+					ufcs_err("exit ufcs ack received, ignore next messages\n");
+					class->exit_ufcs_ack_received = true;
+				}
 				sender->status = MSG_SEND_OK;
 				complete(&sender->ack);
 			}

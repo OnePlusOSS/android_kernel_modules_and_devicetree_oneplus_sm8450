@@ -10,6 +10,13 @@
 #include <linux/power_supply.h>
 #include "oplus_chg_symbol.h"
 
+#define OPLUS_BATTINFO_DATE_SIZE 11
+#define OPLUS_BATT_SERIAL_NUM_SIZE 20
+struct bat_manufacture_info {
+	char bat_serial_num[OPLUS_BATT_SERIAL_NUM_SIZE];
+	char bat_debug_serial_num[OPLUS_BATT_SERIAL_NUM_SIZE];
+};
+
 struct oplus_gauge_chip {
 	struct i2c_client *client;
 	struct device *dev;
@@ -110,6 +117,19 @@ struct oplus_gauge_operations {
 	void (*cal_model_check)(bool ffc_state);
 	bool (*get_bqfs_status)(void);
 	int (*bqfs_fw_check)(void);
+	int (*bqfs_data_check)(void);
+	int (*get_batt_manu_date)(char *info, int len);
+	int (*get_batt_first_usage_date)(char *info, int len);
+	int (*set_batt_first_usage_date)(const char *info);
+	int (*get_seal_flag)(void);
+	int (*set_seal_flag)(int seal_flag);
+	int (*get_batt_ui_cc)(void);
+	int (*set_batt_ui_cc)(int ui_cc);
+	int (*get_batt_ui_soh)(void);
+	int (*set_batt_ui_soh)(int ui_soh);
+	int (*get_batt_used_flag)(void);
+	int (*set_batt_used_flag)(int used_flag);
+	int (*get_battinfo_sn)(char buf[], int len);
 	int (*get_gauge_car_c)(int *car_c);
 };
 
@@ -215,6 +235,19 @@ int oplus_gauge_get_soh(int *soh1, int *soh2);
 int oplus_gauge_get_calib_time(int *dod_calib_time, int *qmax_calib_time, int gauge_index);
 void oplus_gauge_cal_model_check(bool ffc_state);
 int oplus_gauge_check_bqfs_fw(void);
+int oplus_gauge_bqfs_data_check(void);
+int oplus_gauge_get_bat_info_manu_date(char *info, int len);
+int oplus_gauge_get_bat_info_first_usage_date(char *info, int len);
+int oplus_gauge_set_bat_info_first_usage_date(const char *info);
+int oplus_pack_gauge_get_seal_flag(void);
+int oplus_pack_gauge_set_seal_flag(int seal_flag);
+int oplus_gauge_get_battinfo_ui_cc(void);
+int oplus_gauge_set_battinfo_ui_cc(int ui_cc);
+int oplus_gauge_get_battinfo_ui_soh(void);
+int oplus_gauge_set_battinfo_ui_soh(int ui_soh);
+int oplus_gauge_get_battinfo_used_flag(void);
+int oplus_gauge_set_battinfo_used_flag(int used_flag);
+int oplus_gauge_get_bat_info_sn(char *sn_buff, int size_buffer);
 
 #if defined(CONFIG_OPLUS_CHARGER_MTK6763) ||                                   \
 	defined(CONFIG_OPLUS_CHARGER_MTK6771)

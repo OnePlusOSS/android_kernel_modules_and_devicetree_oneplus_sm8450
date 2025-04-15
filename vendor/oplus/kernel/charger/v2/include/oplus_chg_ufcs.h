@@ -18,6 +18,7 @@ enum ufcs_topic_item {
 	UFCS_ITEM_BCC_EXIT_CURR,
 	UFCS_ITEM_BCC_TEMP_RANGE,
 	UFCS_ITEM_SLOW_CHG_BATT_LIMIT,
+	UFCS_ITEM_UFCS_VID,
 };
 
 enum ufcs_fastchg_type {

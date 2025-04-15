@@ -809,6 +809,8 @@ re_recv:
 			ufcs_send_state(UFCS_NOTIFY_TEST_MODE_CHANGED, NULL);
 			if (class->ufcs->ops->watchdog_config)
 				class->ufcs->ops->watchdog_config(class->ufcs, 0); /*disable wdt*/
+			if (class->ufcs->ops->baudrate_end_check_config)
+				class->ufcs->ops->baudrate_end_check_config(class->ufcs);
 #if IS_ENABLED(CONFIG_OPLUS_UFCS_CLASS_DEBUG)
 		} else if (class->debug.test_mode) {
 			ufcs_info("force enable test mode\n");
@@ -817,6 +819,8 @@ re_recv:
 			schedule_work(&class->debug.disable_wd_work);
 			if (class->ufcs->ops->watchdog_config)
 				class->ufcs->ops->watchdog_config(class->ufcs, 0); /*disable wdt*/
+			if (class->ufcs->ops->baudrate_end_check_config)
+				class->ufcs->ops->baudrate_end_check_config(class->ufcs);
 #endif /* CONFIG_OPLUS_UFCS_CLASS_DEBUG */
 		}
 		complete(&class->request_ack);

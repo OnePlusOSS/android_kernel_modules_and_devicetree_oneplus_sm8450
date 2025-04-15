@@ -124,6 +124,7 @@ extern int oplus_usbtemp_monitor_common(void *data);
 extern int oplus_usbtemp_monitor_common_new_method(void *data);
 extern int bq2589x_driver_init(void);
 extern int sgm41542_charger_init(void);
+extern int sgm41542_charger_exit(void);
 extern int sy6974b_charger_init(void);
 extern int sc8547_subsys_init(void);
 extern int sc8547_slave_subsys_init(void);
@@ -884,7 +885,9 @@ static bool is_charger_exist(struct mtk_charger *info)
 
 static int get_charger_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop, prop2, prop3;
+	union power_supply_propval prop = {0};
+	union power_supply_propval prop2 = {0};
+	union power_supply_propval prop3 = {0};
 	static struct power_supply *chg_psy;
 	int ret;
 
@@ -2885,7 +2888,7 @@ static ssize_t sc_tuisoc_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;
@@ -2947,7 +2950,7 @@ static ssize_t sc_ibat_limit_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;
@@ -5808,7 +5811,7 @@ void oplus_set_otg_switch_status(bool value)
 		}
 
 		printk(KERN_ERR "[OPLUS_CHG][%s]: otg switch[%d]\n", __func__, value);
-		tcpm_typec_change_role(pinfo->tcpc, value ? TYPEC_ROLE_TRY_SNK : TYPEC_ROLE_SNK);
+		tcpm_typec_change_role_postpone(pinfo->tcpc, value ? TYPEC_ROLE_TRY_SNK : TYPEC_ROLE_SNK, true);
 	}
 }
 EXPORT_SYMBOL(oplus_set_otg_switch_status);
@@ -7507,6 +7510,90 @@ static void oplus_adc5_detect_work(struct work_struct *work)
 	}
 }
 
+#define OPLUS_CHARGE_SUB_NODE_NAME_LEN 16
+static int oplus_charge_node_name_parse_cmdline_match(char *match_str, char *result, int size)
+{
+	struct device_node *cmdline_node = NULL;
+	const char *cmdline;
+	char *match, *match_end;
+	int len, match_str_len, ret;
+
+	if (!result || !match_str)
+		return -EINVAL;
+
+	memset(result, '\0', size);
+	match_str_len = strlen(match_str);
+
+	cmdline_node = of_find_node_by_path("/chosen");
+	if (!cmdline_node) {
+		chr_err("%s:line%d: NULL pointer!!!\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+
+	ret = of_property_read_string(cmdline_node, "bootargs", &cmdline);
+	if (ret) {
+		chr_err("%s failed to read bootargs\n", __func__);
+		return -EINVAL;
+	}
+
+	match = strstr(cmdline, match_str);
+	if (!match) {
+		chr_err("match: %s fail in cmdline\n", match_str);
+		return -EINVAL;
+	}
+
+	match_end = strstr((match + match_str_len), ";");
+	if (!match_end) {
+		chr_err("match end of : %s fail in cmdline\n", match_str);
+		return -EINVAL;
+	}
+
+	len = match_end - (match + match_str_len);
+	if (len < 0 || len > size) {
+		chr_err("match cmdline :%s fail, len = %d\n", match_str, len);
+		return -EINVAL;
+	}
+
+	memcpy(result, (match + match_str_len), len);
+
+	return 0;
+}
+
+static int oplus_get_charge_node_name_str(char *type)
+{
+	char *str = "charger_sub=";
+	char result[32] = {};
+	int ret;
+
+	ret = oplus_charge_node_name_parse_cmdline_match(str, result, sizeof(result));
+	if (ret < 0) {
+		chr_err("match charge ic str fail\n");
+		return ret;
+	}
+	snprintf(type, OPLUS_CHARGE_SUB_NODE_NAME_LEN, "%s", result);
+
+	return ret;
+}
+
+static struct device_node *oplus_get_charge_node_by_charge_ic(struct device_node *father_node)
+{
+	char charge_node_name_str[OPLUS_CHARGE_SUB_NODE_NAME_LEN] = { 0 };
+	struct device_node *sub_node = NULL;
+	struct device_node *node = father_node;
+
+	int rc = oplus_get_charge_node_name_str(charge_node_name_str);
+	if (rc == 0) {
+		sub_node = of_get_child_by_name(father_node, charge_node_name_str);
+		if (sub_node) {
+			node = sub_node;
+			chr_err("current charger_sub node name str = %s\n", charge_node_name_str);
+			sgm41542_charger_exit();
+		}
+	}
+
+	return node;
+}
+
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct mtk_charger *info = NULL;
@@ -7526,6 +7613,8 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
 /*Add for charging*/
+	pdev->dev.of_node = oplus_get_charge_node_by_charge_ic(pdev->dev.of_node);
+
 	if (!tcpc_dev_get_by_name("type_c_port0")) {
 		chr_err("%s get tcpc device type_c_port0 fail\n", __func__);
 		return -EPROBE_DEFER;

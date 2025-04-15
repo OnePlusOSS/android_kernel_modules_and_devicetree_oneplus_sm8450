@@ -286,6 +286,7 @@ struct oplus_pps {
 	struct votable *pps_disable_votable;
 	struct votable *pps_not_allow_votable;
 	struct votable *wired_suspend_votable;
+	struct votable *chg_disable_votable;
 	struct votable *pps_boot_votable;
 	struct votable *wired_icl_votable;
 
@@ -426,6 +427,13 @@ static const struct current_level g_pps_cp_current_table[] = {
 	{ 22, 15000 }, { 23, 16000 }, { 24, 17000 }, { 25, 18000 }, { 26, 19000 }, { 27, 20000 },
 };
 
+__maybe_unused static bool
+is_disable_charger_vatable_available(struct oplus_pps *chip)
+{
+	if (!chip->chg_disable_votable)
+		chip->chg_disable_votable = find_votable("WIRED_CHARGING_DISABLE");
+	return !!chip->chg_disable_votable;
+}
 
 __maybe_unused static bool
 is_wired_suspend_votable_available(struct oplus_pps *chip)
@@ -3157,8 +3165,11 @@ exit:
 			oplus_cpa_request(chip->cpa_topic, CHG_PROTOCOL_PD);
 	} else {
 		oplus_pps_soft_exit(chip);
-		if (switch_to_ffc)
+		if (switch_to_ffc) {
+			if (is_disable_charger_vatable_available(chip))
+				vote(chip->chg_disable_votable, FASTCHG_VOTER, true, 1, false);
 			oplus_comm_switch_ffc(chip->comm_topic);
+		}
 		if (chip->pps_fastchg_batt_temp_status == PPS_BAT_TEMP_SWITCH_CURVE) {
 			chg_info("pps switch_curve, need retry start pps\n");
 			chip->pps_fastchg_batt_temp_status = PPS_BAT_TEMP_NATURAL;

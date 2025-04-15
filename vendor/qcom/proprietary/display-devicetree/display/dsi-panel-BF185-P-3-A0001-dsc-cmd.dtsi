@@ -170,7 +170,7 @@
 					39 00 00 00 00 00 13 91 AB A8 00 2C D2 00 02 51 04 5D 00 08 02 6C 01 FF 10 E0
 					/* Disable AOD OFF first frame voltage widening */
 					39 00 00 40 00 00 06 F0 55 AA 52 08 01
-					15 00 00 40 00 00 02 6F 0E
+					15 00 00 40 00 00 02 6F 01
 					15 00 00 00 00 00 02 D2 00
 					/* Fix AOD FD enable */
 					39 00 00 40 00 00 06 F0 55 AA 52 08 01
@@ -304,7 +304,7 @@
 					39 00 00 40 00 00 03 44 00 00
 					/* AOD Mode ON */
 					05 00 00 40 00 00 01 39
-					15 00 00 40 00 00 02 65 01
+					//15 00 00 40 00 00 02 65 01
 					05 00 00 40 00 00 01 2C
 					/* AOD Switch */
 					15 00 00 40 00 00 02 6F 04
@@ -537,7 +537,7 @@
 					39 00 00 00 00 00 13 91 AB A8 00 2C D2 00 02 51 04 5D 00 08 02 6C 01 FF 10 E0
 					/* Disable AOD OFF first frame voltage widening */
 					39 00 00 40 00 00 06 F0 55 AA 52 08 01
-					15 00 00 40 00 00 02 6F 0E
+					15 00 00 40 00 00 02 6F 01
 					15 00 00 00 00 00 02 D2 00
 					/* Fix AOD FD enable */
 					39 00 00 40 00 00 06 F0 55 AA 52 08 01
@@ -663,7 +663,7 @@
 					39 00 00 40 00 00 03 44 00 00
 					/* AOD Mode ON */
 					05 00 00 40 00 00 01 39
-					15 00 00 40 00 00 02 65 01
+					//15 00 00 40 00 00 02 65 01
 					05 00 00 40 00 00 01 2C
 					/* AOD Switch */
 					15 00 00 40 00 00 02 6F 04
@@ -892,7 +892,7 @@
 					39 00 00 00 00 00 13 91 AB A8 00 2C D2 00 02 51 04 5D 00 08 02 6C 01 FF 10 E0
 					/* Disable AOD OFF first frame voltage widening */
 					39 00 00 40 00 00 06 F0 55 AA 52 08 01
-					15 00 00 40 00 00 02 6F 0E
+					15 00 00 40 00 00 02 6F 01
 					15 00 00 00 00 00 02 D2 00
 					/* Fix AOD FD enable */
 					39 00 00 40 00 00 06 F0 55 AA 52 08 01
@@ -1030,7 +1030,7 @@
 					39 00 00 40 00 00 03 44 00 00
 					/* AOD Mode ON */
 					05 00 00 40 00 00 01 39
-					15 00 00 40 00 00 02 65 01
+					//15 00 00 40 00 00 02 65 01
 					05 00 00 40 00 00 01 2C
 					/* AOD Switch */
 					15 00 00 40 00 00 02 6F 04
@@ -1173,6 +1173,7 @@
 	qcom,dsi-select-clocks = "pll_byte_clk0", "pll_dsi_clk0";
 	/* ofp config */
 	oplus,ofp-fp-type = <0x08>;
+	oplus,ofp-longrui-aod-config = <0x02>;
 	oplus,ofp-need-to-wait-data-before-aod-on;
 
 /* #ifdef OPLUS_FEATURE_DISPLAY_TEMP_COMPENSATION */

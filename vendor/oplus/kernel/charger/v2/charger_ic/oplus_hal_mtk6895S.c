@@ -152,7 +152,7 @@ static int oplus_chg_suspend_charger(bool suspend, const char *client_str)
 	return rc;
 }
 
-int oplus_chg_set_icl_by_vote(int icl, const char *client_str)
+static int oplus_chg_set_icl_by_vote(int icl, const char *client_str)
 {
 	struct votable *icl_votable;
 	int rc;
@@ -3807,6 +3807,14 @@ static int psy_charger_property_is_writeable(struct power_supply *psy,
 		return 0;
 	}
 }
+#define SUSPEND_RECOVERY_DELAY_MS 2000
+static void oplus_charger_suspend_recovery_work(struct work_struct *work)
+{
+	chg_info("voted suspend recovery, unsuspend\n");
+	oplus_chg_suspend_charger(false, PD_PDO_ICL_VOTER);
+	oplus_chg_suspend_charger(false, USB_IBUS_DRAW_VOTER);
+	oplus_chg_suspend_charger(false, TCPC_IBUS_DRAW_VOTER);
+}
 
 static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
@@ -3816,6 +3824,7 @@ static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_TEMP,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT,
+	POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT,
 };
 
 static int psy_charger_get_property(struct power_supply *psy,
@@ -3958,6 +3967,18 @@ int psy_charger_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
 		info->chg_data[idx].thermal_input_current_limit =
 			val->intval;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
+		if (oplus_chg_get_common_charge_icl_support_flags()) {
+			if (val->intval > 0) {
+				cancel_delayed_work_sync(&info->charger_suspend_recovery_work);
+				oplus_chg_suspend_charger(true, USB_IBUS_DRAW_VOTER);
+				schedule_delayed_work(&info->charger_suspend_recovery_work,
+				                      msecs_to_jiffies(SUSPEND_RECOVERY_DELAY_MS));
+			} else {
+				oplus_chg_suspend_charger(false, USB_IBUS_DRAW_VOTER);
+			}
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -4365,6 +4386,8 @@ static void oplus_sourcecap_done_work(struct work_struct *work)
 		oplus_chg_set_icl_by_vote(max_pdo_current, PD_PDO_ICL_VOTER);
 }
 
+#define DEFAULT_CURR_BY_CC 100
+#define SINK_SUSPEND_CURRENT 5
 static int pd_tcp_notifier_call(struct notifier_block *pnb,
 				unsigned long event, void *data)
 {
@@ -4384,6 +4407,20 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 			mtk_tcpc_set_otg_enable(pinfo->ic_dev, true);
 		} else {
 			mtk_tcpc_set_otg_enable(pinfo->ic_dev, false);
+		}
+		break;
+
+	case TCP_NOTIFY_SINK_VBUS:
+		chg_info("pd type:%d. sink vbus %dmV %dmA type(0x%02X)\n",
+		         pinfo->pd_type, noti->vbus_state.mv, noti->vbus_state.ma, noti->vbus_state.type);
+		if (oplus_chg_get_common_charge_icl_support_flags() &&
+		    pinfo->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO &&
+		    noti->vbus_state.type == TCP_VBUS_CTRL_PD_STANDBY &&
+		    noti->vbus_state.ma < SINK_SUSPEND_CURRENT) {
+			cancel_delayed_work_sync(&pinfo->charger_suspend_recovery_work);
+			oplus_chg_suspend_charger(true, TCPC_IBUS_DRAW_VOTER);
+			schedule_delayed_work(&pinfo->charger_suspend_recovery_work,
+			                      msecs_to_jiffies(SUSPEND_RECOVERY_DELAY_MS));
 		}
 		break;
 
@@ -4782,7 +4819,6 @@ static int oplus_mt6375_input_current_limit_write_without_aicl(struct mtk_charge
 	return rc;
 }
 
-#define DEFAULT_CURR_BY_CC 100
 static int oplus_mt6375_input_current_limit_write(struct mtk_charger *info, int value)
 {
 	int rc = 0;
@@ -4836,7 +4872,11 @@ static int oplus_mt6375_input_current_limit_write(struct mtk_charger *info, int 
 		if (max_pdo_current >= 0)
 			value = min(value, max_pdo_current);
 		if (value < DEFAULT_CURR_BY_CC) {
+			cancel_delayed_work_sync(&info->charger_suspend_recovery_work);
 			oplus_chg_suspend_charger(true, PD_PDO_ICL_VOTER);
+			schedule_delayed_work(&info->charger_suspend_recovery_work,
+			                      msecs_to_jiffies(SUSPEND_RECOVERY_DELAY_MS));
+
 			goto aicl_rerun;
 		} else if (value < usb_icl[0]) {
 			oplus_chg_suspend_charger(false, PD_PDO_ICL_VOTER);
@@ -8087,6 +8127,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 
 	pinfo->pd_chg_volt = VBUS_5V;
 	INIT_DELAYED_WORK(&pinfo->sourcecap_done_work, oplus_sourcecap_done_work);
+	INIT_DELAYED_WORK(&pinfo->charger_suspend_recovery_work, oplus_charger_suspend_recovery_work);
 
 	if (oplus_mtk_ic_register(&pdev->dev, pinfo) != 0)
 		goto reg_ic_err;

@@ -147,7 +147,16 @@ static int oplus_sgm41542_chg_set_pd_config(void)
 
 static int oplus_sgm41542_chg_get_charger_subtype(void)
 {
-	return oplus_chg_get_charger_subtype();
+	int charg_subtype = oplus_chg_get_charger_subtype();
+	struct chip_sgm41542 *chip = charger_ic;
+
+	if (!chip)
+		return charg_subtype;
+
+	if (charg_subtype == CHARGER_SUBTYPE_DEFAULT && chip->is_hvdcp == true)
+		return CHARGER_SUBTYPE_QC;
+
+	return charg_subtype;
 }
 #endif
 
@@ -1276,6 +1285,7 @@ int sgm41542_disable_charging(void)
 		return 0;
 
 	chip->charger_current_pre = -1;
+	chip->sw_aicl_count = 0;
 	sgm41542_enable_gpio(chip, false);
 	if (!g_oplus_chip || !g_oplus_chip->otg_online)
 		sgm41542_otg_disable();

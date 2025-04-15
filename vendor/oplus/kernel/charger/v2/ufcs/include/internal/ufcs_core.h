@@ -121,6 +121,7 @@ struct ufcs_class {
 	bool handshake_success;
 	bool sm_task_wakeup;
 	bool start_cable_detect;
+	bool exit_ufcs_ack_received;
 
 	struct mutex pe_lock;
 	struct mutex handshake_lock;

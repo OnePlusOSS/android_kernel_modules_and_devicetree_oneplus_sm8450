@@ -46,7 +46,10 @@ struct mtk_charger;
 #define PORT_A 1
 #define PORT_PD_WITH_USB 2
 #define PORT_PD_WITHOUT_USB 3
-
+#define CCDETECT_DELAY_MS 50
+#define OPLUS_TRACK_CHG_PLUGIN 1
+#define OPLUS_TRACK_CHG_PLUGOUT 0
+#define UNIT_TRANS 1000
 
 #ifdef __KERNEL__
 #ifndef _STRUCT_TIMESPEC

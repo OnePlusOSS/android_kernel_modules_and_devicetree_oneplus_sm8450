@@ -108,6 +108,7 @@ struct oplus_gki_device {
 	bool smart_charging_screenoff;
 	enum oplus_temp_region temp_region;
 	bool retention_state;
+	bool retention_state_ready;
 	bool pre_retention_state;
 	bool retention_connect_state;
 	bool ufcs_online;
@@ -605,7 +606,7 @@ static int battery_psy_get_prop(struct power_supply *psy,
 			pval->intval = pre_batt_status;
 		} else {
 			pval->intval = chip->batt_status;
-			if (chip->retention_state && chip->batt_status == POWER_SUPPLY_STATUS_DISCHARGING)
+			if (chip->retention_connect_state && chip->batt_status == POWER_SUPPLY_STATUS_DISCHARGING)
 				pval->intval = POWER_SUPPLY_STATUS_CHARGING;
 			if (pval->intval == POWER_SUPPLY_STATUS_FULL &&
 				chip->temp_region == TEMP_REGION_WARM &&
@@ -636,6 +637,7 @@ static int battery_psy_get_prop(struct power_supply *psy,
 				chg_info("EIS_VOTER: batt_status is %d\n", chip->batt_status);
 			}
 		}
+		chg_debug("batt_status is %d, retention_state =%d\n", chip->batt_status, chip->retention_state);
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		pval->intval = chip->batt_health;
@@ -1418,9 +1420,10 @@ static void oplus_gki_comm_subs_callback(struct mms_subscribe *subs,
 						false);
 			chip->batt_status = data.intval;
 
-			chg_info("batt_status = %d, pre_batt_status = %d, wired_online = %d\n",
-				  chip->batt_status, chip->pre_batt_status, chip->wired_online);
-			if (!IS_ERR_OR_NULL(chip->batt_psy) && chip->pre_batt_status != chip->batt_status) {
+			chg_info("batt_status = %d, pre_batt_status = %d, wired_online = %d, retention_state = %d\n",
+				  chip->batt_status, chip->pre_batt_status, chip->wired_online, chip->retention_state);
+			if (!IS_ERR_OR_NULL(chip->batt_psy) && chip->pre_batt_status != chip->batt_status &&
+				(!chip->retention_topic || (chip->retention_topic && chip->retention_state_ready))) {
 				chip->pre_batt_status = chip->batt_status;
 				power_supply_changed(chip->batt_psy);
 			}
@@ -1685,10 +1688,19 @@ static void oplus_gki_retention_subs_callback(struct mms_subscribe *subs,
 					false);
 			chip->retention_connect_state = !!data.intval;
 			chg_debug("gki_retention_state, rc=%d\n", chip->retention_connect_state);
+			if (!chip->retention_connect_state)
+				chip->retention_state_ready = false;
 			if (!chip->retention_connect_state && chip->retention_connect_state != chip->pre_retention_state)
 				schedule_delayed_work(&chip->retention_checkout_work, 0);
 			if (chip->retention_connect_state)
 				chip->pre_retention_state = chip->retention_connect_state;
+			break;
+		case RETENTION_ITEM_STATE_READY:
+			chip->retention_state_ready = true;
+			if (!IS_ERR_OR_NULL(chip->batt_psy) && chip->pre_batt_status != chip->batt_status) {
+				chip->pre_batt_status = chip->batt_status;
+				power_supply_changed(chip->batt_psy);
+			}
 			break;
 		default:
 			break;

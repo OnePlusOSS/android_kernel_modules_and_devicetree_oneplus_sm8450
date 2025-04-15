@@ -22,6 +22,7 @@
 #include "oplus_stm.h"
 #include "../oplus_charger.h"
 #include "../oplus_adapter.h"
+#include "../oplus_chg_module.h"
 
 static struct chip_stm *the_chip = NULL;
 
@@ -578,7 +579,9 @@ int adapter_ic_init(void)
 subsys_initcall(adapter_ic_init);
 #endif
 //module_exit(adapter_ic_exit);
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+oplus_chg_module_register(adapter_ic);
+#endif
 MODULE_DESCRIPTION("Driver for oplus adapter ic stm8s");
 MODULE_LICENSE("GPL v2");
 

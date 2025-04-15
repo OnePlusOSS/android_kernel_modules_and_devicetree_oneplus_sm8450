@@ -2585,6 +2585,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 	unsigned long jiffies_diff = 0;
 	int term_voltage = 0;
 	int ui_soc;
+	bool charging = chip->wired_online || chip->wls_online;
 
 	if (p_force_down_1 == NULL)
 		return soc_down_jiffies;
@@ -2614,7 +2615,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 			}
 		}
 
-		if ((chip->vbat_min_mv < term_voltage + volt_diff_of_soc_2) &&
+		if ((chip->vbat_min_mv < term_voltage + volt_diff_of_soc_2) && (charging == false) &&
 		    (chip->ibat_ma < chip->config.current_limit_of_drop_soc_2) && (ui_soc >= UI_SOC_LOW_LIMIT)) {
 			vbat_low_soc_to_2 ++;
 			if (vbat_low_soc_to_2 > TIMES_OF_LOW_BATT_CONTROL_ENABLE) {
@@ -2646,7 +2647,7 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 		/* Solve the ui_soc 5% jump to 0% problem. When the actual soc is 0%,
 		 * take out 1% in Power saving mode to smooth the ui_soc.
 		 */
-		if ((chip->vbat_min_mv < term_voltage && (chip->smooth_soc == 0)) && (ui_soc > 1)) {
+		if ((chip->vbat_min_mv < term_voltage && (chip->smooth_soc == 0)) && (ui_soc > 1) && (charging == false)) {
 			vbat_low_soc_to_1 ++;
 			if (vbat_low_soc_to_1 > TIMES_OF_LOW_BATT_CONTROL_ENABLE) {
 				vbat_low_soc_to_1 = TIMES_OF_LOW_BATT_CONTROL_ENABLE;
@@ -3176,6 +3177,7 @@ static void oplus_comm_show_ui_soc_decimal(struct work_struct *work)
 	int batt_num = oplus_gauge_get_batt_num();
 	long int speed, icharging;
 	int temp_soc;
+	int mmi_chg;
 
 	if (chip->gauge_topic != NULL) {
 		if (chip->wired_online || chip->wls_online)
@@ -3196,8 +3198,11 @@ static void oplus_comm_show_ui_soc_decimal(struct work_struct *work)
 	}
 	icharging = -chip->ibat_ma;
 
+	monitor_ui_soc_to_enable_chg_up_limit(chip, false);
+
 	/*calculate the speed*/
-	if (icharging > 0) {
+	mmi_chg = oplus_comm_get_mmi_state(chip);
+	if (icharging > 0 && mmi_chg) {
 		if (!oplus_comm_calculate_eis_soc_speed(chip, &speed))
 			speed = 100000 * icharging * UPDATE_TIME * batt_num / (chip->batt_fcc * 3600);
 
@@ -3297,7 +3302,8 @@ static int oplus_enforce_chg_up_limit_result(struct oplus_chg_comm *chip, bool c
 	chg_debug("oplus_set_chg_up_limit %d\n", val);
 	if ((pre_val == val) && (pre_is_force_set_flag == chg_up_limit_data.is_force_set_charge_limit)) {
 		if ((val == true && (get_client_vote(chip->chg_disable_votable, CHG_LIMIT_CHG_VOTER) > 0 ||
-		    get_client_vote(chip->chg_suspend_votable, CHG_LIMIT_CHG_VOTER) > 0)) ||
+		    (get_client_vote(chip->chg_suspend_votable, CHG_LIMIT_CHG_VOTER) > 0 &&
+		    chip->ui_soc > chg_up_limit_data.charge_limit_value))) ||
 		    (val == false && (get_client_vote(chip->chg_disable_votable, CHG_LIMIT_CHG_VOTER) == 0 &&
 		    get_client_vote(chip->chg_suspend_votable, CHG_LIMIT_CHG_VOTER) == 0))) {
 			chg_debug("set same chg up limit command %d %d\n", val, pre_is_force_set_flag);
@@ -3737,7 +3743,14 @@ static void oplus_comm_check_ffc(struct oplus_chg_comm *chip)
 			chg_err("FFC charging is not possible in this temp region, temp_region=%s\n",
 				oplus_comm_get_ffc_temp_region_str(ffc_temp_region));
 			oplus_ffc_exit_reset_info(chip);
-			goto err;
+			if (chip->wired_online) {
+				if (is_wired_charging_disable_votable_available(chip))
+					vote(chip->wired_charging_disable_votable, FFC_VOTER, true, 1, false);
+				oplus_comm_set_ffc_status(chip, FFC_IDLE);
+				return;
+			} else {
+				goto err;
+			}
 		}
 		if (chip->ffc_temp_region != ffc_temp_region) {
 			chip->ffc_temp_region = ffc_temp_region;
@@ -3819,8 +3832,14 @@ ffc_step_done:
 			chip->ffc_fcc_count = 0;
 			chip->ffc_fv_count = 0;
 			if (chip->wired_online) {
-				chip->ffc_charging = false;
-				oplus_comm_set_ffc_status(chip, FFC_DEFAULT);
+				if (chip->soc >= 100) {
+					chip->ffc_charging = false;
+					oplus_comm_set_ffc_status(chip, FFC_DEFAULT);
+				} else {
+					if (is_wired_charging_disable_votable_available(chip))
+						vote(chip->wired_charging_disable_votable, FFC_VOTER, true, 1, false);
+					oplus_comm_set_ffc_status(chip, FFC_IDLE);
+				}
 			} else {
 				oplus_comm_set_ffc_status(chip, FFC_IDLE);
 			}
@@ -3854,7 +3873,7 @@ ffc_step_done:
 		break;
 	case FFC_IDLE:
 		chip->ffc_fcc_count++;
-		if (chip->ffc_fcc_count > 6) {
+		if (chip->ffc_fcc_count >= 12) {
 			chip->ffc_charging = false;
 			chip->ffc_fcc_count = 0;
 			chip->ffc_fv_count = 0;
@@ -6865,34 +6884,7 @@ int read_signed_temp_region_data(struct device_node *node, const char *prop_str,
 
 static void oplus_comm_parse_aging_ffc_dt(struct oplus_chg_comm *comm_dev)
 {
-	struct device_node *node = oplus_get_node_by_type(comm_dev->dev->of_node);
-	struct oplus_comm_spec_config *spec = &comm_dev->spec;
-	int rc;
-
-	rc = of_property_read_u32(
-		node, "oplus_spec,wired-aging-ffc-version",
-		&spec->wired_aging_ffc_version);
-	if (rc < 0) {
-		chg_info("wired-aging-ffc not support\n");
-		spec->wired_aging_ffc_version = AGING_FFC_NOT_SUPPORT;
-		return;
-	}
-	rc = read_unsigned_data_from_node(node, "oplus_spec,wired-aging-ffc-offset-mv",
-					  (u32 *)spec->wired_aging_ffc_offset_mv,
-					  AGAIN_FFC_CYCLY_THR_COUNT * spec->wired_ffc_step_max);
-	if (rc < 0) {
-		chg_err("get oplus_spec,wired-aging-ffc-offset-mv error, rc=%d\n", rc);
-		spec->wired_aging_ffc_version = AGING_FFC_NOT_SUPPORT;
-		return;
-	}
-	rc = read_unsigned_data_from_node(node, "oplus_spec,wired-aging-ffc-cycle-thr",
-					  (u32 *)spec->wired_aging_ffc_cycle_thr,
-					  AGAIN_FFC_CYCLY_THR_COUNT);
-	if (rc < 0) {
-		chg_err("get oplus_spec,wired-aging-ffc-cycle-thr error, rc=%d\n", rc);
-		spec->wired_aging_ffc_version = AGING_FFC_NOT_SUPPORT;
-		return;
-	}
+	comm_dev->spec.wired_aging_ffc_version = AGING_FFC_NOT_SUPPORT;
 }
 
 static bool oplus_comm_reserve_soc_by_rus(struct oplus_chg_comm *chip)
@@ -9304,4 +9296,19 @@ int oplus_comm_get_wired_aging_ffc_version(struct oplus_mms *topic)
 	spec = &chip->spec;
 
 	return spec->wired_aging_ffc_version;
+}
+
+int oplus_comm_get_removed_bat_decidegc(struct oplus_mms *topic)
+{
+	struct oplus_chg_comm *chip;
+	struct oplus_comm_spec_config *spec;
+
+	if (topic == NULL) {
+		chg_err("topic is NULL\n");
+		return -ENODEV;
+	}
+	chip = oplus_mms_get_drvdata(topic);
+	spec = &chip->spec;
+
+	return spec->removed_bat_decidegc;
 }

@@ -799,6 +799,9 @@
 					/* AOD Mode OFF */
 					15 00 00 40 00 00 02 65 00
 					05 00 00 40 00 00 01 38
+					39 00 00 40 00 00 06 F0 55 AA 52 08 01
+					15 00 00 40 00 00 02 6F 01
+					15 00 00 40 00 00 02 D2 00
 					/* TE Modulation */
 					15 00 00 40 00 00 02 2F 30
 					15 00 00 40 00 00 02 6D 00
@@ -1478,6 +1481,9 @@
 					/* AOD Mode OFF */
 					15 00 00 40 00 00 02 65 00
 					05 00 00 40 00 00 01 38
+					39 00 00 40 00 00 06 F0 55 AA 52 08 01
+					15 00 00 40 00 00 02 6F 01
+					15 00 00 40 00 00 02 D2 00
 					/* TE Modulation */
 					15 00 00 40 00 00 02 2F 31
 					15 00 00 40 00 00 02 6D 00
@@ -2401,6 +2407,9 @@
 					/* AOD Mode OFF */
 					15 00 00 40 00 00 02 65 00
 					05 00 00 40 00 00 01 38
+					39 00 00 40 00 00 06 F0 55 AA 52 08 01
+					15 00 00 40 00 00 02 6F 01
+					15 00 00 40 00 00 02 D2 00
 					/* TE Modulation */
 					15 00 00 40 00 00 02 2F 30
 					15 00 00 40 00 00 02 6D 01
@@ -2416,6 +2425,9 @@
 					/* AOD Mode OFF */
 					15 00 00 40 00 00 02 65 00
 					05 00 00 40 00 00 01 38
+					39 00 00 40 00 00 06 F0 55 AA 52 08 01
+					15 00 00 40 00 00 02 6F 01
+					15 00 00 40 00 00 02 D2 00
 					/* TE Modulation */
 					15 00 00 40 00 00 02 2F 32
 					15 00 00 40 00 00 02 6D 01
@@ -3409,6 +3421,9 @@
 					/* AOD Mode OFF */
 					15 00 00 40 00 00 02 65 00
 					05 00 00 40 00 00 01 38
+					39 00 00 40 00 00 06 F0 55 AA 52 08 01
+					15 00 00 40 00 00 02 6F 01
+					15 00 00 40 00 00 02 D2 00
 					/* TE Modulation */
 					15 00 00 40 00 00 02 2F 30
 					15 00 00 40 00 00 02 6D 00
@@ -3424,6 +3439,9 @@
 					/* AOD Mode OFF */
 					15 00 00 40 00 00 02 65 00
 					05 00 00 40 00 00 01 38
+					39 00 00 40 00 00 06 F0 55 AA 52 08 01
+					15 00 00 40 00 00 02 6F 01
+					15 00 00 40 00 00 02 D2 00
 					/* TE Modulation */
 					15 00 00 40 00 00 02 2F 32
 					15 00 00 40 00 00 02 6D 00
@@ -4047,11 +4065,13 @@
 	oplus,color_srgb_status;
 	oplus,color_softiris_status;
 	oplus,color_dual_brightness_status;
-
+	/*hbm off cmd */
+	oplus,send-hbm-off-before-panel-off;
 	/* serial num config */
 	oplus,dsi-serial-number-enabled;
 	oplus,dsi-serial-number-switch-page;
 	oplus,dsi-serial-number-index= <0>;
 	oplus,dsi-serial-number-reg= <0xD7>;
 	oplus,dsi-serial-number-read-count= <7>;
+	oplus,ofp-longrui-aod-config = <0x02>;
 };

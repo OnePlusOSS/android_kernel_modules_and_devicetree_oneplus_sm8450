@@ -4264,11 +4264,7 @@ static int fg_sm8350_get_battery_fcc(void)
 		return -1;
 	}
 
-	if (oplus_chg_get_voocphy_support(bcdev) == ADSP_VOOCPHY) {
-		fcc = bcdev->read_buffer_dump.data_buffer[6];
-		return fcc;
-	}
-
+	fcc = bcdev->read_buffer_dump.data_buffer[6];
 	return fcc;
 }
 
@@ -4281,11 +4277,7 @@ static int fg_sm8350_get_battery_cc(void)
 		return -1;
 	}
 
-	if (oplus_chg_get_voocphy_support(bcdev) == ADSP_VOOCPHY) {
-		cc = bcdev->read_buffer_dump.data_buffer[7];
-		return cc;
-	}
-
+	cc = bcdev->read_buffer_dump.data_buffer[7];
 	return cc;
 }
 

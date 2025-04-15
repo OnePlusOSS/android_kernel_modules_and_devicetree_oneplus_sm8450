@@ -361,7 +361,7 @@ int oplus_sy6974b_enter_shipmode(bool en)
 
 
 int sy6974b_usb_icl[] = {
-	300, 500, 900, 1200, 1350, 1500, 1750, 2000, 3000,
+	300, 500, 900, 1200, 1350, 1500, 1750, 2000, 2500, 3000,
 };
 
 static int sy6974b_get_usb_icl(void)
@@ -620,11 +620,22 @@ int sy6974b_input_current_limit_write(int current_ma)
 	if (chg_vol < sw_aicl_point) {
 		i = i - 2; //1.5
 		goto aicl_pre_step;
+	} else if (current_ma < 2500) {
+		goto aicl_end;
+	}
+
+	i = 8; /* 2500 */
+	rc = sy6974b_input_current_limit_without_aicl(sy6974b_usb_icl[i]);
+	usleep_range(AICL_DELAY_MIN_US, AICL_DELAY_MAX_US);
+	chg_vol = sy6974b_get_charger_vol();
+	if (chg_vol < sw_aicl_point) {
+		i = i - 1; //2
+		goto aicl_pre_step;
 	} else if (current_ma < 3000) {
 		goto aicl_end;
 	}
 
-	i = 8; /* 3000 */
+	i = 9; /* 3000 */
 	rc = sy6974b_input_current_limit_without_aicl(sy6974b_usb_icl[i]);
 	usleep_range(AICL_DELAY_MIN_US, AICL_DELAY_MAX_US);
 	chg_vol = sy6974b_get_charger_vol();
@@ -996,7 +1007,8 @@ bool oplus_chg_is_usb_present(void)
 		return pre_vbus_status;
 	}
 #endif
-	if (oplus_voocphy_get_fastchg_commu_ing()) {
+	if (oplus_voocphy_get_fastchg_commu_ing() ||
+	    oplus_voocphy_get_copycat_type() != FAST_COPYCAT_TYPE_UNKNOW) {
 		/*chg_err("fastchg_commu_ing,return true");*/
 		pre_vbus_status = true;
 		return pre_vbus_status;
@@ -1790,6 +1802,20 @@ close_time:
 }
 #endif /* CONFIG_OPLUS_RTC_DET_SUPPORT */
 
+int sy6974b_oplus_check_cc_mode(void)
+{
+	const char *tcpc_name = "type_c_port0";
+	struct tcpc_device *tcpc_dev;
+
+	tcpc_dev = tcpc_dev_get_by_name(tcpc_name);
+	if (IS_ERR_OR_NULL(tcpc_dev)) {
+		chg_err("tcpc info error\n");
+		return -EINVAL;
+	}
+
+	return tcpm_inquire_typec_role(tcpc_dev);
+}
+
 void sy6974b_vooc_timeout_callback(bool vbus_rising)
 {
 	struct chip_sy6974b *chip = charger_ic;
@@ -2204,6 +2230,7 @@ static int oplus_sy6974b_hardware_init(void)
 	sy6974b_set_vindpm_vol(chip->hw_aicl_point);
 	/* Enable charging */
 	if (strcmp(chip->chg_dev_name, "primary_chg") == 0) {
+		sy6974b_unsuspend_charger();
 		ret = sy6974b_enable_charging();
 		if (ret < 0) {
 			chg_err("oplus_sy6974b_hardware_init enable charging failed \n");
@@ -2591,6 +2618,7 @@ struct oplus_chg_operations  oplus_chg_sy6974b_ops = {
 	.get_usbtemp_volt = oplus_get_usbtemp_volt,
 	.set_typec_cc_open = oplus_mt6789_usbtemp_set_cc_open,
 	.set_typec_sinkonly = oplus_mt6789_usbtemp_set_typec_sinkonly,
+	.check_cc_mode = sy6974b_oplus_check_cc_mode,
 	.get_shortc_hw_gpio_status = sy6974b_get_shortc_hw_gpio_status,
 	.oplus_chg_get_pd_type = sy6974b_get_pd_type,
 	.oplus_chg_pd_setup = sy6974b_chg_set_pd_config,

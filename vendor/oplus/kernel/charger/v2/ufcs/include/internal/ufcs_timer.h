@@ -26,7 +26,7 @@ enum ufcs_timer {
 
 /* ufcs spec 7.3.8 */
 #define T_ACK_RECEIVE_MS		10
-#define T_SENDER_RESPONSE_MS		50
+#define T_SENDER_RESPONSE_MS		100 /* spec 50ms, oplus 100ms */
 #define T_POWER_SUPPLY_MS		550
 #define T_CABLE_INFO_RESPONSE_MS	1200
 #define T_RESTART_TRANS_MS		1100

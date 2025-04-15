@@ -91,13 +91,15 @@ static int __ufcs_pdo_set(struct ufcs_class *class, int index, int vol_mv, int c
 	mutex_lock(&class->ext_req_lock);
 	mutex_lock(&class->pe_lock);
 	reinit_completion(&class->request_ack);
+	if (!class->handshake_success) {
+		ufcs_err("ufcs no handshake\n");
+		rc = -EINVAL;
+		goto err;
+	}
 	rc = ufcs_push_event(class, event);
 	if (rc < 0) {
-		mutex_unlock(&class->pe_lock);
-		mutex_unlock(&class->ext_req_lock);
 		ufcs_err("push pdo request event error, rc=%d\n", rc);
-		devm_kfree(&class->ufcs->dev, event);
-		return rc;
+		goto err;
 	}
 	mutex_unlock(&class->pe_lock);
 	wait_for_completion(&class->request_ack);
@@ -110,6 +112,12 @@ static int __ufcs_pdo_set(struct ufcs_class *class, int index, int vol_mv, int c
 	}
 
 	return 0;
+
+err:
+	mutex_unlock(&class->pe_lock);
+	mutex_unlock(&class->ext_req_lock);
+	devm_kfree(&class->ufcs->dev, event);
+	return rc;
 }
 
 int ufcs_pdo_set(struct ufcs_class *class, int vol_mv, int curr_ma)
@@ -171,6 +179,7 @@ int ufcs_handshake(struct ufcs_dev *ufcs)
 	ufcs_info("start handshake\n");
 
 	class->start_cable_detect = false;
+	class->exit_ufcs_ack_received = false;
 	event = devm_kzalloc(&class->ufcs->dev, sizeof(struct ufcs_event), GFP_KERNEL);
 	if (event == NULL) {
 		ufcs_err("alloc event buf error\n");
@@ -323,6 +332,7 @@ static int ufcs_send_exit_ufcs_mode(struct ufcs_class *class)
 	}
 	mutex_unlock(&class->pe_lock);
 	wait_for_completion(&class->request_ack);
+	class->handshake_success = false;
 	rc = READ_ONCE(class->state.err);
 	mutex_unlock(&class->ext_req_lock);
 
@@ -330,7 +340,6 @@ static int ufcs_send_exit_ufcs_mode(struct ufcs_class *class)
 		ufcs_err("exit ufcs mode error, rc=%d\n", rc);
 		return rc;
 	}
-	class->handshake_success = false;
 
 	return 0;
 

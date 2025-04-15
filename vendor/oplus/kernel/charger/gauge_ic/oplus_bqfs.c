@@ -30,9 +30,12 @@
 #include <linux/workqueue.h>
 #include <asm/div64.h>
 #include <linux/iio/consumer.h>
+#include <linux/sched/clock.h>
+#include <linux/rtc.h>
 
 #include "../oplus_charger.h"
 #include "oplus_bq27541.h"
+#include "oplus_bqfs.h"
 
 #define IIC_ADDR_OF_2_KERNEL(addr) ((u8)((u8)addr >> 1))
 #define CMD_MAX_DATA_SIZE	32
@@ -44,7 +47,6 @@ typedef enum {
 	CMD_C,
 	CMD_X,
 } cmd_type_t;
-
 
 typedef struct {
 	cmd_type_t cmd_type;
@@ -263,7 +265,9 @@ static int bq27426_unseal(struct chip_bq27541 *chip)
 	int retry = 2;
 	int rc = 0;
 	int value = 0;
+	mutex_lock(&chip->gauge_alt_manufacturer_access);
 	if (!bq27426_sealed(chip)) {
+		mutex_unlock(&chip->gauge_alt_manufacturer_access);
 		pr_err("bq27426 unsealed, return\n");
 		return rc;
 	}
@@ -284,6 +288,8 @@ static int bq27426_unseal(struct chip_bq27541 *chip)
 			rc = -1;
 		}
 	} while (retry > 0);
+	mutex_unlock(&chip->gauge_alt_manufacturer_access);
+
 	pr_err("%s [%d][0x%x]\n", __func__, rc, value);
 
 	return rc;
@@ -294,7 +300,10 @@ static int bq27426_seal(struct chip_bq27541 *chip)
 	int retry = 2;
 	int rc = 0;
 	int value = 0;
+
+	mutex_lock(&chip->gauge_alt_manufacturer_access);
 	if (bq27426_sealed(chip)) {
+		mutex_unlock(&chip->gauge_alt_manufacturer_access);
 		pr_err("bq8z610 sealed, return\n");
 		return rc;
 	}
@@ -315,6 +324,7 @@ static int bq27426_seal(struct chip_bq27541 *chip)
 			rc = -1;
 		}
 	} while (retry > 0);
+	mutex_unlock(&chip->gauge_alt_manufacturer_access);
 	pr_err("%s [%d][0x%x]\n", __func__, rc, value);
 
 	return rc;
@@ -333,6 +343,7 @@ void bq27426_modify_soc_smooth_parameter(struct chip_bq27541 *chip, bool on)
 		chg_err("bq27426_unseal fail !\n");
 		return;
 	}
+	mutex_lock(&chip->gauge_alt_manufacturer_access);
 
 	gauge_i2c_txsubcmd_onebyte(chip, 0x61, 0x00);
 
@@ -342,6 +353,7 @@ void bq27426_modify_soc_smooth_parameter(struct chip_bq27541 *chip, bool on)
 	bqfs_read_word(chip, 0x40, &value);
 	if ((on && (value & BIT(13))) || (!on && !(value & BIT(13)))) {
 		rc = -1;
+		mutex_unlock(&chip->gauge_alt_manufacturer_access);
 		goto smooth_exit;
 	}
 
@@ -373,6 +385,7 @@ void bq27426_modify_soc_smooth_parameter(struct chip_bq27541 *chip, bool on)
 	gauge_i2c_txsubcmd_onebyte(chip, 0x60, new_csum);
 	bqfs_cntl_cmd(chip, 0x0042);
 	usleep_range(1100000, 1100000);
+	mutex_unlock(&chip->gauge_alt_manufacturer_access);
 
 	rc = 1;
 
@@ -576,12 +589,261 @@ static void oplus_bqfs_track_update_work(struct work_struct *work)
 	oplus_bqfs_track_upload_upgrade_info(chip, chip->bqfs_info.track_info);
 }
 
-enum { BQFS_FW_CHECK_OK,
-       BQFS_FW_UNSEAL_FAIL,
-       BQFS_FW_CMD_LEN_ERR,
-       BQFS_FW_CMD_UPGRADE_ERR,
-       BQFS_FW_UPGRADE_MAX,
+#define BQFS_FORCE_UPGRADE_COUNT_MAX 1
+#define BQFS_FORCE_UPGRADE_PERIOD (24 * 3600)
+#define BQFS_UTC_BASE_TIME	(1900)
+static int oplus_bqfs_get_current_time_s(struct rtc_time *tm)
+{
+	struct timespec ts;
+
+	getnstimeofday(&ts);
+
+	rtc_time_to_tm(ts.tv_sec, tm);
+	tm->tm_year = tm->tm_year + BQFS_UTC_BASE_TIME;
+	tm->tm_mon = tm->tm_mon + 1;
+	return ts.tv_sec;
+}
+
+static bool oplus_bqfs_force_upgrade_counts_check(struct chip_bq27541 *chip)
+{
+	static int upload_count = 0;
+	static int pre_upload_time = 0;
+	int curr_time;
+	struct rtc_time tm;
+
+	if (!chip)
+		return false;
+
+	curr_time = oplus_bqfs_get_current_time_s(&tm);
+	if (curr_time - pre_upload_time > BQFS_FORCE_UPGRADE_PERIOD)
+		upload_count = 0;
+
+	if (upload_count >= BQFS_FORCE_UPGRADE_COUNT_MAX)
+		return false;
+
+	pre_upload_time = curr_time;
+	upload_count++;
+
+	return true;
+}
+
+#define OPLUS_GAUGE_CP_ABNORMAL_ABS_VBAT (1000)
+#define OPLUS_GAUGE_ABNORMAL_RETRY_CNTS (3)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_MAX (770)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_HIGH (530)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_MIN (-400)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_LOW (-100)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_ABS_MIN (200)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_ABS_HIGH (300)
+#define OPLUS_GAUGE_ABNORMAL_TBATT_ABS_MAX (400)
+
+enum { BQFS_DATA_ERR_NONE = 0,
+       BQFS_DATA_ERR_TBATT,
+       BQFS_DATA_ERR_VBAT,
+       BQFS_DATA_ERR_FCC,
+       BQFS_DATA_ERR_SOH,
+       BQFS_DATA_ERR_QMAX,
+       BQFS_DATA_ERR_CURR,
+       BQFS_DATA_ERR_MAX = 31,
 };
+
+bool bqfs_fw_tbatt_check(struct chip_bq27541 *chip)
+{
+	int ret = 0, retry_cnt = 0;
+	int tbatt = 0, inttemp = 0;
+
+	if (atomic_read(&chip->suspended) == 1 || atomic_read(&chip->gauge_i2c_status)) {
+		chg_err(" chip->locked return\n");
+		return false;
+	}
+
+	do {
+		ret = gauge_read_i2c(chip, chip->cmd_addr.reg_temp, &tbatt);
+		if (ret) {
+			chg_err("error reading tbatt, ret:%d\n", ret);
+			return false;
+		}
+		tbatt = tbatt + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
+
+		ret = gauge_read_i2c(chip, chip->cmd_addr.reg_inttemp, &inttemp);
+		if (ret) {
+			chg_err("error reading tbatt, ret:%d\n", ret);
+			return false;
+		}
+		inttemp = inttemp + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
+		if ((((tbatt < OPLUS_GAUGE_ABNORMAL_TBATT_MIN) || (tbatt > OPLUS_GAUGE_ABNORMAL_TBATT_MAX)) &&
+			abs(tbatt - inttemp) > OPLUS_GAUGE_ABNORMAL_TBATT_ABS_MIN) ||
+			(((tbatt >= OPLUS_GAUGE_ABNORMAL_TBATT_MIN) && (tbatt <= OPLUS_GAUGE_ABNORMAL_TBATT_LOW)) &&
+			abs(tbatt - inttemp) >= OPLUS_GAUGE_ABNORMAL_TBATT_ABS_MAX) ||
+			(((tbatt >= OPLUS_GAUGE_ABNORMAL_TBATT_HIGH) && (tbatt <= OPLUS_GAUGE_ABNORMAL_TBATT_MAX)) &&
+			abs(tbatt - inttemp) >= OPLUS_GAUGE_ABNORMAL_TBATT_ABS_HIGH))
+			retry_cnt++;
+		else
+			break;
+	} while (retry_cnt < OPLUS_GAUGE_ABNORMAL_RETRY_CNTS);
+
+	if (retry_cnt >= OPLUS_GAUGE_ABNORMAL_RETRY_CNTS) {
+		snprintf(chip->bqfs_info.data_err, BQFS_DATA_LEN, "$$tbatt@@%d$$inttemp@@%d", tbatt, inttemp);
+		chip->bqfs_info.err_code |= 1 << BQFS_DATA_ERR_TBATT;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool bqfs_fw_vbatt_check(struct chip_bq27541 *chip)
+{
+	int ret = 0, retry_cnt = 0;
+	int vbatt = 0;
+
+	if (atomic_read(&chip->suspended) == 1 || atomic_read(&chip->gauge_i2c_status)) {
+		chg_err(" chip->locked return\n");
+		return false;
+	}
+
+	do {
+		ret = gauge_read_i2c(chip, chip->cmd_addr.reg_volt, &vbatt);
+		if (ret) {
+			chg_err("error reading vbatt, ret:%d\n", ret);
+			return false;
+		}
+		if ((vbatt >= chip->gauge_abnormal_vbatt_min) && (vbatt <= chip->gauge_abnormal_vbatt_max)) {
+			break;
+		}
+		retry_cnt++;
+	} while (retry_cnt < OPLUS_GAUGE_ABNORMAL_RETRY_CNTS);
+
+	if (retry_cnt >= OPLUS_GAUGE_ABNORMAL_RETRY_CNTS) {
+		snprintf(chip->bqfs_info.data_err, BQFS_DATA_LEN, "$$vbatt@@%d", vbatt);
+		chip->bqfs_info.err_code |= 1 << BQFS_DATA_ERR_VBAT;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool bqfs_fw_fcc_check(struct chip_bq27541 *chip)
+{
+	int ret = 0, retry_cnt = 0;
+	int fcc = 0;
+
+	if (atomic_read(&chip->suspended) == 1 || atomic_read(&chip->gauge_i2c_status)) {
+		chg_err(" chip->locked return\n");
+		return false;
+	}
+
+	do {
+		ret = gauge_read_i2c(chip, chip->cmd_addr.reg_fcc, &fcc);
+		if (ret) {
+			chg_err("error reading fcc, ret:%d\n", ret);
+			return false;
+		}
+		if ((fcc >= chip->cp_abnormal_fcc_min) && (fcc <= chip->cp_abnormal_fcc_max)) {
+			break;
+		}
+		retry_cnt++;
+	} while (retry_cnt < OPLUS_GAUGE_ABNORMAL_RETRY_CNTS);
+
+	if (retry_cnt >= OPLUS_GAUGE_ABNORMAL_RETRY_CNTS) {
+		snprintf(chip->bqfs_info.data_err, BQFS_DATA_LEN, "$$fcc@@%d", fcc);
+		chip->bqfs_info.err_code |= 1 << BQFS_DATA_ERR_FCC;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool bqfs_fw_soh_check(struct chip_bq27541 *chip)
+{
+	int ret = 0, retry_cnt = 0;
+	int soh = 0;
+
+	if (atomic_read(&chip->suspended) == 1 || atomic_read(&chip->gauge_i2c_status)) {
+		chg_err(" chip->locked return\n");
+		return false;
+	}
+
+	do {
+		ret = gauge_read_i2c(chip, chip->cmd_addr.reg_soh, &soh);
+		if (ret) {
+			chg_err("error reading soh, ret:%d\n", ret);
+			return false;
+		}
+		if ((soh > chip->cp_abnormal_soh_min) && (soh <= chip->cp_abnormal_soh_max)) {
+			break;
+		}
+		retry_cnt++;
+	} while (retry_cnt < OPLUS_GAUGE_ABNORMAL_RETRY_CNTS);
+
+	if (retry_cnt >= OPLUS_GAUGE_ABNORMAL_RETRY_CNTS) {
+		snprintf(chip->bqfs_info.data_err, BQFS_DATA_LEN, "$$soh@@%d", soh);
+		chip->bqfs_info.err_code |= 1 << BQFS_DATA_ERR_SOH;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool bqfs_fw_qmax_check(struct chip_bq27541 *chip)
+{
+	int ret = 0, retry_cnt = 0;
+	int qmax = 0;
+
+	if (atomic_read(&chip->suspended) == 1 || atomic_read(&chip->gauge_i2c_status)) {
+		chg_err(" chip->locked return\n");
+		return false;
+	}
+
+	do {
+		ret = gauge_read_i2c(chip, BQ27426_QMAX_16, &qmax);
+		if (ret) {
+			chg_err("error reading qmax, ret:%d\n", ret);
+			return false;
+		}
+		if ((qmax >= chip->cp_abnormal_qmax_min) && (qmax <= chip->cp_abnormal_qmax_max)) {
+			break;
+		}
+		retry_cnt++;
+	} while (retry_cnt < OPLUS_GAUGE_ABNORMAL_RETRY_CNTS);
+
+	if (retry_cnt >= OPLUS_GAUGE_ABNORMAL_RETRY_CNTS) {
+		snprintf(chip->bqfs_info.data_err, BQFS_DATA_LEN, "$$qmax@@%d", qmax);
+		chip->bqfs_info.err_code |= 1 << BQFS_DATA_ERR_QMAX;
+		return true;
+	} else {
+		return false;
+	}
+}
+
+void bqfs_data_check_upgrade(struct chip_bq27541 *chip)
+{
+	if (chip->bqfs_info.upgrade_ing)
+		return;
+
+	memset(chip->bqfs_info.data_err, 0, BQFS_DATA_LEN);
+	if (bqfs_fw_tbatt_check(chip) || bqfs_fw_vbatt_check(chip) || bqfs_fw_fcc_check(chip) ||
+		bqfs_fw_soh_check(chip) || bqfs_fw_qmax_check(chip)) {
+		if (!oplus_bqfs_force_upgrade_counts_check(chip)) {
+			return;
+		} else {
+			chip->bqfs_info.force_upgrade = true;
+			bqfs_fw_upgrade(chip, 2);
+		}
+	}
+}
+
+static void oplus_bqfs_data_check_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct chip_bq27541 *chip = container_of(dwork, struct chip_bq27541, bqfs_data_check_work);
+
+	 bqfs_data_check_upgrade(chip);
+}
+
+void oplus_bqfs_data_check(struct chip_bq27541 *chip)
+{
+	schedule_delayed_work(&chip->bqfs_data_check_work, 0);
+}
 
 static int oplus_bqfs_track_init(struct chip_bq27541 *chip)
 {
@@ -598,6 +860,7 @@ static int oplus_bqfs_track_init(struct chip_bq27541 *chip)
 
 	INIT_DELAYED_WORK(&chip->bqfs_err_load_trigger_work, oplus_bqfs_track_upgrade_err_load_trigger_work);
 	INIT_DELAYED_WORK(&chip->bqfs_track_update_work, oplus_bqfs_track_update_work);
+	INIT_DELAYED_WORK(&chip->bqfs_data_check_work, oplus_bqfs_data_check_work);
 
 	rc = oplus_bqfs_track_debugfs_init(chip);
 	if (rc < 0) {
@@ -608,7 +871,50 @@ static int oplus_bqfs_track_init(struct chip_bq27541 *chip)
 	return rc;
 }
 
-int bqfs_fw_upgrade(struct chip_bq27541 *chip, bool init)
+static void oplus_bqfs_awake_init(struct chip_bq27541 *chip)
+{
+	if (!chip) {
+		return;
+	}
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
+	wake_lock_init(&chip->suspend_lock, WAKE_LOCK_SUSPEND, "bqfs suspend wakelock");
+#else
+	chip->suspend_ws = wakeup_source_register(NULL, "bqfs suspend wakelock");
+#endif
+}
+
+static void oplus_bqfs_set_awake(struct chip_bq27541 *chip, bool awake)
+{
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
+	if (awake) {
+		wake_lock(&chip->suspend_lock);
+	} else {
+		wake_unlock(&chip->suspend_lock);
+	}
+#else
+	static bool pm_flag = false;
+
+	if (!chip || !chip->suspend_ws)
+		return;
+
+	if (awake && !pm_flag) {
+		pm_flag = true;
+		__pm_stay_awake(chip->suspend_ws);
+	} else if (!awake && pm_flag) {
+		__pm_relax(chip->suspend_ws);
+		pm_flag = false;
+	}
+#endif
+}
+
+enum { BQFS_FW_CHECK_OK,
+       BQFS_FW_UNSEAL_FAIL,
+       BQFS_FW_CMD_LEN_ERR,
+       BQFS_FW_CMD_UPGRADE_ERR,
+       BQFS_FW_UPGRADE_MAX,
+};
+
+int bqfs_fw_upgrade(struct chip_bq27541 *chip, int init)
 {
 #define BQFS_INIT_RETRY_MAX	3
 #define BQFS_CMD_X_LEN	2
@@ -620,11 +926,21 @@ int bqfs_fw_upgrade(struct chip_bq27541 *chip, bool init)
 	int rc = BQFS_FW_CHECK_OK, rec_cnt = 0, retry_times = 0;
 	int read_buf = 0, value_dm = 0, index = 0;
 
+	if (chip->bqfs_info.upgrade_ing || atomic_read(&chip->suspended) == 1 || atomic_read(&chip->gauge_i2c_status)) {
+		chg_err(" chip->locked return\n");
+		return rc;
+	}
 
+	oplus_bqfs_set_awake(chip, true);
+	chip->bqfs_info.upgrade_ing = true;
+	mutex_lock(&chip->gauge_alt_manufacturer_access);
 	bqfs_read_word(chip, BQ27426_REG_FLAGS, &read_buf);
 	bqfs_cntl_cmd(chip, BQ27426_SUBCMD_DM_CODE);
 	bqfs_read_word(chip, BQ27426_REG_CNTL, &value_dm);
-	if (!(read_buf & BIT(5)) && (value_dm == chip->bqfs_info.bqfs_dm) && !(read_buf & BIT(4))) {
+	mutex_unlock(&chip->gauge_alt_manufacturer_access);
+
+	if (!(read_buf & BIT(5)) && (value_dm == chip->bqfs_info.bqfs_dm) &&
+		!(read_buf & BIT(4)) && !(chip->bqfs_info.force_upgrade)) {
 		chip->bqfs_info.bqfs_status = true;
 		goto BQFS_CHECK_END;
 	}
@@ -636,6 +952,15 @@ int bqfs_fw_upgrade(struct chip_bq27541 *chip, bool init)
 		goto UNSEAL_PROCESS_ERR;
 	}
 
+	if (chip->bqfs_info.err_code) {
+		mutex_lock(&chip->gauge_alt_manufacturer_access);
+		bqfs_cntl_cmd(chip, 0x0041);
+		mutex_unlock(&chip->gauge_alt_manufacturer_access);
+		usleep_range(250000, 250000);
+		chg_err(" BQ27411_RESET_SUBCMD\n");
+	}
+
+	mutex_lock(&chip->gauge_alt_manufacturer_access);
 BQFS_EXECUTE_CMD_RETRY:
 	p = (unsigned char *)chip->bqfs_info.firmware_data;
 	buflen = chip->bqfs_info.fw_lenth;
@@ -647,6 +972,7 @@ BQFS_EXECUTE_CMD_RETRY:
 			len = *p++;
 			if (len != BQFS_CMD_X_LEN) {
 				rc = BQFS_FW_CMD_LEN_ERR;
+				mutex_unlock(&chip->gauge_alt_manufacturer_access);
 				goto BQFS_EXECUTE_CMD_ERR;
 			}
 			cmd.data.delay = *p << BQFS_CMD_SHITF | *(p + 1);
@@ -667,13 +993,16 @@ BQFS_EXECUTE_CMD_RETRY:
 				goto BQFS_EXECUTE_CMD_RETRY;
 			} else {
 				rc = BQFS_FW_CMD_UPGRADE_ERR;
+				mutex_unlock(&chip->gauge_alt_manufacturer_access);
 				goto BQFS_EXECUTE_CMD_ERR;
 			}
 		}
 		mdelay(5);
 	}
 	chip->bqfs_info.bqfs_status = true;
-	chg_err("Parameter update Successfully,bqfs_status %d\n", chip->bqfs_info.bqfs_status);
+	chip->bqfs_info.force_upgrade = false;
+	mutex_unlock(&chip->gauge_alt_manufacturer_access);
+	chg_err("Parameter update Successfully,bqfs_status %d, %s, err = 0x%x\n", chip->bqfs_info.bqfs_status, chip->bqfs_info.data_err, chip->bqfs_info.err_code);
 	mdelay(1000);
 
 BQFS_EXECUTE_CMD_ERR:
@@ -684,9 +1013,13 @@ UNSEAL_PROCESS_ERR:
 	index = snprintf(chip->bqfs_info.track_info, BQFS_INFO_LEN, "$$bqfs_status@@%d$$bqfs_result@@%d$$bqfs_times@@%d"
 		"$$value_dm@@0x%x$$bqfs_dm@@0x%x$$bqfs_flag@@0x%x$$bqfs_type@@%d$$bqfs_on@@%d",
 		chip->bqfs_info.bqfs_status, rc, retry_times, value_dm, chip->bqfs_info.bqfs_dm, read_buf, chip->bqfs_info.batt_type, init);
+	index += snprintf(&(chip->bqfs_info.track_info[index]), BQFS_INFO_LEN - index, "$$data_err@@%s", chip->bqfs_info.data_err);
 	schedule_delayed_work(&chip->bqfs_track_update_work, msecs_to_jiffies(PUSH_DELAY_MS));
 BQFS_CHECK_END:
 	chg_err(" end[%d %d 0x%x %d 0x%x %d %d]\n", chip->bqfs_info.bqfs_status, rc, value_dm, chip->bqfs_info.bqfs_dm, read_buf, chip->bqfs_info.bqfs_ship, init);
+	chip->bqfs_info.upgrade_ing = false;
+	chip->bqfs_info.err_code = 0;
+	oplus_bqfs_set_awake(chip, false);
 
 	return rc;
 }
@@ -705,6 +1038,7 @@ int bqfs_init(struct chip_bq27541 *chip)
 	node = chip->dev->of_node;
 
 	oplus_bqfs_track_init(chip);
+	oplus_bqfs_awake_init(chip);
 
 	bqfs_node = of_find_node_by_name(node, "battery_bqfs_params");
 	if (bqfs_node == NULL) {
@@ -749,7 +1083,8 @@ int bqfs_init(struct chip_bq27541 *chip)
 	rc = bqfs_fw_upgrade(chip, true);
 	if (rc)
 		chg_err(": fail, rc = %d\n", rc);
-
+	bqfs_data_check_upgrade(chip);
+	bq27426_seal(chip);
 	return rc;
 }
 

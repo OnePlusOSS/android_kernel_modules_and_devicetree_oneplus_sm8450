@@ -4361,8 +4361,14 @@ void oplus_voocphy_handle_voocphy_status(struct work_struct *work)
 		oplus_voocphy_wake_check_chg_out_work(3000);
 		oplus_chg_wake_update_work();
 		oplus_chg_unsuspend_charger();
-		if (oplus_chg_check_disable_charger() != false)
+		if (oplus_chg_check_disable_charger() != false) {
 			oplus_chg_disable_charge();
+			if (!g_charger_chip->chg_ops->check_chrdet_status()) {
+				cancel_delayed_work(&chip->check_disable_chg_work);
+				schedule_delayed_work(&chip->check_disable_chg_work,
+					round_jiffies_relative(msecs_to_jiffies(DISCHG_DELAY_TIME)));
+			}
+		}
 	} else if (intval == FAST_NOTIFY_ERR_COMMU) {
 		if (chip->fastchg_start == true) {
 			oplus_chg_set_chargerid_switch_val(0);
@@ -7068,6 +7074,15 @@ void oplus_voocphy_slave_init(struct oplus_voocphy_manager *chip)
 	g_voocphy_chip->slave_client = chip->slave_client;
 	g_voocphy_chip->slave_dev = chip->slave_dev;
 	g_voocphy_chip->slave_ops = chip->slave_ops;
+}
+
+int oplus_voocphy_get_copycat_type(void)
+{
+	if (!g_voocphy_chip) {
+		return false;
+	} else {
+		return g_voocphy_chip->copycat_type;
+	}
 }
 
 int oplus_voocphy_get_mos_state(void)

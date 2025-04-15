@@ -317,6 +317,7 @@ struct oplus_ufcs_limits {
 	int ufcs_high_temp;
 	int ufcs_low_soc;
 	int ufcs_high_soc;
+	int ufcs_removed_bat_decidegc;
 };
 
 struct ufcs_full_curve {
@@ -523,6 +524,7 @@ struct oplus_ufcs {
 	int plc_status;
 	int plc_support;
 	int plc_curr;
+	u16 ufcs_vid;
 };
 
 struct current_level {
@@ -871,6 +873,33 @@ static int oplus_ufcs_set_oplus_adapter(struct oplus_ufcs *chip, bool oplus_adap
 
 	return rc;
 }
+
+static int oplus_ufcs_set_ufcs_vid(struct oplus_ufcs *chip, u16 vid)
+{
+	struct mms_msg *msg;
+	int rc;
+
+	if (chip->ufcs_vid == vid)
+		return 0;
+
+	chip->ufcs_vid = vid;
+	chg_info("set ufcs vid=0x%x\n", chip->ufcs_vid);
+
+	msg = oplus_mms_alloc_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM,
+				  UFCS_ITEM_UFCS_VID);
+	if (msg == NULL) {
+		chg_err("alloc msg error\n");
+		return -ENOMEM;
+	}
+	rc = oplus_mms_publish_msg(chip->ufcs_topic, msg);
+	if (rc < 0) {
+		chg_err("publish ufcs vid msg error, rc=%d\n", rc);
+		kfree(msg);
+	}
+
+	return rc;
+}
+
 
 static void oplus_ufcs_switch_end_recheck_work(struct work_struct *work)
 {
@@ -1775,6 +1804,7 @@ static void oplus_ufcs_variables_early_init(struct oplus_ufcs *chip)
 	chip->cable_info = 0;
 	chip->pdo_num = 0;
 	chip->pie_num = 0;
+	oplus_ufcs_set_ufcs_vid(chip, 0);
 }
 
 static void oplus_ufcs_variables_init(struct oplus_ufcs *chip)
@@ -2019,8 +2049,11 @@ static enum ufcs_power_imax oplus_ufcs_get_power_ability(struct oplus_ufcs *chip
 				chg_err("can't get ufcs protocol power info\n");
 				continue;
 			}
-			if (power_mw <= rc)
+			if (power_mw <= rc) {
+				if (chip->retention_state && chip->retention_exit_ufcs_flag == EXIT_HIGH_UFCS)
+					power_imax = UFCS_CURR_MAX_V0;
 				continue;
+			}
 			if (chip->retention_state && chip->retention_exit_ufcs_flag == EXIT_HIGH_UFCS) {
 				rc = oplus_cpa_protocol_set_power(chip->cpa_topic, CHG_PROTOCOL_UFCS,
 					SUPPORT_THIRD_UFCS_POWER);
@@ -2128,7 +2161,8 @@ static bool oplus_ufcs_reset_adapter(struct oplus_ufcs *chip)
 	If the current is greater than 1A and lasts for more than 5s, the adapter will activate and disconnect DP DM*/
 	if (!need_boot_reset_adapter && chip->wired_online) {
 		ktime_get_boottime_ts64(&uptime);
-		if ((unsigned long)uptime.tv_sec < UFCS_BOOT_RESETADAPTER_20S) {
+		if ((unsigned long)uptime.tv_sec < UFCS_BOOT_RESETADAPTER_20S &&
+		    oplus_is_power_off_charging()) {
 			need_boot_reset_adapter = true;
 			chip->reset_adapter = true;
 		}
@@ -2244,6 +2278,7 @@ static void oplus_ufcs_switch_check_work(struct work_struct *work)
 
 	if (UFCS_DEVICE_INFO_IC_VENDOR(chip->dev_info) == 0) {
 		if (UFCS_DEVICE_INFO_DEV_VENDOR(chip->dev_info) == UFCS_OPLUS_DEV_ID) {
+			oplus_ufcs_set_ufcs_vid(chip, UFCS_OPLUS_DEV_ID);
 			if (chip->config.curr_max_ma <= UFCS_VERIFY_CURR_THR_MA &&
 				!chip->retention_topic) {
 				chg_info("Not support high power UFCS, switch SVOOC");
@@ -3021,7 +3056,8 @@ oplus_ufcs_set_current_temp_little_cool_range(struct oplus_ufcs *chip,
 static int oplus_ufcs_set_current_temp_cool_range(struct oplus_ufcs *chip,
 						  int vbat_temp_cur)
 {
-	int ret = 0;
+	int ret = chip->limits.ufcs_strategy_normal_current;
+
 	if (chip->limits.ufcs_batt_over_low_temp != -EINVAL &&
 	    vbat_temp_cur < chip->limits.ufcs_batt_over_low_temp) {
 		chip->limits.ufcs_strategy_change_count++;
@@ -3535,6 +3571,7 @@ static void oplus_ufcs_check_temp(struct oplus_ufcs *chip)
 #define UFCS_TFG_OV_CNT		6
 #define UFCS_BTB_OV_CNT		8
 #define UFCS_TBATT_OV_CNT	1
+#define UFCS_FG_CONTACT_CNT	2
 
 	ts_current = oplus_current_kernel_time();
 	if ((ts_current.tv_sec - chip->timer.temp_timer.tv_sec) < UFCS_UPDATE_TEMP_TIME)
@@ -3580,6 +3617,14 @@ static void oplus_ufcs_check_temp(struct oplus_ufcs *chip)
 				if (chip->count.tfg_over >= UFCS_TFG_OV_CNT) {
 					chip->count.tfg_over = 0;
 					vote(chip->ufcs_disable_votable, TFG_VOTER, true, 1, false);
+					oplus_ufcs_push_err_info(chip, UFCS_ERR_TFG_OVER, batt_temp);
+				}
+			} else if (batt_temp < chip->limits.ufcs_removed_bat_decidegc) {
+				chg_err("ufcs tfg < -39°\n");
+				chip->count.tfg_over++;
+				if (chip->count.tfg_over >= UFCS_FG_CONTACT_CNT) {
+					chip->count.tfg_over = 0;
+					vote(chip->ufcs_not_allow_votable, BATT_TEMP_VOTER, true, 1, false);
 					oplus_ufcs_push_err_info(chip, UFCS_ERR_TFG_OVER, batt_temp);
 				}
 			} else {
@@ -4024,8 +4069,11 @@ static void oplus_ufcs_monitor_work(struct work_struct *work)
 
 exit:
 	oplus_ufcs_soft_exit(chip);
-	if (switch_to_ffc)
+	if (switch_to_ffc) {
+		if (is_disable_charger_vatable_available(chip))
+			vote(chip->chg_disable_votable, FASTCHG_VOTER, true, 1, false);
 		oplus_comm_switch_ffc(chip->comm_topic);
+	}
 	if (chip->config.adsp_ufcs_project)
 		range_switch_dealy = UFCS_ADSP_TEMP_SWITCH_DELAY;
 	if (chip->ufcs_fastchg_batt_temp_status == UFCS_BAT_TEMP_SWITCH_CURVE) {
@@ -4307,6 +4355,7 @@ static void oplus_ufcs_wired_online_work(struct work_struct *work)
 			vote(chip->wired_icl_votable, BTB_TEMP_OVER_VOTER,
 			     false, 0, true);
 		oplus_ufcs_reset_temp_range(chip);
+		oplus_ufcs_set_ufcs_vid(chip, 0);
 	} else {
 		chip->retention_state_ready = false;
 		if (READ_ONCE(chip->disconnect_change) && !chip->ufcs_online &&
@@ -4822,6 +4871,10 @@ static void oplus_ufcs_subscribe_comm_topic(struct oplus_mms *topic,
 		chip->chg_ctrl_by_sale_mode = (bool)data.intval;
 
 	vote(chip->ufcs_boot_votable, COMM_TOPIC_VOTER, false, 0, false);
+
+	chip->limits.ufcs_removed_bat_decidegc =
+		oplus_comm_get_removed_bat_decidegc(chip->comm_topic);
+	chg_info("chip->limits.ufcs_removed_bat_decidegc = %d", chip->limits.ufcs_removed_bat_decidegc);
 }
 
 static void oplus_ufcs_wired_subs_callback(struct mms_subscribe *subs,
@@ -5506,6 +5559,29 @@ static int oplus_ufcs_update_slow_chg_batt_limit(struct oplus_mms *mms,
 	return 0;
 }
 
+static int oplus_ufcs_update_ufcs_vid(struct oplus_mms *mms,
+						union mms_msg_data *data)
+{
+	struct oplus_ufcs *chip;
+	int vid = 0;
+
+	if (mms == NULL) {
+		chg_err("topic is NULL");
+		return -EINVAL;
+	}
+	if (data == NULL) {
+		chg_err("data is NULL");
+		return -EINVAL;
+	}
+
+	chip = oplus_mms_get_drvdata(mms);
+	if (chip)
+		vid = chip->ufcs_vid;
+
+	data->intval = vid;
+	return 0;
+}
+
 static void oplus_ufcs_topic_update(struct oplus_mms *mms, bool publish)
 {
 }
@@ -5563,6 +5639,12 @@ static struct mms_item oplus_ufcs_item[] = {
 		.desc = {
 			.item_id = UFCS_ITEM_SLOW_CHG_BATT_LIMIT,
 			.update = oplus_ufcs_update_slow_chg_batt_limit,
+		}
+	},
+	{
+		.desc = {
+			.item_id = UFCS_ITEM_UFCS_VID,
+			.update = oplus_ufcs_update_ufcs_vid,
 		}
 	},
 };

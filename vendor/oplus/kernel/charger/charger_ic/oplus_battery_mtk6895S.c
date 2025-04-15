@@ -2497,7 +2497,7 @@ static ssize_t sc_tuisoc_store(
 	struct device *dev, struct device_attribute *attr,
 					 const char *buf, size_t size)
 {
-	unsigned long val = 0;
+	long val = 0;
 	int ret;
 	struct power_supply *chg_psy = NULL;
 	struct mtk_charger *info = NULL;

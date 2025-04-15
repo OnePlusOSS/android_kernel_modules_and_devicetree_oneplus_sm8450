@@ -3026,6 +3026,20 @@ int oplus_bq2589x_get_chargerid_volt(void)
 	return 0;
 }
 
+int oplus_bq2589x_check_cc_mode(void)
+{
+	const char *tcpc_name = "type_c_port0";
+	struct tcpc_device *tcpc_dev;
+
+	tcpc_dev = tcpc_dev_get_by_name(tcpc_name);
+	if (IS_ERR_OR_NULL(tcpc_dev)) {
+		chg_err("tcpc info error\n");
+		return -EINVAL;
+	}
+
+	return tcpm_inquire_typec_role(tcpc_dev);
+}
+
 bool oplus_bq2589x_check_chrdet_status(void)
 {
 	if(!g_bq)
@@ -3588,6 +3602,7 @@ struct oplus_chg_operations  oplus_chg_bq2589x_ops = {
 #endif /* CONFIG_OPLUS_CHARGER_MTK */
 	.get_subboard_temp = oplus_force_get_subboard_temp,
 	.vooc_timeout_callback = oplus_bq2589x_vooc_timeout_callback,
+	.check_cc_mode = oplus_bq2589x_check_cc_mode,
 };
 
 static void retry_detection_work_callback(struct work_struct *work)

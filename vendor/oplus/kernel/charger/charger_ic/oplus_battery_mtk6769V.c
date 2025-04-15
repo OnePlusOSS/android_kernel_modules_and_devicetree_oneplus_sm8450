@@ -55,6 +55,8 @@
 #include "op_charge.h"
 #ifdef CONFIG_OPLUS_PD_EXT_SUPPORT
 #include "../pd_ext/inc/tcpci.h"
+#include "../pd_ext/inc/tcpm.h"
+#include "../pd_ext/inc/tcpci_typec.h"
 #else
 #include <tcpci.h>
 #endif
@@ -138,6 +140,7 @@ extern struct oplus_chg_operations  oplus_chg_bq2591x_ops;
 extern struct oplus_chg_operations  oplus_chg_sy6974_ops;
 #ifdef CONFIG_CHARGER_SC6607
 extern struct oplus_chg_operations  oplus_chg_sc6607_ops;
+extern bool check_ntc_suport_1000k(void);
 #endif
 extern struct oplus_chg_operations  oplus_chg_sgm41512_ops;
 struct iio_channel *usb_chan1; /*usb_temp_auxadc_channel 1*/
@@ -194,6 +197,9 @@ static struct task_struct *oplus_usbtemp_kthread;
 static DECLARE_WAIT_QUEUE_HEAD(oplus_usbtemp_wq);
 void oplus_set_otg_switch_status(bool value);
 void oplus_wake_up_usbtemp_thread(void);
+static void oplus_ccdetect_disable(void);
+static void oplus_ccdetect_enable(void);
+bool oplus_usbtemp_condition(void);
 extern void oplus_chg_turn_off_charging(struct oplus_chg_chip *chip);
 
 extern bool set_charge_power_sel(int);
@@ -2138,6 +2144,12 @@ int oplus_chg_get_battery_btb_temp_cal(void)
 		chg_err("null pinfo or pdata\n");
 		return TEMP_25C;
 	}
+
+#ifdef CONFIG_CHARGER_SC6607
+	if (g_oplus_chip && g_oplus_chip->chg_ops->get_cp_tsbus && check_ntc_suport_1000k()) {
+		return g_oplus_chip->chg_ops->get_cp_tsbus() / UNIT_TRANS;
+	}
+#endif
 	if (g_oplus_chip && g_oplus_chip->chg_ops->get_cp_tsbat) {
 		return g_oplus_chip->chg_ops->get_cp_tsbat();
 	}
@@ -4921,6 +4933,31 @@ void charger_debug_init(void)
 		charger_dir, &charger_dump_log_proc_fops);
 }
 
+static bool oplus_ccdetect_check_is_wd0(struct oplus_chg_chip *chip)
+{
+	struct device_node *node = chip->dev->of_node;
+
+	if (!node) {
+		chg_err("device tree info missing\n");
+		return false;
+	}
+
+	if (of_property_read_bool(node, "qcom,ccdetect_by_wd0"))
+		return true;
+
+	return false;
+}
+
+bool oplus_chg_get_wd0_status(void)
+{
+	if (!pinfo) {
+		chg_err("pinfo null!\n");
+		return false;
+	}
+
+	return pinfo->wd0_detect;
+}
+
 bool oplus_ccdetect_check_is_gpio(struct oplus_chg_chip *chip)
 {
 	if (!chip) {
@@ -5246,6 +5283,34 @@ static int oplus_chg_usbtemp_parse_dt(struct oplus_chg_chip *chip)
 	return rc;
 }
 
+static void oplus_wd0_detect_work(struct work_struct *work)
+{
+	int level;
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip) {
+		chg_err("g_oplus_chip not ready!\n");
+		return;
+	}
+
+	level = !oplus_chg_get_wd0_status();
+
+	if (level != 1) {
+		oplus_wake_up_usbtemp_thread();
+	} else {
+		chip->usbtemp_check = oplus_usbtemp_condition();
+
+		if (chip->usb_status == USB_TEMP_HIGH) {
+			schedule_delayed_work(&pinfo->usbtemp_recover_work, 0);
+		}
+	}
+}
+
+static void oplus_usbtemp_recover_work(struct work_struct *work)
+{
+	oplus_usbtemp_recover_func(g_oplus_chip);
+}
+
 void oplus_ccdetect_irq_init(struct oplus_chg_chip *chip)
 {
 	if (!chip) {
@@ -5255,6 +5320,15 @@ void oplus_ccdetect_irq_init(struct oplus_chg_chip *chip)
 	chip->chgic_mtk.oplus_info->ccdetect_irq = gpio_to_irq(chip->chgic_mtk.oplus_info->ccdetect_gpio);
 	chg_err("chip->chgic_mtk.oplus_info->ccdetect_gpio[%d]!\n",
 		chip->chgic_mtk.oplus_info->ccdetect_gpio);
+}
+
+irqreturn_t oplus_ccdetect_change_handler(int irq, void *data)
+{
+	cancel_delayed_work_sync(&pinfo->ccdetect_work);
+	chg_err("Scheduling ccdetect work!\n");
+	schedule_delayed_work(&pinfo->ccdetect_work,
+			msecs_to_jiffies(CCDETECT_DELAY_MS));
+	return IRQ_HANDLED;
 }
 
 int oplus_ccdetect_gpio_init(struct oplus_chg_chip *chip)
@@ -5290,6 +5364,27 @@ int oplus_ccdetect_gpio_init(struct oplus_chg_chip *chip)
 	return 0;
 }
 
+static void oplus_ccdetect_work(struct work_struct *work)
+{
+	int level;
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	level = gpio_get_value(chip->chgic_mtk.oplus_info->ccdetect_gpio);
+	if (level != 1) {
+		oplus_ccdetect_enable();
+	        oplus_wake_up_usbtemp_thread();
+	} else {
+		if (g_oplus_chip)
+			g_oplus_chip->usbtemp_check = oplus_usbtemp_condition();
+
+		if (oplus_get_otg_switch_status() == false)
+			oplus_ccdetect_disable();
+		if(g_oplus_chip->usb_status == USB_TEMP_HIGH) {
+			schedule_delayed_work(&pinfo->usbtemp_recover_work, 0);
+		}
+	}
+}
+
 bool oplus_ccdetect_support_check(void)
 {
 	struct oplus_chg_chip *chip = g_oplus_chip;
@@ -5303,6 +5398,69 @@ bool oplus_ccdetect_support_check(void)
 		return true;
 
 	return false;
+}
+
+static void oplus_ccdetect_irq_register(struct oplus_chg_chip *chip)
+{
+	int ret = 0;
+
+	if (!chip) {
+		chg_err("oplus_chip not ready!\n");
+		return;
+	}
+
+	ret = devm_request_threaded_irq(chip->dev,  chip->chgic_mtk.oplus_info->ccdetect_irq,
+			NULL, oplus_ccdetect_change_handler, IRQF_TRIGGER_FALLING
+			| IRQF_TRIGGER_RISING | IRQF_ONESHOT, "ccdetect-change", chip);
+	if (ret < 0) {
+		chg_err("Unable to request ccdetect-change irq: %d\n", ret);
+	}
+	chg_err("!!!!! irq register\n");
+
+	ret = enable_irq_wake(chip->chgic_mtk.oplus_info->ccdetect_irq);
+	if (ret != 0) {
+		chg_err("enable_irq_wake: ccdetect_irq failed %d\n", ret);
+	}
+}
+
+static void oplus_ccdetect_enable(void)
+{
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip) {
+		chg_err("oplus_chip not ready!\n");
+		return;
+	}
+
+	if (oplus_ccdetect_check_is_gpio(chip) != true
+			&& oplus_ccdetect_check_is_wd0(chip) != true)
+		return;
+
+	/* set try SNK */
+	if (pinfo != NULL && pinfo->tcpc != NULL) {
+		tcpm_typec_change_role_postpone(pinfo->tcpc, TYPEC_ROLE_TRY_SNK, true);
+		chg_err("set try snk!\n");
+	}
+}
+
+static void oplus_ccdetect_disable(void)
+{
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (!chip) {
+		chg_err("oplus_chip not ready!\n");
+		return;
+	}
+
+	if (oplus_ccdetect_check_is_gpio(chip) != true
+			&& oplus_ccdetect_check_is_wd0(chip) != true)
+		return;
+
+	/* set SINK mode */
+	if (pinfo != NULL && pinfo->tcpc != NULL) {
+		tcpm_typec_change_role_postpone(pinfo->tcpc, TYPEC_ROLE_SNK, true);
+		chg_err("set sink!\n");
+	}
 }
 
 int oplus_chg_ccdetect_parse_dt(struct oplus_chg_chip *chip)
@@ -6157,6 +6315,14 @@ void oplus_chg_choose_gauge_curve(int index_curve)
 	return;
 }
 
+void oplus_usbtemp_recover_cc_open(void)
+{
+	if (pinfo == NULL || pinfo->tcpc == NULL)
+		return;
+
+	tcpm_typec_disable_function(pinfo->tcpc, false);
+}
+
 bool oplus_chg_check_qchv_condition(void)
 {
 	struct oplus_chg_chip *chip = g_oplus_chip;
@@ -6393,11 +6559,67 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			break;
 		}
 		break;
+	case TCP_NOTIFY_WD_STATUS:
+		chg_err("wd status = %d\n", (bool)noti->wd_status.water_detected);
+		pinfo->water_detected = (bool)noti->wd_status.water_detected;
+		if (pinfo->water_detected == true)
+			pinfo->notify_code |= CHG_TYPEC_WD_STATUS;
+		else
+			pinfo->notify_code &= ~CHG_TYPEC_WD_STATUS;
+		mtk_chgstat_notify(pinfo);
+		break;
+	case TCP_NOTIFY_WD0_STATE:
+		pinfo->wd0_detect = noti->wd0_state.wd0;
+		chg_err("wd0 = %d\n", noti->wd0_state.wd0);
 
+		if (pinfo->wd0_detect) {
+			oplus_ccdetect_enable();
+		} else {
+			if (oplus_get_otg_switch_status() == false)
+				oplus_ccdetect_disable();
+		}
+
+		if (pinfo->wd0_detect_work.work.func) {
+			schedule_delayed_work(&pinfo->wd0_detect_work, msecs_to_jiffies(CCDETECT_DELAY_MS));
+		} else {
+			chg_err("&pinfo->wd0_detect_work.work.func is NULL\n");
+		}
+
+		if (g_oplus_chip && g_oplus_chip->usb_psy) {
+			power_supply_changed(g_oplus_chip->usb_psy);
+			if (pinfo->wd0_detect == 0) {
+				oplus_usbtemp_recover_cc_open();
+			}
+		}
+		break;
+	case TCP_NOTIFY_CHRDET_STATE:
+		pinfo->chrdet_state = noti->chrdet_state.chrdet;
+		chg_err("chrdet = %d\n", noti->chrdet_state.chrdet);
+
+		if (pinfo->chrdet_state) {
+			oplus_chg_wake_update_work();
+			oplus_wake_up_usbtemp_thread();
+			oplus_chg_track_check_wired_charging_break(OPLUS_TRACK_CHG_PLUGIN);
+		} else {
+			oplus_chg_set_charger_type_unknown();
+			oplus_chg_track_check_wired_charging_break(OPLUS_TRACK_CHG_PLUGOUT);
+		}
+		break;
+	case TCP_NOTIFY_HARD_RESET_STATE:
+		switch (noti->hreset_state.state) {
+		case TCP_HRESET_SIGNAL_SEND:
+		case TCP_HRESET_SIGNAL_RECV:
+			pinfo->wait_hard_reset_complete = true;
+			break;
+		default:
+			pinfo->wait_hard_reset_complete = false;
+			break;
+		}
+		chg_err("pd_wait_hard_reset_complete: %d\n", pinfo->wait_hard_reset_complete);
+		break;
 	default:
 		break;
 	}
-
 	return NOTIFY_OK;
 }
 
@@ -6412,6 +6634,7 @@ static int oplus_charger_probe(struct platform_device *pdev)
 	struct oplus_chg_chip *oplus_chip = NULL;
 	struct master_chg_psy *masterchg_psy = NULL;
 	int rc = 0;
+	int level = 0;
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
 /* add for charger_wakelock */
@@ -6634,6 +6857,32 @@ static int oplus_charger_probe(struct platform_device *pdev)
 	device_init_wakeup(&pdev->dev, 1);
 	oplus_chg_wake_update_work();
 	oplus_tbatt_power_off_task_init(oplus_chip);
+
+	if (oplus_ccdetect_support_check() == true) {
+		INIT_DELAYED_WORK(&pinfo->ccdetect_work, oplus_ccdetect_work);
+		INIT_DELAYED_WORK(&pinfo->usbtemp_recover_work, oplus_usbtemp_recover_work);
+		oplus_ccdetect_irq_register(oplus_chip);
+		level = gpio_get_value(oplus_chip->chgic_mtk.oplus_info->ccdetect_gpio);
+		usleep_range(2000, 2100);
+		if (level != gpio_get_value(oplus_chip->chgic_mtk.oplus_info->ccdetect_gpio)) {
+			chg_err("ccdetect_gpio is unstable, try again...\n");
+			usleep_range(10000, 11000);
+			level = gpio_get_value(oplus_chip->chgic_mtk.oplus_info->ccdetect_gpio);
+		}
+
+		if (level <= 0)
+			schedule_delayed_work(&pinfo->ccdetect_work, msecs_to_jiffies(6000));
+
+		chg_err("ccdetect_gpio ..level[%d]\n", level);
+	}
+
+	if (oplus_ccdetect_check_is_wd0(oplus_chip) == true) {
+		INIT_DELAYED_WORK(&pinfo->wd0_detect_work, oplus_wd0_detect_work);
+		if (oplus_ccdetect_support_check() == false) {
+			INIT_DELAYED_WORK(&pinfo->usbtemp_recover_work, oplus_usbtemp_recover_work);
+		}
+	}
+
 	if (oplus_usbtemp_check_is_support() == true) {
 		if (g_oplus_chip->usb_port_ntc_pullup == USB_PORT_PULL_UP_R_100) {
 			oplus_chip->con_volt = con_volt_20131;

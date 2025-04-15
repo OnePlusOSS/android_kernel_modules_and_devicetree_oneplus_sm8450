@@ -553,6 +553,7 @@ struct mtk_charger {
 
 	int pd_chg_volt;
 	struct delayed_work sourcecap_done_work;
+	struct delayed_work charger_suspend_recovery_work;
 	pd_msg_data pdo[PPS_PDO_MAX];
 	int cap_nr;
 #endif

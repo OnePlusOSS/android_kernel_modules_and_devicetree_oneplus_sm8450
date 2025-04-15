@@ -764,7 +764,11 @@ struct oplus_chg_limits {
 	int qc_temp_little_cool_fastchg_current_ma_low;
 	int normal_bat_decidegc; /*16C*/
 	int temp_normal_fastchg_current_ma;
+	int temp_normal_fastchg_current_ma_high;
+	int temp_normal_fastchg_current_ma_low;
 	int pd_temp_normal_fastchg_current_ma;
+	int pd_temp_normal_fastchg_current_ma_high;
+	int pd_temp_normal_fastchg_current_ma_low;
 	int qc_temp_normal_fastchg_current_ma;
 
 	int normal_phase1_bat_decidegc; /* 16C ~ 22C */
@@ -1031,6 +1035,10 @@ struct reserve_soc_data {
 	int smooth_soc_avg_cnt;
 };
 
+#define RECHG_SOC_TO_PARAM(rechg_soc, en) ((((rechg_soc) & 0xff) << 8) | ((en) & 0xff))
+#define RECHG_SOC_TO_SOC(param) (((param) >> 8) & 0xff)
+#define RECHG_SOC_TO_ENABLE(param) ((param) & 0xff)
+
 typedef enum {
 	AGING_FFC_NOT_SUPPORT,
 	AGING_FFC_V1,
@@ -1191,6 +1199,10 @@ struct oplus_chg_chip {
 	bool sw_full;
 	bool hw_full_by_sw;
 	bool hw_full;
+	bool rechg_soc_en;
+	bool uisoc_down_in_full;
+	bool rechg_now;
+	int rechg_soc;
 	int sw_sub_batt_full_count;
 	bool sw_sub_batt_full;
 	bool hw_sub_batt_full_by_sw;
@@ -1203,6 +1215,8 @@ struct oplus_chg_chip {
 	int subboard_temp;
 	bool subboard_ntc_abnormal_status;
 	int tbatt_power_off_cali_temp;
+	int removed_subboard_ntc_temp;
+	int removed_bat_ntc_temp;
 	bool tbatt_use_subboard_temp;
 	bool tbatt_shell_status;
 	bool support_tbatt_shell;
@@ -1306,6 +1320,7 @@ struct oplus_chg_chip {
 	bool suspend_after_full;
 	bool check_batt_full_by_sw;
 	bool external_gauge;
+	bool check_hmac_with_battery_id;
 	bool external_authenticate;
 	bool chg_ctrl_by_lcd;
 	bool chg_ctrl_by_lcd_default;
@@ -1407,6 +1422,7 @@ struct oplus_chg_chip {
 	struct device_node *fast_node;
 	const struct oplus_chg_operations *sub_chg_ops;
 	bool is_double_charger_support;
+	bool check_pd_svooc_complete;
 	int pd_curr_max;
 	int pd_svooc;
 	int pd_chging;
@@ -1493,6 +1509,7 @@ struct oplus_chg_chip {
 	int quick_mode_stop_soc;
 	bool quick_mode_gain_support;
 	bool dual_panel_support;
+	bool lithium_plating_battery_support;
 
 	int uisoc_1_start_batt_rm;
 	int uisoc_1_start_vbatt_max;
@@ -1505,6 +1522,8 @@ struct oplus_chg_chip {
 	int debug_force_fast_gpio_err;
 	int debug_force_cooldown_match_trigger;
 	int debug_batt_cc;
+	int batt_debug_cycle_count;
+	int debug_battery_sn_data;
 	int aging_ffc_version;
 	char chg_power_info[OPLUS_CHG_TRACK_CURX_INFO_LEN];
 	char err_reason[OPLUS_CHG_TRACK_DEVICE_ERR_NAME_LEN];
@@ -1524,6 +1543,7 @@ struct oplus_chg_chip {
 	oplus_chg_track_trigger cool_down_match_err_load_trigger;
 	struct delayed_work cool_down_match_err_load_trigger_work;
 	struct delayed_work soc_update_when_resume_work;
+	struct delayed_work check_pd_svooc_work;
 #if IS_ENABLED(CONFIG_DRM_PANEL_NOTIFY) || IS_ENABLED(CONFIG_OPLUS_CHG_DRM_PANEL_NOTIFY)
 	struct delayed_work panel_notify_reg_work;
 #endif
@@ -1634,6 +1654,7 @@ struct oplus_chg_chip {
 	struct oplus_cpa_protocol_info protocol_prio_table[CHG_PROTOCOL_MAX];
 
 	bool support_hot_enter_kpoc;
+	bool usbtemp_high_temp_scheme;
 	int poweroff_high_batt_temp;
 	int poweroff_emergency_batt_temp;
 	int usbtemp_batt_temp_over_hot;
@@ -2052,5 +2073,7 @@ void oplus_comm_set_anti_expansion_status(struct oplus_chg_chip *chip, int val);
 bool oplus_get_abnormal_disconnect_keep_connect(void);
 void oplus_charger_set_dec_delta(int val);
 int oplus_charger_get_dec_delta(void);
+void oplus_comm_set_rechg_soc_limit(int rechg_soc, bool en);
+void oplus_comm_get_rechg_soc_limit(int *rechg_soc, bool *en);
 //#endif
 #endif /*_OPLUS_CHARGER_H_*/

@@ -99,6 +99,7 @@
 #define BQ27Z561_SUBCMD_TRY_COUNT 		3
 #define BQ27Z561_DATA_CLASS_ACCESS 		0x003e
 #define BQ27Z561_REG_CNTL1			0x3e
+#define GAUGE_EXTERN_DATAFLASHBLOCK	0x3e
 
 #define DEVICE_TYPE_BQ27541			0x0541
 #define DEVICE_TYPE_BQ27411			0x0421
@@ -181,6 +182,13 @@ struct bq27z561_authenticate_data {
 #define BQ27Z561_DATAFLASHBLOCK					0x3e
 #define DEVICE_NAME_LEN 					12
 
+#define BQ27Z561_BLOCK_SIZE			32
+#define BQ27Z561_EXTEND_DATA_SIZE		34
+#define BQ27Z561_REG_TRUE_FCC			0x0073
+#define BQ27Z561_TRUE_FCC_NUM_SIZE		2
+#define BQ27Z561_TRUE_FCC_OFFSET		8
+#define BQ27Z561_FCC_SYNC_CMD			0x0043
+#define GAUGE_SUBCMD_TRY_COUNT			3
 struct cmd_address {
 	/* bq27z561 standard cmds */
 	u8 reg_cntl;
@@ -353,6 +361,10 @@ struct chip_bq27z561 {
 	int max_vol_pre;
 	int min_vol_pre;
 	int batt_num;
+
+	bool fcc_too_small_check_support;
+	bool fcc_too_small_checking;
+	struct work_struct fcc_too_small_check_work;
 
 	bool modify_soc_smooth;
 	bool modify_soc_calibration;

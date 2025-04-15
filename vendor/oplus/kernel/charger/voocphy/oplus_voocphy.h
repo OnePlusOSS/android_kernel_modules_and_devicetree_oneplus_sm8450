@@ -989,6 +989,7 @@ void oplus_voocphy_set_switch_mode(int mode);
 void oplus_voocphy_switch_fast_chg(void);
 int oplus_voocphy_reset_voocphy(void);
 int oplus_voocphy_get_switch_gpio_val(void);
+int oplus_voocphy_get_copycat_type(void);
 int oplus_voocphy_get_mos_state(void);
 bool oplus_voocphy_get_fastchg_ing(void);
 bool oplus_voocphy_get_fastchg_commu_ing(void);

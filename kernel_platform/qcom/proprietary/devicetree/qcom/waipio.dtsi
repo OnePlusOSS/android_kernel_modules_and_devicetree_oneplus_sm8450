@@ -416,7 +416,6 @@
 	};
 
 	// #ifdef OPLUS_SENSOR_FEATURE
-	/* Qiuyao.Li@BSP.SENSOR.CONFIG, 2024/11/20, extend 1M slpi static image size */
 	/* reg = <0x0 0x88000000 0x0 0x1900000>; */
 	slpi_mem: slpi_region@87F00000 {
 		no-map;

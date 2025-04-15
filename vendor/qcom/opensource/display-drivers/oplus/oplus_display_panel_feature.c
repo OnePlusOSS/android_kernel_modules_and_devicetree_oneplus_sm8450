@@ -189,6 +189,11 @@ int oplus_panel_features_config(struct dsi_panel *panel)
 		}
 	}
 
+	panel->oplus_priv.send_hbm_off_before_off = utils->read_bool(utils->data,
+			"oplus,send-hbm-off-before-panel-off");
+	LCD_INFO("oplus,send-hbm-off-before-panel-off: %s\n",
+			panel->oplus_priv.send_hbm_off_before_off ? "true" : "false");
+
 	oplus_panel_get_serial_number_info(panel);
 
 	return 0;
@@ -198,9 +203,23 @@ int oplus_panel_post_on_backlight(void *display, struct dsi_panel *panel, u32 bl
 {
 	struct dsi_display *dsi_display = display;
 	int rc = 0;
+	int delay = 0;
 	if (!panel || !dsi_display) {
 		DSI_ERR("oplus post backlight No panel device\n");
 		return -ENODEV;
+	}
+
+	/* when panel covert hbm-on to power off directly, add hmb-off */
+	if ((panel->oplus_priv.send_hbm_off_before_off) && (bl_lvl == 0)
+			&& (panel->bl_config.bl_level != 0) && (oplus_ofp_get_hbm_state())) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_HBM_OFF);
+		delay = 2 * panel->cur_mode->priv_info->vsync_period;
+		LCD_DEBUG_BACKLIGHT("hbm_off when backlight !0 to 0, bl_lvl=%d, config.bl=%d, cur power_mode=%d, delay=%d\n",
+			bl_lvl,
+			panel->bl_config.bl_level,
+			panel->power_mode,
+			delay);
+		usleep_range(delay, delay + 100);
 	}
 
 	if ((bl_lvl == 0 && panel->bl_config.bl_level != 0) ||

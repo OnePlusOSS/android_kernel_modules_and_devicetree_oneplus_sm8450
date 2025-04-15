@@ -197,6 +197,7 @@ struct dsi_panel_oplus_privite {
 	bool hpwm_onepulse_support;
 	bool onepulse_skip_bl_cmd;
 	bool hpwm_to_onepulse_send_cmd_async_enabled;
+	bool send_hbm_off_before_off;
 	struct workqueue_struct *oplus_panel_send_cmd_wq;
 	struct work_struct oplus_panel_send_cmd_queue_work;
 };

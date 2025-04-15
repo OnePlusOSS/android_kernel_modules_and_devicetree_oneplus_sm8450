@@ -229,6 +229,9 @@
 #define EXTREME_ENDGRID_1         14
 #define EXTREME_GAP_1             2
 #define EXTREME_MAXRATIO_1        8000
+#define EXTREME_MAXRATIO_1_PRO    16000
+#define OVER_MAXRATIO_MAGICDATA   0x5AA5
+#define EXTREME_MAXRATIO_CHECK    5500
 #define EXTREME_MAXCNT_1          1
 #define EXTREME_STARTGRID_2       12
 #define EXTREME_ENDGRID_2         13
@@ -379,7 +382,7 @@ static s32 __fg_write_word(struct chip_bq27541 *chip, u8 reg, u16 val)
 
 static s32 __fg_read_buffer(struct chip_bq27541 *chip, u8 reg, u8 length, u8 *val)
 {
-	static struct i2c_msg msg[2];
+	struct i2c_msg msg[2];
 	s32 ret;
 
 	if (!chip || !chip->client || !chip->client->adapter)
@@ -405,8 +408,8 @@ static s32 __fg_read_buffer(struct chip_bq27541 *chip, u8 reg, u8 length, u8 *va
 
 static s32 __fg_write_buffer(struct chip_bq27541 *chip, u8 reg, u8 length, u8 *val)
 {
-	static struct i2c_msg msg[1];
-	static u8 write_buf[WRITE_BUF_MAX_LEN];
+	struct i2c_msg msg[1];
+	u8 write_buf[WRITE_BUF_MAX_LEN];
 	s32 ret;
 
 	if (!chip || !chip->client || !chip->client->adapter)
@@ -2198,6 +2201,11 @@ static s32 fg_gauge_get_default_cell_model(struct chip_bq27541 *chip, char *prof
 	}
 	pr_err("read model dtsi is %s\r\n", str);
 
+	temp16 = pBuf[CELL_MODEL_COUNT - 1] * MODELRATIO_BASE / pBuf[CELL_MODEL_COUNT - 2]; /* sino change 20240112 */
+	if (temp16 > EXTREME_MAXRATIO_CHECK)
+		pBuf[CELL_MODEL_COUNT] = OVER_MAXRATIO_MAGICDATA;
+	else
+		pBuf[CELL_MODEL_COUNT] = 0;
 
 	ret = fg_read_sbs_word_then_check(chip, CMD_CYCLECOUNT, &cycle0);
 	if (ret < 0) {
@@ -2230,7 +2238,7 @@ static s32 fg_gauge_get_default_cell_model(struct chip_bq27541 *chip, char *prof
 		pBuf[i] = temp16;
 		j += sprintf(&str[j], "%u, ", pBuf[i]);
 	}
-
+	sprintf(&str[j], "%u, ", pBuf[i]);
 	pr_err("CycleCount=%u, CycleRatio=%u, Model=%s\r\n", cycle0, ratio, str);
 
 	return cycle0;
@@ -2246,7 +2254,7 @@ s32 fg_gauge_check_cell_model(struct chip_bq27541 *chip, char *profile_name) /* 
 	s32 maxValue, minValue;
 	u16 temp16;
 	u8 str[200];
-	u16 pBuf[15];
+	u16 pBuf[15+1] = {0};
 	u8 track_buf[64] = {0};
 	int len;
 
@@ -2360,6 +2368,7 @@ s32 fg_gauge_check_cell_model(struct chip_bq27541 *chip, char *profile_name) /* 
 		pr_err("model extreme singular! cnt=%u\r\n", k);
 	}
 
+	temp16 = pBuf[CELL_MODEL_COUNT];	/* sino change 20240112 */
 	k = 0;
 	for (i = EXTREME_STARTGRID_1; i <= EXTREME_ENDGRID_1 - EXTREME_GAP_1 + 1; i++) {
 		maxValue = 0;
@@ -2371,7 +2380,22 @@ s32 fg_gauge_check_cell_model(struct chip_bq27541 *chip, char *profile_name) /* 
 		}
 
 		modelRatio = maxValue * EXTREME_RATIO / minValue;
-		k += !!(modelRatio >= EXTREME_MAXRATIO_1);
+
+		if (temp16 == OVER_MAXRATIO_MAGICDATA) {	/* sino change 20240112 */
+			pr_err("fg_gauge_check_cell_model: Code in run OVER_MAXRATIO_MAGICDATA!");
+			if (i == EXTREME_STARTGRID_1 + 1) {
+				if(model[EXTREME_STARTGRID_1 + 2] > model[EXTREME_STARTGRID_1 + 1])
+					k += !!(modelRatio >= EXTREME_MAXRATIO_1_PRO);
+				else
+					k += !!(modelRatio >= EXTREME_MAXRATIO_1);
+			}
+			else {
+				k += !!(modelRatio >= EXTREME_MAXRATIO_1);
+			}
+		}
+		else {
+			k += !!(modelRatio >= EXTREME_MAXRATIO_1);
+		}
 		pr_err("model extreme singular cnt=%u, index=%u, max=%u, min=%u, ratio=%u\r\n", k, i, maxValue, minValue, modelRatio);
 	}
 	if (k >= EXTREME_MAXCNT_1) {
@@ -2398,7 +2422,7 @@ fg_gauge_check_cell_model_end:
 
 s32 fg_gauge_restore_cell_model(struct chip_bq27541 *chip, char *profile_name)
 {
-	u16 pBuf[15];
+	u16 pBuf[15+1];
 	u8 buf_read[BYTE_COUNT_CELL_MODEL];
 	u8 buf_write[LENGTH_CELLMODEL];
 	u8 str[STRLEN] = {0};

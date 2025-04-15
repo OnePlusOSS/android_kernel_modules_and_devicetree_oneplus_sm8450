@@ -574,6 +574,83 @@ static int bq27z561_i2c_txsubcmd_onebyte(struct chip_bq27z561 *chip, u8 cmd, u8 
 	return 0;
 }
 
+static u8 bq27z561_calc_checksum(u8 *buf, int len)
+{
+	u8 checksum = 0;
+
+	while (len--)
+		checksum += buf[len];
+
+	return 0xff - checksum;
+}
+
+static int bq27z561_block_check_conditions(struct chip_bq27z561 *chip, u8 *buf, int len, int offset, bool do_checksum)
+{
+	if (!chip || !buf || (offset < 0) || (offset >= BQ27Z561_BLOCK_SIZE) || (len <= 0) ||
+	    (len + do_checksum > BQ27Z561_BLOCK_SIZE) || (offset + len + do_checksum > BQ27Z561_BLOCK_SIZE)) {
+		chg_err("%soffset %d or len %d invalid\n", buf ? "buf is null or " : "", offset, len);
+		return -EINVAL;
+	}
+
+	if (atomic_read(&chip->locked))
+		return -EINVAL;
+
+	return 0;
+}
+
+int bq27z561_read_block(struct chip_bq27z561 *chip, int addr, u8 *buf, int len, int offset, bool do_checksum)
+{
+	int ret;
+	int data_check;
+	int try_count = GAUGE_SUBCMD_TRY_COUNT;
+	u8 extend_data[BQ27Z561_EXTEND_DATA_SIZE] = { 0 };
+	u8 checksum = 0;
+
+	ret = bq27z561_block_check_conditions(chip, buf, len, offset, do_checksum);
+	if (ret < 0)
+		return ret;
+
+try:
+	mutex_lock(&chip->bq27z561_alt_manufacturer_access);
+	ret = bq27z561_i2c_txsubcmd(chip, GAUGE_EXTERN_DATAFLASHBLOCK, addr);
+	if (ret < 0)
+		goto error;
+	usleep_range(1000, 1000);
+	ret = bq27z561_read_i2c_block(chip, GAUGE_EXTERN_DATAFLASHBLOCK, (offset + len + do_checksum + 2), extend_data);
+	if (ret < 0)
+		goto error;
+
+	data_check = (extend_data[1] << 0x8) | extend_data[0];
+	if (try_count-- > 0 && data_check != addr) {
+		chg_err("0x%04x not match. try_count=%d extend_data[0]=0x%2x, extend_data[1]=0x%2x\n", addr, try_count,
+			extend_data[0], extend_data[1]);
+		mutex_unlock(&chip->bq27z561_alt_manufacturer_access);
+		usleep_range(2000, 2000);
+		goto try;
+	}
+	if (data_check != addr)
+		goto error;
+
+	if (do_checksum) {
+		checksum = bq27z561_calc_checksum(&extend_data[offset + 2], len);
+		if (checksum != extend_data[offset + len + 2]) {
+			chg_err("[%*ph]checksum not match. expect=0x%02x actual=0x%02x\n",
+				offset + len + do_checksum + 2, extend_data, checksum, extend_data[offset + len + 2]);
+			goto error;
+		}
+	}
+
+	memcpy(buf, &extend_data[offset + 2], len);
+	chg_info("addr=0x%04x offset=%d buf=[%*ph] do_checksum=%d read success\n", addr, offset, len, buf, do_checksum);
+	mutex_unlock(&chip->bq27z561_alt_manufacturer_access);
+	return 0;
+
+error:
+	chg_info("addr=0x%04x offset=%d buf=[%*ph] do_checksum=%d read fail\n", addr, offset, len, buf, do_checksum);
+	mutex_unlock(&chip->bq27z561_alt_manufacturer_access);
+	return -EINVAL;
+}
+
 static int bq27z561_read_i2c(struct chip_bq27z561 *chip, int cmd, int *returnData)
 {
 	int retry = 4;
@@ -790,6 +867,8 @@ static void bq27z561_parse_dt(struct chip_bq27z561 *chip)
 	struct device_node *node = chip->dev->of_node;
 	int rc = 0;
 
+	chip->fcc_too_small_check_support =
+		of_property_read_bool(node, "oplus,fcc_too_small_check_support");
 	chip->calib_info_save_support = of_property_read_bool(node, "oplus,calib_info_save_support");
 	rc = of_property_read_u32(node, "oplus,batt_num", &chip->batt_num);
 	if (rc < 0) {
@@ -2623,6 +2702,66 @@ __maybe_unused static int bq27z561_get_prev_batt_fcc(struct chip_bq27z561 *chip)
 	return chip->fcc_pre;
 }
 
+static int bq27z561_get_true_fcc(struct chip_bq27z561 *chip, int *true_fcc)
+{
+	int ret;
+	u8 buf[BQ27Z561_TRUE_FCC_NUM_SIZE] = { 0 };
+
+	if (!chip || !true_fcc)
+		return -EINVAL;
+
+	ret = bq27z561_read_block(
+		chip, BQ27Z561_REG_TRUE_FCC, buf, BQ27Z561_TRUE_FCC_NUM_SIZE, BQ27Z561_TRUE_FCC_OFFSET, false);
+	if (ret < 0)
+		return ret;
+
+	*true_fcc = (buf[1] << 8) | buf[0];
+	chg_info("true_fcc=%d\n", *true_fcc);
+
+	return ret;
+}
+
+static void bq27z561_set_fcc_sync(struct chip_bq27z561 *chip)
+{
+	mutex_lock(&chip->bq27z561_alt_manufacturer_access);
+	bq27z561_i2c_txsubcmd(chip, BQ27Z561_REG_CNTL1, BQ27Z561_FCC_SYNC_CMD);
+	mutex_unlock(&chip->bq27z561_alt_manufacturer_access);
+	chg_info("set fcc sync\n");
+}
+
+static void bq27z561_fcc_too_small_check_work(struct work_struct *work)
+{
+	int ret;
+	int true_fcc = 0;
+	struct chip_bq27z561 *chip = container_of(
+		work, struct chip_bq27z561, fcc_too_small_check_work);
+
+	if (chip->batt_bq27z561) {
+		ret = bq27z561_get_true_fcc(chip, &true_fcc);
+		if (!ret && (true_fcc > 200)) /* TODO: true_fcc value is more than 200 */
+			bq27z561_set_fcc_sync(chip);
+	}
+
+	chip->fcc_too_small_checking = false;
+}
+
+static void bq27541_fcc_too_small_check(struct chip_bq27z561 *chip, int fcc)
+{
+	if (!chip || !chip->fcc_too_small_check_support)
+		return;
+
+	if (chip->fcc_too_small_checking) {
+		chg_info("fcc too small checking, ignore this time");
+		return;
+	}
+
+	/* TODO: fcc value is less than 200 */
+	if (fcc < 200) {
+		chip->fcc_too_small_checking = true;
+		schedule_work(&chip->fcc_too_small_check_work);
+	}
+}
+
 static int bq27z561_get_battery_fcc(struct chip_bq27z561 *chip)
 {
 	int ret = 0;
@@ -2654,6 +2793,7 @@ static int bq27z561_get_battery_fcc(struct chip_bq27z561 *chip)
 			return 0;
 	}
 	chip->fcc_pre = fcc;
+	bq27541_fcc_too_small_check(chip, fcc);
 	return fcc;
 }
 
@@ -3597,6 +3737,7 @@ static int bq27z561_driver_probe(struct i2c_client *client, const struct i2c_dev
 	/* end workaround 230504153935012779 */
 
 	bq27z561_hw_config(fg_ic);
+	INIT_WORK(&fg_ic->fcc_too_small_check_work, bq27z561_fcc_too_small_check_work);
 	INIT_DELAYED_WORK(&fg_ic->check_iic_recover, bq27z561_check_iic_recover);
 	fg_ic_init(fg_ic);
 

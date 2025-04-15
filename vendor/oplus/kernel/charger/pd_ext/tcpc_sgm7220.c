@@ -372,36 +372,33 @@ static void sgm7220_process_tcpci_attach_state(struct sgm7220_chip *chip)
 
 	if ((chip->type_c_param.attach_state == CABLE_STATE_NOT_ATTACHED) &&
 		(chip->type_c_param_old.attach_state != CABLE_STATE_NOT_ATTACHED)) {
-		tcpc_dev->typec_attach_old = tcpc_dev->typec_attach_new;
 		tcpc_dev->typec_attach_new = TYPEC_UNATTACHED;
 		tcpci_notify_typec_state(tcpc_dev);
-		tcpci_source_vbus(tcpc_dev,
-						  TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_0V, 0);
+		tcpci_source_vbus(tcpc_dev,TCP_VBUS_CTRL_TYPEC,TCPC_VBUS_SOURCE_0V,0);
+		tcpc_dev->typec_attach_old = TYPEC_UNATTACHED;
 	}
 
 	if ((chip->type_c_param.attach_state == CABLE_STATE_AS_UFP) &&
 		(chip->type_c_param_old.attach_state != CABLE_STATE_AS_UFP)) {
-		tcpc_dev->typec_attach_old = tcpc_dev->typec_attach_new;
 		tcpc_dev->typec_attach_new = TYPEC_ATTACHED_SNK;
 		tcpci_notify_typec_state(tcpc_dev);
-		tcpci_source_vbus(tcpc_dev,
-						  TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_0V, 0);
+		tcpci_source_vbus(tcpc_dev,TCP_VBUS_CTRL_TYPEC,TCPC_VBUS_SOURCE_0V,0);
+		tcpc_dev->typec_attach_old = TYPEC_ATTACHED_SNK;
 	}
 
 	if ((chip->type_c_param.attach_state == CABLE_STATE_AS_DFP) &&
 		(chip->type_c_param_old.attach_state != CABLE_STATE_AS_DFP)) {
-		tcpc_dev->typec_attach_old = tcpc_dev->typec_attach_new;
 		tcpc_dev->typec_attach_new = TYPEC_ATTACHED_SRC;
 		tcpci_notify_typec_state(tcpc_dev);
-		tcpci_source_vbus(tcpc_dev,
-						  TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_5V, -1);
+		tcpci_source_vbus(tcpc_dev,TCP_VBUS_CTRL_TYPEC,TCPC_VBUS_SOURCE_5V,-1);
+		tcpc_dev->typec_attach_old = TYPEC_ATTACHED_SRC;
 	}
 
 	if ((chip->type_c_param.attach_state == CABLE_STATE_TO_ACCESSORY) &&
 		(chip->type_c_param_old.attach_state != CABLE_STATE_TO_ACCESSORY)) {
-		tcpc_dev->typec_attach_old = tcpc_dev->typec_attach_new;
 		tcpc_dev->typec_attach_new = TYPEC_ATTACHED_AUDIO;
 		tcpci_notify_typec_state(tcpc_dev);
+		tcpc_dev->typec_attach_old = TYPEC_ATTACHED_AUDIO;
 	}
 
 	if (tcpc_dev->typec_attach_new == TYPEC_UNATTACHED)
@@ -1264,7 +1261,7 @@ static int sgm7220_tcpcdev_init(struct sgm7220_chip *chip, struct device *dev)
 
 	chip->tcpc_desc = desc;
 	chip->tcpc = tcpc_device_register(dev, desc, &sgm7220_tcpc_ops, chip);
-	if (IS_ERR(chip->tcpc))
+	if (IS_ERR_OR_NULL(chip->tcpc))
 		return -EINVAL;
 
 	chip->tcpc->tcpc_flags = TCPC_FLAGS_LPM_WAKEUP_WATCHDOG;

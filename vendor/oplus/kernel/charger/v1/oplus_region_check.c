@@ -23,6 +23,7 @@ enum region_list_index {
 	PPS_PRIORITY_REGION,
 	SVOOC_LIMIT_CURRENT_REGION,
 	PPS_COMM_CHG_SUPPORT_REGION,
+	ECO_DESIGN_SUPPORT_REGION,
 	REGION_INDEX_MAX,
 };
 
@@ -35,6 +36,7 @@ static const char *const dts_region_id_list[REGION_INDEX_MAX] = {
 	[PPS_PRIORITY_REGION] = "oplus,pps_priority_list",
 	[SVOOC_LIMIT_CURRENT_REGION] = "oplus,limit_svooc_current_area_list",
 	[PPS_COMM_CHG_SUPPORT_REGION] = "oplus,pps_common_chg_region_list",
+	[ECO_DESIGN_SUPPORT_REGION] = "oplus,eco_common_support_region_list",
 };
 
 static struct region_list region_list_arrry[REGION_INDEX_MAX] =
@@ -145,6 +147,18 @@ bool third_pps_supported_comm_chg_nvid(void)
 		region_temp = region_id;
 
 	return find_id_in_region_list(region_temp, PPS_COMM_CHG_SUPPORT_REGION);
+}
+
+bool eco_design_supported_comm_chg_nvid(void)
+{
+	int region_temp = 0;
+
+	if (dbg_nvid != 0)
+		region_temp = dbg_nvid;
+	else
+		region_temp = region_id;
+
+	return find_id_in_region_list(region_temp, ECO_DESIGN_SUPPORT_REGION);
 }
 
 bool third_pps_supported_from_nvid(void)

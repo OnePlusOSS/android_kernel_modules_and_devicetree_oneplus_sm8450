@@ -651,7 +651,7 @@
 
 	/* ofp config */
 	oplus,ofp-fp-type = <0x02>;
-
+	oplus,ofp-longrui-aod-config = <0x02>;
 	/*esd config*/
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-panel-status-check-mode = "reg_read";

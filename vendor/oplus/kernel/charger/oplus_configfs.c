@@ -34,7 +34,6 @@
 #ifndef CONFIG_DISABLE_OPLUS_FUNCTION
 #include <soc/oplus/system/oplus_project.h>
 #endif
-#include "oplus_region_check.h"
 
 #define OPLUS_SVOOC_ID_MIN    10
 
@@ -397,7 +396,10 @@ static ssize_t battery_cc_show(struct device *dev, struct device_attribute *attr
 		return -EINVAL;
 	}
 
-	return sprintf(buf, "%d\n", chip->batt_cc);
+	if (!chip->batt_debug_cycle_count)
+		return sprintf(buf, "%d\n", chip->batt_cc);
+	else
+		return sprintf(buf, "%d\n", chip->batt_debug_cycle_count);
 }
 static DEVICE_ATTR_RO(battery_cc);
 
@@ -482,6 +484,273 @@ static ssize_t cc_report_show(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "%d\n", oplus_chg_get_cc_report());
 }
 static DEVICE_ATTR_RO(cc_report);
+
+static ssize_t battery_sn_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	int ret = 0;
+	char batt_sn[OPLUS_BATT_SERIAL_NUM_SIZE * 2] = {"\0"};
+	struct oplus_chg_chip *chip = NULL;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	ret = oplus_gauge_get_bat_info_sn(batt_sn, sizeof(batt_sn));
+	if (ret < 0)
+		chg_err("get battery sn error");
+	else
+		len = sprintf(buf, "%s\n", batt_sn);
+
+	if (!chip->debug_battery_sn_data) {
+		return len;
+	} else {
+		return sprintf(buf, "%d\n", chip->debug_battery_sn_data);
+	}
+}
+static DEVICE_ATTR_RO(battery_sn);
+
+static ssize_t debug_battery_sn_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct oplus_chg_chip *chip = NULL;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!chip->debug_battery_sn_data) {
+		return -EINVAL;
+	} else {
+		return sprintf(buf, "%d\n", chip->debug_battery_sn_data);
+	}
+}
+
+static ssize_t debug_battery_sn_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int battery_debug_sn;
+	struct oplus_chg_chip *chip = NULL;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (kstrtos32(buf, 0, &battery_debug_sn)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	chip->debug_battery_sn_data = battery_debug_sn;
+
+	return count;
+}
+static DEVICE_ATTR_RW(debug_battery_sn);
+
+static ssize_t battery_manu_date_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int len = 0;
+	int ret = 0;
+	char batt_date[OPLUS_BATTINFO_DATE_SIZE] = {"\0"};
+
+	ret = oplus_gauge_get_bat_info_manu_date(batt_date, sizeof(batt_date));
+	if (ret < 0)
+		chg_err("get battery manu date error");
+	else
+		len = sprintf(buf, "%s\n", batt_date);
+
+	return len;
+}
+static DEVICE_ATTR_RO(battery_manu_date);
+
+static ssize_t battery_seal_flag_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int seal_flag = 0;
+	int len = 0;
+
+	seal_flag = oplus_pack_gauge_get_seal_flag();
+	if (seal_flag < 0)
+		chg_err("get battery ui cycle count error");
+	else
+		len = sprintf(buf, "%d\n", seal_flag);
+
+	return len;
+}
+
+static ssize_t  battery_seal_flag_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int ret = 0;
+	int seal_flag;
+
+	if (kstrtos32(buf, 0, &seal_flag)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	ret = oplus_pack_gauge_set_seal_flag(seal_flag);
+	if (ret < 0)
+		chg_err("set battery ui cycle count error");
+
+	return count;
+}
+static DEVICE_ATTR_RW(battery_seal_flag);
+
+static ssize_t battery_first_usage_date_show(struct device *dev, struct device_attribute *attr,
+	char *buf)
+{
+	int len = 0;
+	int ret = 0;
+	char batt_date[OPLUS_BATTINFO_DATE_SIZE] = {"\0"};
+
+	ret = oplus_gauge_get_bat_info_first_usage_date(batt_date, sizeof(batt_date));
+	if (ret < 0)
+		chg_err("get battery first usage date error");
+	else
+		len = sprintf(buf, "%s\n", batt_date);
+
+	return len;
+}
+
+static ssize_t battery_first_usage_date_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int ret = 0;
+
+	ret = oplus_gauge_set_bat_info_first_usage_date(buf);
+	if (ret < 0)
+		chg_err("set battery first usage date error");
+
+	return count;
+}
+static DEVICE_ATTR_RW(battery_first_usage_date);
+
+static ssize_t battery_ui_cc_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ui_cycle_count = 0;
+	int len = 0;
+
+	ui_cycle_count = oplus_gauge_get_battinfo_ui_cc();
+	if (ui_cycle_count < 0)
+		chg_err("get battery ui cycle count error");
+	else
+		len = sprintf(buf, "%d\n", ui_cycle_count);
+
+	return len;
+}
+
+static ssize_t  battery_ui_cc_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int ret = 0;
+	int ui_cycle_count;
+
+	if (kstrtos32(buf, 0, &ui_cycle_count)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	ret = oplus_gauge_set_battinfo_ui_cc(ui_cycle_count);
+	if (ret < 0)
+		chg_err("set battery ui cycle count error");
+
+	return count;
+}
+static DEVICE_ATTR_RW(battery_ui_cc);
+
+static ssize_t  battery_debug_cc_store(struct device *dev, struct device_attribute *attr,
+	const char *buf,  size_t count)
+{
+	int ui_cycle_count;
+	struct oplus_chg_chip *chip = NULL;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (kstrtos32(buf, 0, &ui_cycle_count)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	chip->batt_debug_cycle_count = ui_cycle_count;
+
+	return count;
+}
+static DEVICE_ATTR_WO(battery_debug_cc);
+
+static ssize_t battery_ui_soh_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ui_soh = 0;
+	int len = 0;
+
+	ui_soh = oplus_gauge_get_battinfo_ui_soh();
+	if (ui_soh < 0)
+		chg_err("get battery ui soh error");
+	else
+		len = sprintf(buf, "%d\n", ui_soh);
+
+	return len;
+}
+
+static ssize_t  battery_ui_soh_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int ret = 0;
+	int ui_soh;
+
+	if (kstrtos32(buf, 0, &ui_soh)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	ret = oplus_gauge_set_battinfo_ui_soh(ui_soh);
+	if (ret < 0)
+		chg_err("set battery ui soh error");
+
+	return count;
+}
+static DEVICE_ATTR_RW(battery_ui_soh);
+
+static ssize_t battery_used_flag_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int used_flag = 0;
+	int len = 0;
+
+	used_flag = oplus_gauge_get_battinfo_used_flag();
+	if (used_flag < 0)
+		chg_err("get battery used flag error");
+	else
+		len = sprintf(buf, "%d\n", used_flag);
+
+	return len;
+}
+
+static ssize_t  battery_used_flag_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	int ret = 0;
+	int used_flag;
+
+	if (kstrtos32(buf, 0, &used_flag)) {
+		chg_err("buf error\n");
+		return -EINVAL;
+	}
+
+	ret = oplus_gauge_set_battinfo_used_flag(used_flag);
+	if (ret < 0)
+		chg_err("set battery used flag error");
+
+	return count;
+}
+static DEVICE_ATTR_RW(battery_used_flag);
 
 #ifdef CONFIG_OPLUS_CALL_MODE_SUPPORT
 static ssize_t call_mode_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -1976,6 +2245,16 @@ static ssize_t slow_chg_en_store(struct device *dev, struct device_attribute *at
 }
 static DEVICE_ATTR_RW(slow_chg_en);
 
+static ssize_t eco_design_status_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	/* TODO: check nvid is EU or not */
+	bool eco_design_support;
+
+	eco_design_support = eco_design_supported_comm_chg_nvid();
+	return sprintf(buf, "%d\n", eco_design_support);
+}
+static DEVICE_ATTR_RO(eco_design_status);
+
 #define GAGUE_INFO_PAGE_SIZE 1024
 static ssize_t gauge_info_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -2037,6 +2316,62 @@ static ssize_t batt_temp_show(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "%d\n", chip->tbatt_temp);
 }
 static DEVICE_ATTR_RO(batt_temp);
+
+static ssize_t rechg_soc_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct oplus_chg_chip *chip = NULL;
+	int rechg_soc;
+	bool en;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_common_dir);
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	oplus_comm_get_rechg_soc_limit(&rechg_soc, &en);
+
+	return sprintf(buf, "%d,%d\n", en, rechg_soc);
+}
+
+static ssize_t rechg_soc_store(struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t count)
+{
+	struct oplus_chg_chip *chip = NULL;
+	int rechg_soc = 0, en = 0;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_common_dir);
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!buf) {
+		chg_err("buf is NULL\n");
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%d,%d", &en, &rechg_soc) != 2) {
+		chg_err("invalid buff %s\n", buf);
+		return -EINVAL;
+	}
+
+	if (rechg_soc < 0 || rechg_soc > 100) {
+		chg_err("rechg_soc %d invalid\n", rechg_soc);
+		return -EINVAL;
+	} else if ((en == 1) && (rechg_soc == 100)) {
+		chg_err("disallow soc_rechg at 100\n");
+		return -EINVAL;
+	}
+
+	oplus_comm_set_rechg_soc_limit(rechg_soc, (bool)!!en);
+
+	chg_info("%d,%d\n", en, rechg_soc);
+	return count;
+}
+static DEVICE_ATTR_RW(rechg_soc);
 
 static struct device_attribute *oplus_battery_attributes[] = {
 	&dev_attr_authenticate,
@@ -2116,9 +2451,20 @@ static struct device_attribute *oplus_battery_attributes[] = {
 	&dev_attr_battery_log_content,
 	&dev_attr_pkg_name,
 	&dev_attr_slow_chg_en,
+	&dev_attr_battery_sn,
+	&dev_attr_debug_battery_sn,
+	&dev_attr_battery_seal_flag,
 	&dev_attr_gauge_info,
 	&dev_attr_bqfs_status,
 	&dev_attr_batt_temp,
+	&dev_attr_eco_design_status,
+	&dev_attr_battery_manu_date,
+	&dev_attr_battery_first_usage_date,
+	&dev_attr_battery_ui_cc,
+	&dev_attr_battery_debug_cc,
+	&dev_attr_battery_ui_soh,
+	&dev_attr_battery_used_flag,
+	&dev_attr_rechg_soc,
 	NULL
 };
 
@@ -2678,6 +3024,10 @@ static ssize_t protocol_type_show(struct device *dev,
 		fast_chg_type = pre_fast_chg_type;
 	} else {
 		fast_chg_type = subtype;
+		if ((subtype == CHARGER_SUBTYPE_PD) || (subtype == CHARGER_SUBTYPE_PPS)) {
+			if (!chip->check_pd_svooc_complete)
+				fast_chg_type = CHARGER_SUBTYPE_DEFAULT;
+		}
 	}
 
 	chg_err("fast_chg_type: %d\n", fast_chg_type);
@@ -2721,6 +3071,7 @@ static ssize_t protocol_type_store(struct device *dev, struct device_attribute *
 }
 static DEVICE_ATTR_RW(protocol_type);
 
+#define UI_POWER_SHOW_LIMIT 33000
 static int ui_power_by_user = -1;
 static ssize_t ui_power_show(struct device *dev,
 				      struct device_attribute *attr, char *buf)
@@ -2764,9 +3115,9 @@ static ssize_t ui_power_show(struct device *dev,
 	else
 		ui_power = min(adapter_power, project_power);
 
-	/* Display policy: when the ui_power is less than the project_power,
+	/* Display policy: when the ui_power is less than the project_power or 33W,
 	   the ui_power is 0. */
-	if (ui_power < 0 || ui_power < project_power)
+	if (ui_power < UI_POWER_SHOW_LIMIT || ui_power < project_power)
 		ui_power = 0;
 
 	if (ui_power_by_user > 0)
@@ -2869,7 +3220,7 @@ static ssize_t cpa_power_show(struct device *dev,
 	pps_online = oplus_is_pps_charging();
 
 	if (ufcs_online) {
-		pps_or_ufcs_power = oplus_ufcs_adapter_id_to_power();
+		pps_or_ufcs_power = oplus_ufcs_get_power();
 	} else if (pps_online) {
 		pps_or_ufcs_power = oplus_pps_show_power();
 	}

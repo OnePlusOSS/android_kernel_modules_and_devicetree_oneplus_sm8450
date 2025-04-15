@@ -855,9 +855,9 @@ static int battery_chg_write(struct battery_chg_dev *bcdev, void *data,
 			pr_err("Error, timed out sending message\n");
 			if (g_oplus_chip)
 				g_oplus_chip->transfer_timeout_count++;
-			oplus_chg_track_upload_adsp_err_info(
-				bcdev, TRACK_ADSP_ERR_GLINK_ABNORMAL);
 			mutex_unlock(&bcdev->rw_lock);
+                        oplus_chg_track_upload_adsp_err_info(
+                                bcdev, TRACK_ADSP_ERR_GLINK_ABNORMAL);
 			return -ETIMEDOUT;
 		}
 

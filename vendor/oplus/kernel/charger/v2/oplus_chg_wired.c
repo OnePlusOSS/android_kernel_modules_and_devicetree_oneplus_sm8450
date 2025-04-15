@@ -1519,7 +1519,7 @@ static void oplus_pdqc_retention_disconnect_work(struct work_struct *work)
 
 	oplus_mms_get_item_data(chip->retention_topic, RETENTION_ITEM_DISCONNECT_COUNT, &data, true);
 	chip->pdqc_connect_error_count = data.intval;
-	chg_info("cpa_current_type= %d, pdqc_connect_error_count =%d\n",
+	chg_debug("cpa_current_type= %d, pdqc_connect_error_count =%d\n",
 		chip->cpa_current_type, chip->pdqc_connect_error_count);
 	if (chip->pdqc_connect_error_count > DPQC_CONNECT_ERROR_COUNT_LEVEL) {
 		if (chip->cpa_current_type == CHG_PROTOCOL_QC) {

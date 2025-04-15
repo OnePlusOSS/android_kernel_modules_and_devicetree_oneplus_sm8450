@@ -37,6 +37,7 @@
 #include "../oplus_gauge.h"
 #include "../oplus_charger.h"
 #include "oplus_sc8517.h"
+#include "../oplus_chg_module.h"
 
 static struct oplus_voocphy_manager *oplus_voocphy_mg = NULL;
 static struct mutex i2c_rw_lock;
@@ -1519,6 +1520,9 @@ void sc8517_subsys_exit(void)
 {
 	i2c_del_driver(&sc8517_charger_driver);
 }
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+oplus_chg_module_register(sc8517_subsys);
+#endif
 #endif /*LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0)*/
 
 //module_i2c_driver(sc8517_charger_driver);

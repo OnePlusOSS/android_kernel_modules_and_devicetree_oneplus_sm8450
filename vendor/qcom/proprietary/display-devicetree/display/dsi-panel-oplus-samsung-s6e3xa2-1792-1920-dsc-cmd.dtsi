@@ -951,7 +951,7 @@
 
 	/* ofp config */
 	oplus,ofp-fp-type = <0x02>;
-
+	oplus,ofp-longrui-aod-config = <0x02>;
 	/* osc config */
 	//oplus,osc-support;
 	oplus,mdss-dsi-osc-clk-mode0-rate = <138000>;

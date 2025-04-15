@@ -104,6 +104,7 @@ struct ufcs_dev_ops {
 	int (*enable)(struct ufcs_dev *ufcs);
 	int (*disable)(struct ufcs_dev *ufcs);
 	int (*watchdog_config)(struct ufcs_dev *ufcs, unsigned int time_ms);
+	int (*baudrate_end_check_config)(struct ufcs_dev *ufcs);
 };
 
 #if IS_ENABLED(CONFIG_OPLUS_UFCS_CLASS)

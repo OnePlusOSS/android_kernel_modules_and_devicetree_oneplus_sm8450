@@ -1081,7 +1081,7 @@ bool oplus_usbtemp_temp_rise_fast_with_batt_temp(struct oplus_chg_chip *chip)
 		return false;
 
 	if (chip->usbtemp_curr_status == OPLUS_USBTEMP_LOW_CURR) {
-		if (oplus_is_power_off_charging(NULL) && chip->support_hot_enter_kpoc) {
+		if (oplus_is_power_off_charging(NULL) && (chip->support_hot_enter_kpoc || chip->usbtemp_high_temp_scheme)) {
 			if (chip->tbatt_temp / 10 > chip->usbtemp_batt_temp_low &&
 				chip->tbatt_temp / 10 < chip->usbtemp_batt_temp_over_hot &&
 				(((chip->usb_temp_l >= chip->tbatt_temp / 10 +

@@ -172,7 +172,7 @@ static int get_boot_reason(void)
 
 #define AICL_DELAY_MS 90
 #define AICL_DELAY2_MS 120
-#define AICL_DELAY3_MS 200
+#define AICL_DELAY3_MS 20
 
 #define TRACK_LOCAL_T_NS_TO_S_THD 1000000000
 #define TRACK_UPLOAD_COUNT_MAX 10
@@ -414,6 +414,14 @@ int __attribute__((weak)) oplus_check_pd_usb_type(void)
 
 void __attribute__((weak)) oplus_chg_set_fix_mode(bool en)
 {
+}
+
+bool check_ntc_suport_1000k(void)
+{
+	if (!g_chip || !g_chip->platform_data)
+		return false;
+
+	return g_chip->platform_data->ntc_suport_1000k;
 }
 
 static int sc6607_field_read(struct sc6607 *chip, enum sc6607_fields field_id, u8 *data)
@@ -2447,6 +2455,7 @@ static int sc6607_hk_irq_handle(struct sc6607 *chip)
 {
 	int ret;
 	u8 val[2];
+	u8 val_bk[2];
 	bool prev_pg = false;
 	struct oplus_chg_chip *chg_chip = oplus_chg_get_chg_struct();
 
@@ -2500,6 +2509,11 @@ static int sc6607_hk_irq_handle(struct sc6607 *chip)
 
 	sc6607_dump_regs(chip);
 	if ((!prev_pg && chip->power_good) || chip->wd_rerun_detect) {
+		sc6607_bulk_read(chip, SC6607_REG_HK_ADC_CTRL, val_bk, sizeof(val_bk));
+		val_bk[0] &=~SC6607_HK_CTRL3;
+		val_bk[1] &=~SC6607_ADC_FUNC_DIS;
+		sc6607_bulk_write(chip, SC6607_REG_HK_ADC_CTRL, val_bk, sizeof(val_bk));
+
 		pr_info("!!!plugin, is_prswap[%d], camera_on[%d]\n", oplus_is_prswap, chg_chip->camera_on);
 		if (!chg_chip->camera_on)
 			chip->request_otg = 0;
@@ -2571,6 +2585,10 @@ static int sc6607_hk_irq_handle(struct sc6607 *chip)
 		}
 		oplus_wake_up_usbtemp_thread();
 	} else if (prev_pg && !chip->power_good) {
+		sc6607_bulk_read(chip, SC6607_REG_HK_ADC_CTRL, val_bk, sizeof(val_bk));
+		val_bk[0] |=SC6607_HK_CTRL3;
+		val_bk[1] |=SC6607_ADC_FUNC_DIS;
+		sc6607_bulk_write(chip, SC6607_REG_HK_ADC_CTRL, val_bk, sizeof(val_bk));
 #ifdef OPLUS_FEATURE_CHG_BASIC
 /********* workaround: Octavian needs to enable adc start *********/
 		if ((chip->platform_data->enable_adc == true) && (oplus_is_rf_ftm_mode() == false))
@@ -3049,6 +3067,7 @@ static int sc6607_init_default(struct sc6607 *chip)
 	u8 val[3] = { 0 };
 	uint8_t value = 0;
 	int ret;
+	u8 val_bk[2];
 
 	if (!chip)
 		return -EINVAL;
@@ -3099,6 +3118,12 @@ static int sc6607_init_default(struct sc6607 *chip)
 	ret = sc6607_read_byte(chip, SC6607_REG_CP_INT_MASK, &value);
 	value |= 0x16;
 	sc6607_write_byte(chip, SC6607_REG_CP_INT_MASK, value);
+
+	/*close others adc,keep tsbus and tsbat only*/
+	ret = sc6607_bulk_read(chip, SC6607_REG_HK_ADC_CTRL, val_bk, sizeof(val_bk));
+	val_bk[0] |=SC6607_HK_CTRL3;
+	val_bk[1] |=SC6607_ADC_FUNC_DIS;
+	sc6607_bulk_write(chip, SC6607_REG_HK_ADC_CTRL, val_bk, sizeof(val_bk));
 
 #ifdef OPLUS_FEATURE_CHG_BASIC
 /********* workaround: Octavian needs to enable adc start *********/
@@ -3598,10 +3623,12 @@ void oplus_sc6607_set_mivr(int vbatt)
 		else
 			g_chip->hw_aicl_point = SC6607_DUAL_AICL_POINT_VOL_9V;
 	} else {
-		if (g_chip->hw_aicl_point > SC6607_HW_AICL_POINT_VOL_5V_PHASE2)
-			g_chip->hw_aicl_point = SC6607_HW_AICL_POINT_VOL_5V_PHASE2;
+		if (g_chip->hw_aicl_point > SC6607_HW_AICL_POINT_VOL_5V_PHASE3)
+			g_chip->hw_aicl_point = SC6607_HW_AICL_POINT_VOL_5V_PHASE3;
 
-		if (g_chip->hw_aicl_point == SC6607_HW_AICL_POINT_VOL_5V_PHASE1 && vbatt > SC6607_AICL_POINT_VOL_5V_HIGH) {
+		if (g_chip->hw_aicl_point == SC6607_HW_AICL_POINT_VOL_5V_PHASE2 && vbatt > SC6607_AICL_POINT_VOL_5V_HIGH1) {
+			g_chip->hw_aicl_point = SC6607_HW_AICL_POINT_VOL_5V_PHASE3;
+		} else if (g_chip->hw_aicl_point == SC6607_HW_AICL_POINT_VOL_5V_PHASE1 && vbatt > SC6607_AICL_POINT_VOL_5V_HIGH) {
 			g_chip->hw_aicl_point = SC6607_HW_AICL_POINT_VOL_5V_PHASE2;
 		} else if (g_chip->hw_aicl_point == SC6607_HW_AICL_POINT_VOL_5V_PHASE2 &&
 		   vbatt < SC6607_AICL_POINT_VOL_5V_MID) {
@@ -5958,10 +5985,6 @@ struct tsbus_charger_temp {
 	struct thermal_zone_device *tzd;
 };
 
-struct tsbat_charger_temp {
-	struct thermal_zone_device *tzd_tsbat;
-};
-
 static int sc6607_voocphy_get_tsbus_temp(struct thermal_zone_device *tz,
 		int *temp)
 {
@@ -5974,24 +5997,8 @@ static int sc6607_voocphy_get_tsbus_temp(struct thermal_zone_device *tz,
 	return 0;
 }
 
-static int sc6607_voocphy_get_tsbat_temp(struct thermal_zone_device *tz,
-		int *temp)
-{
-	struct tsbat_charger_temp *hst;
-	if (!temp || !tz)
-		return -EINVAL;
-	hst = tz->devdata;
-	*temp = sc6607_voocphy_get_tsbat();
-
-	return 0;
-}
-
 static struct thermal_zone_device_ops charger_temp_ops = {
 	.get_temp = sc6607_voocphy_get_tsbus_temp,
-};
-
-static struct thermal_zone_device_ops charger_temp_tsbat_ops = {
-	.get_temp = sc6607_voocphy_get_tsbat_temp,
 };
 
 static int register_charger_thermal(struct sc6607 *info)
@@ -6017,22 +6024,6 @@ static int register_charger_thermal(struct sc6607 *info)
 #endif
 	if (IS_ERR(tz_dev)) {
 		chg_err("charger_temp register fail");
-		ret = -ENODEV;
-	}
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))
-	ret = thermal_zone_device_enable(tz_dev);
-	if (ret)
-		thermal_zone_device_unregister(tz_dev);
-#endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
-	tz_dev = thermal_tripless_zone_device_register("charger_temp_tsbat",
-					NULL, &charger_temp_tsbat_ops, NULL);
-#else
-	tz_dev = thermal_zone_device_register("charger_temp_tsbat",
-					0, 0, NULL, &charger_temp_tsbat_ops, NULL, 0, 0);
-#endif
-	if (IS_ERR(tz_dev)) {
-		chg_err("charger_temp_tsbat register fail");
 		ret = -ENODEV;
 	}
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0))

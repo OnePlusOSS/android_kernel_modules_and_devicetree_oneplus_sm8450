@@ -50,6 +50,8 @@
 #include <oplus_chg_cpa.h>
 #include <oplus_battery_log.h>
 #include <oplus_chg_state_retention.h>
+#include <oplus_chg_ufcs.h>
+
 
 #define VOOC_BAT_VOLT_REGION	4
 #define VOOC_SOC_RANGE_NUM	3
@@ -140,6 +142,7 @@ struct oplus_chg_vooc {
 	struct oplus_mms *main_gauge_topic;
 	struct oplus_mms *batt_bal_topic;
 	struct oplus_mms *retention_topic;
+	struct oplus_mms *ufcs_topic;
 	struct mms_subscribe *wired_subs;
 	struct mms_subscribe *comm_subs;
 	struct mms_subscribe *gauge_subs;
@@ -147,6 +150,7 @@ struct oplus_chg_vooc {
 	struct mms_subscribe *dual_chan_subs;
 	struct mms_subscribe *batt_bal_subs;
 	struct mms_subscribe *retention_subs;
+	struct mms_subscribe *ufcs_subs;
 	struct oplus_mms *cpa_topic;
 	struct mms_subscribe *cpa_subs;
 
@@ -302,6 +306,7 @@ struct oplus_chg_vooc {
 	int slow_chg_pct;
 	int slow_chg_watt;
 	int slow_chg_batt_limit;
+	u16 ufcs_vid;
 	struct completion pdsvooc_check_ack;
 #if IS_ENABLED(CONFIG_OPLUS_DYNAMIC_CONFIG_CHARGER)
 	struct oplus_cfg spec_debug_cfg;
@@ -1638,6 +1643,7 @@ static int oplus_vooc_get_real_wired_type(struct oplus_chg_vooc *chip)
 }
 
 #define PDSVOOC_CHECK_WAIT_TIME_MS		350
+#define OPLUS_SVID	0x22d9
 static void oplus_vooc_switch_check_work(struct work_struct *work)
 {
 	struct delayed_work *dwork = to_delayed_work(work);
@@ -1723,6 +1729,11 @@ static void oplus_vooc_switch_check_work(struct work_struct *work)
 		chg_type = oplus_vooc_get_real_wired_type(chip);
 	else
 		chg_type = oplus_wired_get_chg_type();
+	if ((chip->ufcs_vid == OPLUS_SVID)  &&
+	    (chg_type == OPLUS_CHG_USB_TYPE_PD_PPS || chg_type == OPLUS_CHG_USB_TYPE_PD)) {
+		chg_err("chg type is pd/pps and get ufcs vid is 0x22d9, enable pd svooc\n");
+		vote(chip->pd_svooc_votable, SVID_VOTER, true, 1, false);
+	}
 	/* The cpa module will ensure the correctness of the type*/
 	if (!chip->cpa_support) {
 		switch (chg_type) {
@@ -3523,6 +3534,48 @@ static void oplus_vooc_subscribe_wired_topic(struct oplus_mms *topic,
 		vote(chip->vooc_boot_votable, WIRED_TOPIC_VOTER, false, 0, false);
 }
 
+static void oplus_vooc_ufcs_subs_callback(struct mms_subscribe *subs,
+						enum mms_msg_type type, u32 id, bool sync)
+{
+	 struct oplus_chg_vooc *chip = subs->priv_data;
+	 union mms_msg_data data = { 0 };
+
+	 switch (type) {
+	 case MSG_TYPE_ITEM:
+		 switch (id) {
+		 case UFCS_ITEM_UFCS_VID:
+			 oplus_mms_get_item_data(chip->ufcs_topic, id, &data, false);
+			 chip->ufcs_vid = data.intval;
+			 chg_err("chip->ufcs_vid=0x%x\n", chip->ufcs_vid);
+			 break;
+		 default:
+			 break;
+		 }
+		 break;
+	 default:
+		 break;
+	 }
+}
+
+static void oplus_vooc_subscribe_ufcs_topic(struct oplus_mms *topic,
+					     void *prv_data)
+{
+	struct oplus_chg_vooc *chip = prv_data;
+	union mms_msg_data data = { 0 };
+
+	chip->ufcs_topic = topic;
+	chip->ufcs_subs = oplus_mms_subscribe(chip->ufcs_topic, chip,
+					      oplus_vooc_ufcs_subs_callback,
+					      "vooc");
+	if (IS_ERR_OR_NULL(chip->ufcs_subs)) {
+		chg_err("subscribe ufcs topic error, rc=%ld\n", PTR_ERR(chip->ufcs_subs));
+		return;
+	}
+
+	oplus_mms_get_item_data(chip->ufcs_topic, UFCS_ITEM_UFCS_VID, &data, true);
+	chip->ufcs_vid = data.intval;
+};
+
 static void oplus_vooc_batt_bal_subs_callback(struct mms_subscribe *subs,
 					      enum mms_msg_type type, u32 id, bool sync)
 {
@@ -5288,6 +5341,7 @@ static void oplus_vooc_init_work(struct work_struct *work)
 	oplus_mms_wait_topic("cpa", oplus_vooc_subscribe_cpa_topic, chip);
 	oplus_mms_wait_topic("batt_bal", oplus_vooc_subscribe_batt_bal_topic, chip);
 	oplus_mms_wait_topic("retention", oplus_vooc_subscribe_retention_topic, chip);
+	oplus_mms_wait_topic("ufcs", oplus_vooc_subscribe_ufcs_topic, chip);
 	schedule_delayed_work(&chip->boot_fastchg_allow_work, 0);
 
 	return;

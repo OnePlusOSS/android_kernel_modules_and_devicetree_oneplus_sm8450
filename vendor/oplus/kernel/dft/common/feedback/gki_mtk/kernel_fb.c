@@ -299,6 +299,7 @@ int fb_kevent_send_to_user(struct kernel_packet_info *userinfo)
 	struct sk_buff *skbuff = NULL;
 	void *head = NULL;
 	size_t data_len = 0;
+	size_t attr_len = 0;
 
 	/*max_len */
 	pr_info(" fb_kevent_send_to_user\n");
@@ -316,9 +317,10 @@ int fb_kevent_send_to_user(struct kernel_packet_info *userinfo)
 	}
 
 	data_len = userinfo->payload_length + sizeof(struct kernel_packet_info);
-	pr_info(" data_len is %zu\n", data_len);
+	attr_len = nla_total_size(data_len);
+	pr_info(" data_len is %zu, attr_len is %zu\n", data_len, attr_len);
 
-	ret = genl_msg_prepare_usr_msg(FB_GUARD_CMD_GENL_UPLOAD, data_len, kevent_pid,
+	ret = genl_msg_prepare_usr_msg(FB_GUARD_CMD_GENL_UPLOAD, attr_len, kevent_pid,
 			&skbuff);
 
 	if (ret) {

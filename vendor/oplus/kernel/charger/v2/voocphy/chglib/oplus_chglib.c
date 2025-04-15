@@ -557,11 +557,7 @@ static void oplus_chglib_i2c_err_report_work(struct work_struct *work)
 	static int i2c_upload_count = 0;
 	static int first_i2c_upload_time_in_24h = 0;
 	static int pre_i2c_upload_time = 0;
-
 	int curr_time = track_get_local_time_s();
-
-	if (!chip)
-		return;
 
 	if (curr_time - first_i2c_upload_time_in_24h > TRACK_DEVICE_ABNORMAL_UPLOAD_PERIOD)
 		i2c_upload_count = 0;

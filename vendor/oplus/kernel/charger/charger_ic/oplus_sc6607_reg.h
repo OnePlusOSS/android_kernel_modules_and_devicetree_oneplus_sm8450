@@ -26,11 +26,13 @@
 
 #define SC6607_AICL_POINT_VOL_9V 		7600
 #define SC6607_DUAL_AICL_POINT_VOL_9V		8500
+#define SC6607_AICL_POINT_VOL_5V_HIGH1          4350
 #define SC6607_AICL_POINT_VOL_5V_HIGH		4250
 #define SC6607_AICL_POINT_VOL_5V_MID		4150
 #define SC6607_AICL_POINT_VOL_5V_LOW		4100
 #define SC6607_HW_AICL_POINT_VOL_5V_PHASE1 	4400
 #define SC6607_HW_AICL_POINT_VOL_5V_PHASE2 	4500
+#define SC6607_HW_AICL_POINT_VOL_5V_PHASE3      4700
 #define SC6607_SW_AICL_POINT_VOL_5V_PHASE1 	4500
 #define SC6607_SW_AICL_POINT_VOL_5V_PHASE2 	4550
 
@@ -523,6 +525,12 @@ enum {
 #define SC6607_HK_VBUS_OVP_MASK		BIT(1)
 #define SC6607_HK_VAC_OVP_MASK		BIT(0)
 
+/* Register 0Fh */
+#define SC6607_HK_CTRL3		0x07
+
+/* Register 10h */
+#define SC6607_ADC_FUNC_DIS		0x79
+
 /* Register 11h */
 #define SC6607_VOOCPHY_IBUS_POL_H_SHIFT          	8
 #define SC6607_VOOCPHY_IBUS_POL_H_MASK              0x0F
@@ -846,5 +854,6 @@ int oplus_sc6607_read_ibus(void);
 int oplus_sc6607_read_vac(void);
 int oplus_sc6607_read_vsys(void);
 int oplus_sc6607_read_vbat(void);
+bool check_ntc_suport_1000k(void);
 #endif /*__SC6607_H__*/
 
