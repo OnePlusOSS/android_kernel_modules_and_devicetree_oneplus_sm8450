@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * RMNET WLAN connection management framework
  *
@@ -48,25 +48,34 @@ container_of(DATARMNET6e4292679f,struct DATARMNET4f49486833,DATARMNET9f31ce5d2d)
 DATARMNET63b1a086d5,DATARMNET28bfe9e6ad);spin_unlock_irqrestore(&
 DATARMNET820642743b,DATARMNETfb0677cc3c);return HRTIMER_NORESTART;}static 
 rx_handler_result_t DATARMNETc9ed97754a(struct sk_buff*DATARMNET543491eb0f,
-uint8_t DATARMNET1a901c3d09){if(DATARMNET543491eb0f->dev&&(DATARMNET543491eb0f->
-protocol==htons(ETH_P_IP))&&DATARMNET1a901c3d09==DATARMNET9bfbc31cd6){struct 
-iphdr*DATARMNET86f1f2cdc9,DATARMNETbf6548198e;struct net_device*
-DATARMNET813ca18d06=NULL;struct flowi4 DATARMNET099aa93adc={};struct rtable*
-DATARMNET066b8bd537;struct neighbour*DATARMNET3f85732c70;int DATARMNET268a8314cf
-=(0xd2d+202-0xdf7);DATARMNET86f1f2cdc9=skb_header_pointer(DATARMNET543491eb0f,
-(0xd2d+202-0xdf7),sizeof(*DATARMNET86f1f2cdc9),&DATARMNETbf6548198e);if(!
-DATARMNET86f1f2cdc9){DATARMNET17f6bc1be5(DATARMNET15454f969d);goto 
-DATARMNETc1174a0f45;}DATARMNET813ca18d06=dev_get_by_name_rcu(&init_net,
-DATARMNET934406764d());if(!DATARMNET813ca18d06){DATARMNET17f6bc1be5(
-DATARMNETfa4b3dd44a);goto DATARMNETc1174a0f45;}DATARMNET543491eb0f->dev=
-DATARMNET813ca18d06;memcpy(&DATARMNET099aa93adc.saddr,&DATARMNET86f1f2cdc9->
-saddr,sizeof(__be32));memcpy(&DATARMNET099aa93adc.daddr,&DATARMNET86f1f2cdc9->
-daddr,sizeof(__be32));DATARMNET099aa93adc.flowi4_oif=DATARMNET813ca18d06->
-ifindex;DATARMNET099aa93adc.flowi4_flags=FLOWI_FLAG_KNOWN_NH;DATARMNET066b8bd537
-=ip_route_output_key(&init_net,&DATARMNET099aa93adc);if(IS_ERR(
-DATARMNET066b8bd537)){DATARMNET17f6bc1be5(DATARMNET72ab5e86d8);goto 
-DATARMNETc1174a0f45;}DATARMNET3f85732c70=dst_neigh_lookup(&DATARMNET066b8bd537->
-dst,&DATARMNET099aa93adc.daddr);ip_rt_put(DATARMNET066b8bd537);if(!
+uint8_t DATARMNET1a901c3d09){if(skb_is_nonlinear(DATARMNET543491eb0f)&&!
+skb_headlen(DATARMNET543491eb0f)){int DATARMNETcab577d6ad=(0xd2d+202-0xdf7);if(
+DATARMNET543491eb0f->protocol==htons(ETH_P_IP)){DATARMNETcab577d6ad=sizeof(
+struct iphdr);}else if(DATARMNET543491eb0f->protocol==htons(ETH_P_IPV6)){
+DATARMNETcab577d6ad=sizeof(struct ipv6hdr);}else{DATARMNET17f6bc1be5(
+DATARMNETcea0a33786);goto DATARMNETc1174a0f45;}if(!__pskb_pull_tail(
+DATARMNET543491eb0f,DATARMNETcab577d6ad)){DATARMNET17f6bc1be5(
+DATARMNETe1f92d8061);goto DATARMNETc1174a0f45;}else{skb_reset_network_header(
+DATARMNET543491eb0f);DATARMNET17f6bc1be5(DATARMNETce7e5f4f28);}}if(
+DATARMNET543491eb0f->dev&&(DATARMNET543491eb0f->protocol==htons(ETH_P_IP))&&
+DATARMNET1a901c3d09==DATARMNET9bfbc31cd6){struct iphdr*DATARMNET86f1f2cdc9,
+DATARMNETbf6548198e;struct net_device*DATARMNET813ca18d06=NULL;struct flowi4 
+DATARMNET099aa93adc={};struct rtable*DATARMNET066b8bd537;struct neighbour*
+DATARMNET3f85732c70;int DATARMNET268a8314cf=(0xd2d+202-0xdf7);
+DATARMNET86f1f2cdc9=skb_header_pointer(DATARMNET543491eb0f,(0xd2d+202-0xdf7),
+sizeof(*DATARMNET86f1f2cdc9),&DATARMNETbf6548198e);if(!DATARMNET86f1f2cdc9){
+DATARMNET17f6bc1be5(DATARMNET15454f969d);goto DATARMNETc1174a0f45;}
+DATARMNET813ca18d06=dev_get_by_name_rcu(&init_net,DATARMNET934406764d());if(!
+DATARMNET813ca18d06){DATARMNET17f6bc1be5(DATARMNETfa4b3dd44a);goto 
+DATARMNETc1174a0f45;}DATARMNET543491eb0f->dev=DATARMNET813ca18d06;memcpy(&
+DATARMNET099aa93adc.saddr,&DATARMNET86f1f2cdc9->saddr,sizeof(__be32));memcpy(&
+DATARMNET099aa93adc.daddr,&DATARMNET86f1f2cdc9->daddr,sizeof(__be32));
+DATARMNET099aa93adc.flowi4_oif=DATARMNET813ca18d06->ifindex;DATARMNET099aa93adc.
+flowi4_flags=FLOWI_FLAG_KNOWN_NH;DATARMNET066b8bd537=ip_route_output_key(&
+init_net,&DATARMNET099aa93adc);if(IS_ERR(DATARMNET066b8bd537)){
+DATARMNET17f6bc1be5(DATARMNET72ab5e86d8);goto DATARMNETc1174a0f45;}
+DATARMNET3f85732c70=dst_neigh_lookup(&DATARMNET066b8bd537->dst,&
+DATARMNET099aa93adc.daddr);ip_rt_put(DATARMNET066b8bd537);if(!
 DATARMNET3f85732c70){DATARMNET17f6bc1be5(DATARMNET0e6bd55b8b);goto 
 DATARMNETc1174a0f45;}if(DATARMNET3f85732c70->dev!=DATARMNET543491eb0f->dev||!
 DATARMNET3f85732c70->dev->header_ops){DATARMNET17f6bc1be5(DATARMNET64aecaa865);
