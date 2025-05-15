@@ -4,16 +4,13 @@
 *
 * Version: 1.0
 * Date: 2021-07-12
-* Author: laq@BSP.sensor
 *
 * ------------------------------ Revision History: --------------------------------
 * <version>           <date>                <author>                            <desc>
-* Revision 1.0       2021-07-12            laq@BSP.sensor     Created for oplus sensor dtsi
 ***********************************************************************************/
 &soc {
 	//#ifdef OPLUS_FEATURE_SENSOR_SMEM
-	/*yajie.chen @BSP.sensor, 2020/04/03, Add for sensor dts*/
-	/*enum sensor_id { OPPO_ACCEL,OPPO_GYRO,OPPO_MAG,OPPO_LIGHT,OPPO_PROXIMITY,OPPO_SAR,OPPO_CT,OPPO_BAROMETER,SENSORS_NUM};*/
+	/*enum sensor_id { OPLUS_ACCEL,OPLUS_GYRO,OPLUS_MAG,OPLUS_LIGHT,OPLUS_PROXIMITY,OPLUS_SAR,OPLUS_CT,OPLUS_BAROMETER,SENSORS_NUM};*/
 	sensor_fb: sensor_fb {
 		compatible = "oplus,sensor-feedback";
 		master-id  = <3>;
@@ -27,14 +24,14 @@
 			sensor-name = <0x10>;//LSM6DSO
 			sensor-direction = <7>;
 			sensor-index = <0>;//source num
-			sensor-type = <0>;//OPPO_ACCEL
+			sensor-type = <0>;//OPLUS_ACCEL
 		};
 		/* enum {AKM0991X = 0x01, MMC5x3x = 0x02};*/
 		msensor@0 {
 			sensor-name = <0x1>;//AKM0991X
 			sensor-direction = <0>;
 			sensor-index = <0>;
-			sensor-type = <2>;//OPPO_MAG
+			sensor-type = <2>;//OPLUS_MAG
 			parameter-number= <18>;
 			soft-mag-parameter = <9744 0 2232 0 189 0 939 0 9646 0 329 1 365 0 106 1 11525 0>;//e00 sign e01 sign...
 		};
@@ -42,7 +39,7 @@
 		lsensor@0 {
 			sensor-name = <0x2>;//TCS3701
 			sensor-index = <0>;
-			sensor-type = <3>;//OPPO_LIGHT
+			sensor-type = <3>;//OPLUS_LIGHT
 			bus-number = <2>;
 			irq-number = <14>;
 			als-type = <4>;//CCT_ALS
@@ -58,7 +55,7 @@
 		psensor@0 {
 			sensor-name = <0x2>;//TCS3701
 			sensor-index = <0>;
-			sensor-type = <4>;//OPPO_PROXIMITY
+			sensor-type = <4>;//OPLUS_PROXIMITY
 			bus-number = <2>;
 			irq-number = <14>;
 			ps-type = <1>;
@@ -94,13 +91,13 @@
 		ssensor@0 {
 			sensor-name = <0x1>;//SX9324
 			sensor-index = <0>;
-			sensor-type = <5>;//OPPO_SAR
+			sensor-type = <5>;//OPLUS_SAR
 		};
 		/* enum {tcs3408 = 0x01  stk37600 = 0x02  AS7352 = 0x04} */
 		cctsensor@0 {
 			sensor-name = <0x1>; //tcs3408
 			sensor-index = <0>;
-			sensor-type = <6>; //OPPO_CCT
+			sensor-type = <6>; //OPLUS_CCT
 			bus-number = <1>;
 			//feature
 			publish-sensors = <0x7>; //bit[0] - als, bit[1] - rgb, bit[2] - flicker
@@ -112,7 +109,7 @@
 			decoupled-driver = <1>; //0 - tcs3408 driver; 1 - oplus_cct driver
 			sensor-name = <0x1>; //tcs3408
 			sensor-index = <0>;
-			sensor-type = <7>; //OPPO_CCT_REAR
+			sensor-type = <7>; //OPLUS_CCT_REAR
 			bus-number = <4>;
 			//feature
 			publish-sensors = <0x7>; //bit[0] - als, bit[1] - rgb, bit[2] - flicker, bit[3] - spectral
@@ -123,34 +120,34 @@
 		};
 		/*virtual sensor
 		enum sensor_algo_id {
-			OPPO_PICKUP_DETECT,
-			OPPO_LUX_AOD,
-			OPPO_TP_GESTURE,
-			OPPO_FP_DISPLAY,
-			OPPO_FREE_FALL,
-			OPPO_CAMERA_PROTECT,
+			OPLUS_PICKUP_DETECT,
+			OPLUS_LUX_AOD,
+			OPLUS_TP_GESTURE,
+			OPLUS_FP_DISPLAY,
+			OPLUS_FREE_FALL,
+			OPLUS_CAMERA_PROTECT,
 			SENSOR_ALGO_NUM
 		}*/
 		pickup_detect {
-			sensor-type = <0>;//OPPO_PICKUP_DETECT
+			sensor-type = <0>;//OPLUS_PICKUP_DETECT
 			is-virtual-sensor;
 			is-need-prox = <1>;
 			prox-type = <0>;
 		};
 		lux_aod {
-			sensor-type = <1>; //OPPO_LUX_AOD
+			sensor-type = <1>; //OPLUS_LUX_AOD
 			is-virtual-sensor;
 			thrd-low = <12>;
 			thrd-high = <50>;
 			als-type = <0>;
 		};
 		fp_display {
-			sensor-type = <3>;//OPPO_FP_DISPLAY
+			sensor-type = <3>;//OPLUS_FP_DISPLAY
 			is-virtual-sensor;
 			prox-type = <0>; // 0 - proximity; 1 - proximity_fake
 		};
 		free_fall {
-			sensor-type = <4>;//OPPO_FREE_FALL
+			sensor-type = <4>;//OPLUS_FREE_FALL
 			is-virtual-sensor;
 		};
 	};

@@ -110,12 +110,12 @@ static ssize_t proc_va_feature_read(struct file *file, char __user *buf,
 
 	pid = current->group_leader->pid;
 
-	//search in the pid hash table to find metadata
+	/* search in the pid hash table to find metadata */
 	va_metadata_tmp = oplus_gloom_va_feature_search_hash(pid);
 	if (va_metadata_tmp) {
 		if (va_metadata_tmp->va_feature & ZYGOTE_HEAP)
-			heapsize = (va_metadata_tmp->zygoteheap_in_MB > ZYGOTE_HEAP_DEFAULT_SIZE) ? \
-						va_metadata_tmp->zygoteheap_in_MB : ZYGOTE_HEAP_DEFAULT_SIZE;
+			heapsize = (va_metadata_tmp->zygoteheap_in_mb > ZYGOTE_HEAP_DEFAULT_SIZE) ? \
+						va_metadata_tmp->zygoteheap_in_mb : ZYGOTE_HEAP_DEFAULT_SIZE;
 
 		ret = snprintf(buffer, sizeof(buffer), "%#x",
 						(heapsize & HEAP_SIZE_MASK) + va_metadata_tmp->va_feature);
@@ -154,8 +154,8 @@ static ssize_t proc_va_feature_write(struct file *file, const char __user *buf,
 	va_metadata_p->va_feature = get_va_feature_value(value & ~HEAP_SIZE_MASK);
 
 	if ((va_metadata_p->va_feature & ZYGOTE_HEAP) &&
-			(va_metadata_p->zygoteheap_in_MB == 0))
-			va_metadata_p->zygoteheap_in_MB = heapsize;
+			(va_metadata_p->zygoteheap_in_mb == 0))
+			va_metadata_p->zygoteheap_in_mb = heapsize;
 
 	mm = get_task_mm(current);
 	if (mm) {
@@ -175,7 +175,7 @@ static ssize_t proc_va_feature_write(struct file *file, const char __user *buf,
 		mmput(mm);
 	}
 
-	//add in the pid hash table to record metadata
+	/* add in the pid hash table to record metadata */
 	oplus_gloom_va_feature_add_hash(pid, va_metadata_p);
 
 	return count;

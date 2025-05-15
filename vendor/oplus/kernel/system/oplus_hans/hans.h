@@ -28,6 +28,7 @@
 #define HANS_NOERROR             (0)
 #define HANS_ERROR               (-1)
 #define MIN_USERAPP_UID (10000)
+#define MAX_SYSTEM_UID  (2000)
 #define HANS_SYSTEM_UID (1000)
 #define INTERFACETOKEN_BUFF_SIZE (140)
 #define PARCEL_OFFSET (16) /* sync with the writeInterfaceToken */

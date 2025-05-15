@@ -44,7 +44,7 @@ enum reclaim_type {
 struct process_reclaim_cmd {
 	union {
 		struct iovec *vec;
-		char* cmd;
+		char *cmd;
 	};
 	unsigned int cnt;
 	unsigned int max_cnt;
@@ -119,7 +119,7 @@ static inline bool can_do_pageout(struct vm_area_struct *vma, enum reclaim_type 
 	return false;
 }
 
-static noinline ssize_t reclaim_task(struct task_struct* task, char *buffer,
+static noinline ssize_t reclaim_task(struct task_struct *task, char *buffer,
 		struct iovec *uvector, size_t max_cnt, unsigned long *last_addr,
 		int readahead)
 {

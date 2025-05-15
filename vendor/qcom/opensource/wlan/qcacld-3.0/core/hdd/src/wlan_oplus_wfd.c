@@ -6,12 +6,10 @@
 **
 ** Version: 1.0
 ** Date : 2020/07/27
-** Author: XiaZiJian@CONNECTIVITY.WIFI.P2P.26106
 ** TAG: OPLUS_FEATURE_WIFI_OPLUSWFD
 ** ------------------------------- Revision History: ----------------------------
 ** <author>                                <data>        <version>       <desc>
 ** ------------------------------------------------------------------------------
-**XiaZijian@CONNECTIVITY.WIFI.P2P.26106 2020/07/27     1.0      OPLUS_FEATURE_WIFI_OPLUSWFD
  *******************************************************************************/
 #ifdef OPLUS_FEATURE_WIFI_OPLUSWFD
 #include <linux/version.h>

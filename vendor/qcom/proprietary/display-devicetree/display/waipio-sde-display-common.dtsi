@@ -34,8 +34,10 @@
 #include "dsi-panel-nt36672e-fhd-plus-120-video.dtsi"
 #include "dsi-panel-sim-vdc-cmd.dtsi"
 #include "dsi-panel-nt35597-truly-dualmipi-wqxga-splitlink-cmd.dtsi"
+//#ifdef OPLUS_BUG_STABILITY
 #include "dsi-panel-samsung-amb670yf07-1440-3216-dsc-cmd.dtsi"
 #include "dsi-panel-samsung-amb670yf07-1440-3216-dsc-cmd-t0.dtsi"
+//#endif
 #include "dsi-panel-nt35695b-truly-fhd-splitlink-cmd.dtsi"
 #include "dsi-panel-nt36672c-fhd-plus-90hz-video-cphy.dtsi"
 
@@ -101,6 +103,7 @@
 		};
 	};
 
+//#ifdef OPLUS_BUG_STABILITY
 	dsi_panel_oplus_optimization_pwr_supply: dsi_panel_oplus_optimization_pwr_supply {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -144,6 +147,7 @@
 			qcom,supply-post-on-sleep = <0>;
 		};
 	};
+//#endif
 
 	dsi_panel_pwr_supply_avdd: dsi_panel_pwr_supply_avdd {
 		#address-cells = <1>;
@@ -246,7 +250,9 @@
 		qcom,panel-te-source = <0>;
 
 		qcom,mdp = <&mdss_mdp>;
+		//#ifdef OPLUS_BUG_STABILITY
 		qcom,dsi-default-panel = <&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd>;
+		//#endif
 		qcom,demura-panel-id = <0x0122e700 0x000000b0>;
 	};
 

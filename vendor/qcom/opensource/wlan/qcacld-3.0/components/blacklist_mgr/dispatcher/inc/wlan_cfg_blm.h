@@ -97,7 +97,6 @@
  * </ini>
  */
 #ifndef OPLUS_BUG_STABILITY
-#CuBotao@CONNECTIVITY.WIFI.CONNECT.1074197,Modifty for bug206502
 #define CFG_BLACK_LIST_EXPIRY_TIME CFG_INI_UINT( \
 				"black_list_expiry_time", \
 				1, \

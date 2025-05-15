@@ -11,10 +11,6 @@ dtbo-y += display/waipio-sde.dtbo \
 
 #PLUS_DTS_OVERLAY start
 dtbo-y += oplus/wly-20846-display-waipio-overlay.dtbo
-dtbo-y += oplus/mt-20845-display-waipio-overlay.dtbo
-dtbo-y += oplus/jnc-20865-display-waipio-overlay.dtbo
-dtbo-y += oplus/baize-21001-display-waipio-overlay.dtbo
-dtbo-y += oplus/ferrari-21631-display-waipio-overlay.dtbo
 #PLUS_DTS_OVERLAY end
 else
 dtbo-$(CONFIG_ARCH_WAIPIO) += display/trustedvm-waipio-sde-display-mtp-overlay.dtbo \

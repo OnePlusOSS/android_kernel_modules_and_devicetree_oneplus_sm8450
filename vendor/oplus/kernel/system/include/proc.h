@@ -7,7 +7,6 @@
  *
  ** Version: 1
  ** Date created: 2016/01/06
- ** Author: sijiaquan@ANDROID.SELINUX
  ** ------------------------------- Revision History: ---------------------------------------
  **        <author>      <data>           <desc>
  **        sijiaquan    2017/12/12    create this file

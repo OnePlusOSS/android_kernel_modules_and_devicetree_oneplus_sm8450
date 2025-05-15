@@ -385,11 +385,39 @@ struct cpumask *find_rtg_target(struct task_struct *p)
 	return rtg_target;
 }
 
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+/* optimize fingerprint scenario */
+static bool skip_finger_cpu(struct rq* rq)
+{
+	struct oplus_rq *orq = NULL;
+	struct oplus_task_struct *ots = NULL;
+	bool need_skip = false;
+	struct list_head *pos;
+
+
+	raw_spin_lock(&rq->lock);
+	orq = (struct oplus_rq *) rq->android_oem_data1;
+	if (!list_empty(&orq->ux_list)) {
+		list_for_each(pos, &orq->ux_list) {
+			ots = container_of(pos, struct oplus_task_struct, ux_entry);
+			if (ots->ux_state == SA_TYPE_LISTPICK) {
+				need_skip =true;
+				break;
+			}
+		}
+	}
+	raw_spin_unlock(&rq->lock);
+
+	return need_skip;
+}
+#endif
+
 bool is_prime_fits(int cpu)
 {
 	struct task_struct *curr= NULL;
 	struct walt_task_struct *wts = NULL;
 	struct rq *rq= NULL;
+	bool need_skip = false;
 
 	if (cpu < 0 || !cpu_active(cpu))
 		return false;
@@ -400,7 +428,17 @@ bool is_prime_fits(int cpu)
 		return false;
 
 	wts = (struct walt_task_struct *) curr->android_vendor_data1;
-	return (wts->fbg_depth == 0);
+
+	/* skip this cpu to improve scheduler lantency */
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+	if (oplus_get_im_flag(curr) == IM_FLAG_SURFACEFLINGER ||
+		oplus_get_im_flag(curr) == IM_FLAG_RENDERENGINE) {
+		need_skip = true;
+	} else {
+		need_skip = skip_finger_cpu(rq);
+	}
+#endif
+	return ((wts->fbg_depth == 0) && !need_skip);
 }
 
 bool need_frame_boost(struct task_struct *p)
@@ -458,7 +496,19 @@ int find_fbg_cpu(struct task_struct *p)
 				wts = (struct walt_task_struct *) curr->android_vendor_data1;
 				if (wts->fbg_depth != 0)
 					continue;
+
+				/* skip this cpu to improve scheduler lantency*/
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+				if (oplus_get_im_flag(curr) == IM_FLAG_SURFACEFLINGER ||
+					oplus_get_im_flag(curr) == IM_FLAG_RENDERENGINE)
+					continue;
+#endif
 			}
+#if IS_ENABLED(CONFIG_OPLUS_FEATURE_SCHED_ASSIST)
+			/* optimize fingerprint scenario */
+			if (skip_finger_cpu(rq))
+				continue;
+#endif
 
 			if (active_cpu == -1)
 				active_cpu = i;

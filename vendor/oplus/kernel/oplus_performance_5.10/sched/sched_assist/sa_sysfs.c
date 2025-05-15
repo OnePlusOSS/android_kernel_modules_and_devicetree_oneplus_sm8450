@@ -244,11 +244,8 @@ static ssize_t proc_ux_task_write(struct file *file, const char __user *buf,
 				get_task_struct(ux_task);
 				ux_orig = oplus_get_ux_state(ux_task);
 
-				if (oplus_get_inherit_ux(ux_task)) {
-					ux_warn("Clear inherit ux type from userspace, task=%-12s pid=%d tgid=%d",
-						ux_task->comm, ux_task->pid, ux_task->tgid);
+				if (oplus_get_inherit_ux(ux_task))
 					ux_orig = 0;
-				}
 
 				if (ux_state == SA_OPT_CLEAR) { /* clear all ux type but animator type */
 					if (ux_orig & SA_TYPE_ANIMATOR) {
@@ -265,9 +262,8 @@ static ssize_t proc_ux_task_write(struct file *file, const char __user *buf,
 					oplus_set_ux_state(ux_task, ux_orig);
 				}
 				put_task_struct(ux_task);
-			} else {
-				ux_err("Can not find ux task with pid=%d", pid);
 			}
+
 			rcu_read_unlock();
 		}
 	}

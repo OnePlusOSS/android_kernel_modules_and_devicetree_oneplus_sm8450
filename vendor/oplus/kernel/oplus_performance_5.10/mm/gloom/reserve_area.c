@@ -38,7 +38,7 @@ void get_unmapped_area_from_fragment_pool_handler(void *data, struct mm_struct *
 	struct va_metadata *va_metadata_tmp = NULL;
 	pid_t pid = current->group_leader->pid;
 
-	//search in the pid hash table to find metadata
+	/* search in the pid hash table to find metadata */
 	va_metadata_tmp = oplus_gloom_va_feature_search_hash(pid);
 
 	if (va_metadata_tmp) {
@@ -48,20 +48,20 @@ void get_unmapped_area_from_fragment_pool_handler(void *data, struct mm_struct *
 			unsigned long address = 0;
 
 			switch (info->length) {
-				case 4096: case 8192: case 16384: case 32768:
-				case 65536: case 131072: case 262144:
-					info_b = *info;
-					info_b.high_limit = va_metadata_tmp->va_feature_rnd - (SIZE_10M * (ilog2(info->length) - 12));
-					info_b.low_limit = va_metadata_tmp->va_feature_rnd - (SIZE_10M * 7);
-					info_b.flags = VM_UNMAPPED_AREA_TOPDOWN;
-					//address = unmapped_area_topdown(&info_b); //in kernel-5.10, this function is static
-					address = vm_unmapped_area(&info_b);
-					if (!offset_in_page(address)) {
-						*addr = address;
-						return;
-					}
-				default:
-					break;
+			case 4096: case 8192: case 16384: case 32768:
+			case 65536: case 131072: case 262144:
+				info_b = *info;
+				info_b.high_limit = va_metadata_tmp->va_feature_rnd - (SIZE_10M * (ilog2(info->length) - 12));
+				info_b.low_limit = va_metadata_tmp->va_feature_rnd - (SIZE_10M * 7);
+				info_b.flags = VM_UNMAPPED_AREA_TOPDOWN;
+				/* address = unmapped_area_topdown(&info_b); in kernel-5.10, this function is static */
+				address = vm_unmapped_area(&info_b);
+				if (!offset_in_page(address)) {
+					*addr = address;
+					return;
+				}
+			default:
+				break;
 			}
 			*addr = 0;
 		}
@@ -75,7 +75,7 @@ void get_unmapped_area_exclude_reserved_zone_handler(void *data, struct mm_struc
 	struct va_metadata *va_metadata_tmp = NULL;
 	pid_t pid = current->group_leader->pid;
 
-	//search in the pid hash table to find metadata
+	/* search in the pid hash table to find metadata */
 	va_metadata_tmp = oplus_gloom_va_feature_search_hash(pid);
 
 	if (va_metadata_tmp) {
@@ -90,7 +90,7 @@ void get_unmapped_area_include_reserved_zone_handler(void *data, struct mm_struc
 	struct va_metadata *va_metadata_tmp = NULL;
 	pid_t pid = current->group_leader->pid;
 
-	//search in the pid hash table to find metadata
+	/* search in the pid hash table to find metadata */
 	va_metadata_tmp = oplus_gloom_va_feature_search_hash(pid);
 
 	if (va_metadata_tmp) {
@@ -123,7 +123,7 @@ static inline bool check_parent_is_zygote(struct task_struct *tsk)
 		const struct cred *tcred = __task_cred(t);
 
 		if (!strcmp(t->comm, "main") && (tcred->uid.val == 0) &&
-				(t->parent != NULL) && !strcmp(t->parent->comm,"init"))
+				(t->parent != NULL) && !strcmp(t->parent->comm, "init"))
 			ret = true;
 	}
 	rcu_read_unlock();

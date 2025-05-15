@@ -111,8 +111,8 @@ struct kd_loc_track {
 }
 #endif
 
-#define get_track_hash(track) ((track)->android_oem_data1 & 0xFFFFFFFF)
-#define set_track_hash(track, hash) ((track)->android_oem_data1 |= hash)
+#define get_track_hash(track) ((u32)((track)->android_oem_data1))
+#define set_track_hash(track, hash) ((track)->android_oem_data1 = hash)
 
 const struct kmalloc_info_struct kmalloc_debug_info[] = {
 	INIT_KMALLOC_DEBUG_INFO(0, 0),
@@ -337,16 +337,6 @@ static inline struct kmem_cache_order_objects oo_make(unsigned int order,
 	return x;
 }
 
-static inline unsigned int oo_order(struct kmem_cache_order_objects x)
-{
-	return x.x >> OO_SHIFT;
-}
-
-static inline unsigned int oo_objects(struct kmem_cache_order_objects x)
-{
-	return x.x & OO_MASK;
-}
-
 /*
  * Management of partially allocated slabs.
  */
@@ -467,7 +457,6 @@ static void kd_deactivate_slab(struct kmem_cache *s, struct page *page,
 			new.counters = counters;
 			new.inuse--;
 			VM_BUG_ON(!new.frozen);
-
 		} while (!__cmpxchg_double_slab(s, page,
 					prior, counters,
 					freelist, new.counters,
@@ -599,7 +588,6 @@ static void kd_unfreeze_partials(struct kmem_cache *s,
 		}
 
 		do {
-
 			old.freelist = page->freelist;
 			old.counters = page->counters;
 			VM_BUG_ON(!old.frozen);
@@ -608,7 +596,6 @@ static void kd_unfreeze_partials(struct kmem_cache *s,
 			new.freelist = old.freelist;
 
 			new.frozen = 0;
-
 		} while (!__cmpxchg_double_slab(s, page,
 					old.freelist, old.counters,
 					new.freelist, new.counters,
@@ -710,7 +697,7 @@ static inline bool __cmpxchg_double_slab(struct kmem_cache *s, struct page *page
 			return true;
 	} else
 #endif
-	{
+	 {
 		slab_lock(page);
 		if (page->freelist == freelist_old &&
 				page->counters == counters_old) {
@@ -746,7 +733,7 @@ static inline bool cmpxchg_double_slab(struct kmem_cache *s, struct page *page,
 			return true;
 	} else
 #endif
-	{
+	 {
 		unsigned long flags;
 
 		local_irq_save(flags);
@@ -865,8 +852,8 @@ static inline int check_valid_pointer(struct kmem_cache *s,
 	base = page_address(page);
 	object = kasan_reset_tag(object);
 	object = restore_red_left(s, object);
-	if (object < base || object >= base + page->objects * s->size ||
-			(object - base) % s->size) {
+	if (object < base || (object >= (base + page->objects * s->size))
+			|| (object - base) % s->size) {
 		return 0;
 	}
 
@@ -921,7 +908,7 @@ static noinline void print_track(const char *s, struct track *t,
 	pr_err("INFO: %s in %pS age=%lu cpu=%u pid=%d\n",
 			s, (void *)t->addr, pr_time - t->when, t->cpu, t->pid);
 #ifdef CONFIG_STACKTRACE
-	{
+	 {
 		int i;
 		for (i = 0; i < TRACK_ADDRS_COUNT; i++)
 			if (t->addrs[i])
@@ -946,7 +933,6 @@ static void print_page_info(struct page *page)
 {
 	pr_err("INFO: Slab 0x%p objects=%u used=%u fp=0x%p flags=0x%04lx\n",
 			page, page->objects, page->inuse, page->freelist, page->flags);
-
 }
 
 static void slab_bug(struct kmem_cache *s, char *fmt, ...)
@@ -1312,10 +1298,10 @@ static int kd_alloc_loc_track(struct kd_loc_track *t, int buff_size)
 {
 	struct kd_location *l;
 
-	l = (void *)vmalloc(buff_size);
+	l = (void *)vzalloc(buff_size);
 	if (!l) {
 		buff_size >>= 1;
-		l = (void *)vmalloc(buff_size);
+		l = (void *)vzalloc(buff_size);
 		if (!l)
 			return -ENOMEM;
 	}
@@ -1344,7 +1330,7 @@ static int kd_add_location(struct kd_loc_track *t, struct kmem_cache *s,
 	start = -1;
 	end = t->count;
 
-	for ( ; ; ) {
+	for (;;) {
 		pos = start + (end - start + 1) / 2;
 
 		/*
@@ -1402,7 +1388,7 @@ static int kd_add_location(struct kd_loc_track *t, struct kmem_cache *s,
 	l->depth = (u32)(sizeof(l->addrs)/sizeof(l->addrs[0]));
 	l->hash = get_track_hash(track);
 #ifdef COMPACT_OPLUS_SLUB_TRACK
-	{
+	 {
 		int i;
 		for (i = 0; i < l->depth; i++)
 			l->addrs[i] = track->addrs[i] + MODULES_VADDR;
@@ -1889,9 +1875,9 @@ static ssize_t kmalloc_debug_create_write(struct file *file, const char __user *
 		offset = 2;
 	else {
 		if (type == KMALLOC_NORMAL)
-			offset = 8; // kmalloc-128
+			offset = 8; /* kmalloc-128 */
 		else
-			offset = 12; // kmalloc-rcl- or dma-kmalloc-
+			offset = 12; /* kmalloc-rcl- or dma-kmalloc- */
 	}
 
 	ret = kstrtol(kbuf+offset, 10, &size);

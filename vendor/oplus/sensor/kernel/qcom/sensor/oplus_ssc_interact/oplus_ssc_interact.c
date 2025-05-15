@@ -371,4 +371,4 @@ static void __exit ssc_interactive_exit(void)
 module_init(ssc_interactive_init);
 module_exit(ssc_interactive_exit);
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("JiangHua.Tang <tangjh@oppo.com>");
+MODULE_AUTHOR("JiangHua.Tang");

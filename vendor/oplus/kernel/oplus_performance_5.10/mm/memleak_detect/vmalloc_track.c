@@ -35,12 +35,13 @@ static struct proc_dir_entry *tpentry;
 extern struct proc_dir_entry *memleak_detect_dir;
 
 #define SET_VM_STACK_HASH(vm, val) (vm->android_oem_data1 = val)
-#define GET_VM_STACK_HASH(vm) (vm->android_oem_data1 & 0xFFFFFFFF)
+#define GET_VM_STACK_HASH(vm) ((u32)(vm->android_oem_data1))
 
 static void show_stack_hash(void *data, struct seq_file *m,
 		struct vm_struct *v)
 {
-//	seq_printf(m, " handle=%u", GET_VM_STACK_HASH(v));
+	if (vmalloc_debug_enable == 2)
+		seq_printf(m, " handle=%u", GET_VM_STACK_HASH(v));
 }
 
 static void save_vmalloc_stack(void *data, unsigned long flags,
@@ -114,9 +115,8 @@ static ssize_t vmalloc_debug_enable_write(struct file *file,
 		ret = ml_depot_init(memleak_detect_dir);
 		if (ret)
 			return ret;
-		vmalloc_debug_enable = 1;
-	} else
-		vmalloc_debug_enable = 0;
+	}
+	vmalloc_debug_enable = val;
 
 	return len;
 }
@@ -140,7 +140,7 @@ static ssize_t vmalloc_debug_enable_read(struct file *file,
 	int len;
 
 	len = scnprintf(kbuf, VD_VALUE_LEN, "%d\n", vmalloc_debug_enable);
-	if (len == VD_VALUE_LEN && kbuf[len - 1] != '\n')
+	if ((len == VD_VALUE_LEN) && (kbuf[len - 1] != '\n'))
 		kbuf[len - 1] = '\n';
 
 	if (len > *off)
@@ -232,7 +232,7 @@ static ssize_t vmalloc_used_read(struct file *filp,
 	unsigned int len;
 
 	len = scnprintf(kbuf, KBUF_LEN, "%ld\n", vmalloc_nr_pages() << 2);
-	if (len == KBUF_LEN && kbuf[len - 1] != '\n')
+	if ((len == KBUF_LEN) && (kbuf[len - 1] != '\n'))
 		return -EFAULT;
 
 	if (len > *off)
@@ -288,6 +288,6 @@ void vmalloc_debug_exit(void)
 	proc_remove(epentry);
 	proc_remove(spentry);
 	unregister_trace_android_vh_show_stack_hash(show_stack_hash, NULL);
-	unregister_trace_android_vh_save_vmalloc_stack( save_vmalloc_stack, NULL);
+	unregister_trace_android_vh_save_vmalloc_stack(save_vmalloc_stack, NULL);
 }
 #endif /* _VMALLOC_DEBUG_ */

@@ -19,6 +19,12 @@ config OPLUS_COMMON_SOFT
 	Maybe this value is from CDT or dynamic identify by hardware
 	id.
 
+config OPLUS_DEVICE_IFNO
+  tristate "config devinfo"
+  select OPLUS_ARCH_FILE
+  help
+	define this config to compile devinfo.c for device register
+		.
 config OPLUS_BUG_STABILITY_EFFECTON_QGKI
   tristate "config stability bug fixing effect on qgki"
   help

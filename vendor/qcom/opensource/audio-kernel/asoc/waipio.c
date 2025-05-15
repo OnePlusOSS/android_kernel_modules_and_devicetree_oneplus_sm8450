@@ -133,8 +133,13 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.moisture_duty_cycle_en = true,
 };
 
+#ifndef OPLUS_ARCH_EXTENDS
 /* set audio task affinity to core 1 & 2 */
 static const unsigned int audio_core_list[] = {1, 2};
+#else /* OPLUS_ARCH_EXTENDS */
+/* set audio task affinity to core 0 & 1 & 2 & 3 */
+static const unsigned int audio_core_list[] = {0, 1, 2, 3};
+#endif /* OPLUS_ARCH_EXTENDS */
 static cpumask_t audio_cpu_map = CPU_MASK_NONE;
 static struct dev_pm_qos_request *msm_audio_req = NULL;
 static unsigned int qos_client_active_cnt;

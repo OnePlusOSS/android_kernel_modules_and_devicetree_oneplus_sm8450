@@ -33,7 +33,7 @@ static __cacheline_aligned_in_smp DEFINE_SPINLOCK(pidhash_lock);
 
 int pid_va_feature_hash_init(void)
 {
-	int size = sizeof(*pid_va_feature_hash) * (1<<HASH_TABLE_SHIFT);
+	int size = sizeof(*pid_va_feature_hash) * (1 << HASH_TABLE_SHIFT);
 
 	pid_va_feature_hash = (struct hlist_head *)kzalloc(size, GFP_KERNEL);
 	if (!pid_va_feature_hash) {

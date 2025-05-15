@@ -43,7 +43,6 @@
 
 #ifdef MSM_PLATFORM
 #ifndef OPLUS_BUG_STABILITY
-#LiJunlong@CONNECTIVITY.WIFI.NETWORK.1074197,Modifty for 8250R ini
 #define WLAN_INI_FILE              "wlan/qca_cld/" PREFIX "WCNSS_qcom_cfg.ini"
 #else /* OPLUS_BUG_STABILITY */
 #define WLAN_INI_FILE              "wlan/WCNSS_qcom_cfg.ini"

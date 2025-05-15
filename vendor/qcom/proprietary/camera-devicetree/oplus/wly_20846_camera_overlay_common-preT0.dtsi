@@ -74,7 +74,7 @@
 		cell-index = <0>;
 		compatible = "qcom,eeprom";
 		cam_vio-supply = <&L2C>;
-		cam_v_custom1-supply = <&L8C>;
+		cam_v_custom1-supply = <&L8C>; // m-sensor
 		cam_clk-supply = <&cam_cc_titan_top_gdsc>;
 		cam_vaf-supply = <&L7I>;
 		cam_v_custom2-supply = <&L6I>;
@@ -111,7 +111,7 @@
 		cam_vio-supply = <&L2C>;
 		cam_vaf-supply = <&L7I>;
 		cam_v_custom2-supply = <&L6I>;
-		cam_vdig-supply = <&L8C>;
+		cam_vdig-supply = <&L8C>;   // m-sensor
 		regulator-names = "cam_vio", "cam_vaf", "cam_v_custom2", "cam_vdig";
 		rgltr-cntrl-support;
 		rgltr-min-voltage = <1800000 2800000 2800000 1800000>;
@@ -252,8 +252,8 @@
 		reg = <1>;
 		compatible = "qcom,ois";
 		cam_vio-supply = <&L2C>;
-		cam_vana-supply = <&L7I>;
-		cam_v_custom2-supply = <&L6I>;
+		cam_vana-supply = <&L7I>;           // main vaf
+		cam_v_custom2-supply = <&L6I>;      // main ois
 		cam_vaf-supply = <&L7J>;
 		cam_v_custom1-supply = <&L5J>;
 		regulator-names = "cam_vio", "cam_vana", "cam_v_custom2", "cam_vaf", "cam_v_custom1";

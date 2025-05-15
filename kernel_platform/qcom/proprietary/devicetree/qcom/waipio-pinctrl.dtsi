@@ -2467,7 +2467,6 @@
 		spkr_1_sd_n_sleep: spkr_1_sd_n_sleep {
 			mux {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio1";
 //#else
 				pins = "gpio9";
@@ -2477,7 +2476,6 @@
 
 			config {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio1";
 //#else
 				pins = "gpio9";
@@ -2491,7 +2489,6 @@
 		spkr_1_sd_n_active: spkr_1_sd_n_active {
 			mux {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio1";
 //#else
 				pins = "gpio9";
@@ -2501,7 +2498,6 @@
 
 			config {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio1";
 //#else
 				pins = "gpio9";
@@ -2802,7 +2798,6 @@
 		sde_dsi_active: sde_dsi_active {
 			mux {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio0";
 //#else
 				pins = "gpio13";
@@ -2812,7 +2807,6 @@
 
 			config {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio0";
 //#else
 				pins = "gpio13";
@@ -2825,7 +2819,6 @@
 		sde_dsi_suspend: sde_dsi_suspend {
 			mux {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio0";
 //#else
 				pins = "gpio13";
@@ -2835,7 +2828,6 @@
 
 			config {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-//lizhijie@BSP.CHG.Basic lzj add for chg temp
 //				pins = "gpio0";
 //#else
 				pins = "gpio13";

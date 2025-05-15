@@ -33,7 +33,6 @@ struct device_info {
 	struct device *dev;
 	struct pinctrl *p_ctrl;
 	struct pinctrl_state *active[BOARD_GPIO_SUPPORT], *sleep[BOARD_GPIO_SUPPORT];
-/*#ifdef OPLUS_FEATURE_TP_BASIC shifan@bsp.tp 2020.1028 add for ABoard tristate match*/
 	struct pinctrl_state *idle[BOARD_GPIO_SUPPORT];
 /*#endif OPLUS_FEATURE_TP_BASIC*/
 	struct list_head dev_list;
@@ -294,7 +293,6 @@ static int parse_gpio_dts(struct device *dev, struct device_info *dev_info)
 				 dev_msg("Failed to get sleep[%d], check dts\n", i);
 				 continue;
 			}
-/*#ifdef OPLUS_FEATURE_TP_BASIC shifan@bsp.tp 2020.1028 add for Aboard tristate match*/
 			snprintf(tmp, INFO_LEN, "aboard_gpio%d_idle", i);
 			dev_info->idle[i] = pinctrl_lookup_state(dev_info->p_ctrl, tmp);
 			if (IS_ERR_OR_NULL(dev_info->idle[i])) {
@@ -342,7 +340,6 @@ static void set_gpios_sleep(struct device_info *dev_info)
 	}
 }
 
-/*#ifdef OPLUS_FEATURE_TP_BASIC shifan@bsp.tp 2020.1028 add for Aboard tristate match*/
 static void set_gpios_idle(struct device_info *dev_info)
 {
 	int i = 0, ret = 0;
@@ -739,7 +736,6 @@ reinit_aboard_id(struct device *dev, struct manufacture_info *info)
 				ret = -EINVAL;
 				goto read_failed;
 			}
-		/*#ifdef OPLUS_FEATURE_TP_BASIC shifan@bsp.tp 2020.1028 add for Aboard tristate match*/
 		} else if (of_property_read_bool(np, "use_tristate_gpio")) {
 			dev_msg("tristate gpio judgement\n");
 			set_gpios_active(dev_info);

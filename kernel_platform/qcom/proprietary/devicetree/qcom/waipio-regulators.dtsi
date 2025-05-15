@@ -595,6 +595,7 @@
 			regulator-name = "pm8350c_l6";
 			qcom,set = <RPMH_REGULATOR_SET_ALL>;
 			regulator-min-microvolt = <1800000>;
+//#ifdef OPLUS_FEATURE_TP_BASIC
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 //#endif /*OPLUS_FEATURE_TP_BASIC*/
@@ -1077,6 +1078,7 @@
 		};
 	};
 
+//#ifdef OPLUS_FEATURE_TP_BASIC
 	rpmh-regulator-ldoh4 {
 		compatible = "qcom,rpmh-vrm-regulator";
 		qcom,resource-name = "ldoh4";

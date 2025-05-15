@@ -2,9 +2,6 @@
 /*
  * Copyright (C) 2018-2020 Oplus. All rights reserved.
  */
-/*
-	yixue.ge@bsp.drv creat for can dump cpu register at panic
-*/
 #include <linux/errno.h>
 #include <linux/linkage.h>
 #include <asm/asm-offsets.h>

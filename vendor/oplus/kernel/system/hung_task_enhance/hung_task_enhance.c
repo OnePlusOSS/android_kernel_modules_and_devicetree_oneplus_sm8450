@@ -1,11 +1,10 @@
 /***************************************************************
-** Copyright (C),  2019-2020,  OPPO Mobile Comm Corp.,  Ltd
+** Copyright (C),  2019-2020,  OPLUS Mobile Comm Corp.,  Ltd
 ** VENDOR_EDIT
 ** File : uboot_log.c
 ** Description : BSP uboot_log back up xbl uefi kernel boot log , cat /proc/boot_dmesg
 ** Version : 1.0
 ** Date : 2020/02/25
-** Author : Wen.Luo@PSW.BSP.Kernel.Stability
 **
 ** ------------------------------- Revision History: -----------
 **  <author>        <data>        <version >        <desc>

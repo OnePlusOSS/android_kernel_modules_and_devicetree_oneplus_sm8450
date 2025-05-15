@@ -66,7 +66,6 @@ static qdf_atomic_t is_recovery_cleanup_done;
 static uint8_t g_fw_host_hang_event[QDF_HANG_EVENT_DATA_SIZE];
 
 #ifdef OPLUS_FEATURE_WIFI_OPLUSWFD
-/*XiaZijian@CONNECTIVITY.WIFI.P2P.26106,20200703*/
 extern void oplus_wfd_set_hdd_ctx(struct hdd_context *hdd_ctx);
 extern void oplus_register_oplus_wfd_wlan_ops_qcom(void);
 #endif
@@ -645,7 +644,6 @@ static int __hdd_soc_probe(struct device *dev,
 	hdd_thermal_mitigation_register(hdd_ctx, dev);
 
 #ifdef OPLUS_FEATURE_WIFI_OPLUSWFD
-	/*XiaZijian@CONNECTIVITY.WIFI.P2P.26106,20200703*/
 	oplus_wfd_set_hdd_ctx(hdd_ctx);
 	oplus_register_oplus_wfd_wlan_ops_qcom();
 #endif
@@ -832,7 +830,6 @@ static void __hdd_soc_remove(struct device *dev)
 		QWLAN_VERSIONSTR);
 
 #ifdef OPLUS_FEATURE_WIFI_OPLUSWFD
-        /*XiaZijian@CONNECTIVITY.WIFI.P2P.26106,20200703*/
 	oplus_wfd_set_hdd_ctx(NULL);
 #endif
 

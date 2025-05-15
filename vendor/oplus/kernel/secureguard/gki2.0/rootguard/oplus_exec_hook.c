@@ -105,28 +105,24 @@ static int oplus_check_execveat_perm( )
 {
 	char *absolute_path_buf = NULL;
 	char *absolute_path = NULL;
-    int retval = 0;
+	int need_block = 0;
 	struct path	 * p_f_path = &(current->mm->exe_file->f_path);
 
 	if (NULL == p_f_path) {
-	    retval = -EPERM;
 		goto out_ret;
 	}
 
 	absolute_path_buf = (char *)__get_free_page(__GFP_ATOMIC);
 	if (absolute_path_buf == NULL) {
-		retval = -ENOMEM;
 		goto out_ret;
 	}
 
 	absolute_path = d_path(p_f_path, absolute_path_buf, PAGE_SIZE);
-	retval = PTR_ERR(absolute_path);
 	if (IS_ERR(absolute_path)) {
 	    goto out_free;
 	}
 	/* pr_alert("[DEBUG]:current_uid().val is %u, absolute_path is %s\n", current_uid().val, absolute_path);*/
 
-	retval = 0;
 	if (strncmp(absolute_path, "/data", 5)) {
 	    goto out_free;
 	}
@@ -145,14 +141,14 @@ static int oplus_check_execveat_perm( )
 		oplus_report_execveat(absolute_path, "execve_report");
 	} else {
                 oplus_report_execveat(absolute_path, "execve_block");
-		retval = -EPERM;
+		need_block = 1;
                 goto out_free;
 	}
 out_free:
 	free_page((unsigned long)absolute_path_buf);
 
 out_ret:
-	return retval;
+	return need_block;
 }
 
 static int oplus_exec_block( )

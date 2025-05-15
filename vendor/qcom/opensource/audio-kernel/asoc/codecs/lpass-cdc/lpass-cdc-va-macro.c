@@ -1176,7 +1176,6 @@ static int lpass_cdc_va_macro_tx_mixer_put(struct snd_kcontrol *kcontrol,
 
 static int lpass_cdc_va_macro_enable_dmic(struct snd_soc_dapm_widget *w,
 #ifndef OPLUS_ARCH_EXTENDS
-/*Minyi.Hu@MULTIMEDIA.AUDIODRIVER.CODEC.CR3093277, 2021/12/15, fix dmic pop issue, case 05550769*/
 		struct snd_kcontrol *kcontrol, int event)
 #else
 		struct snd_kcontrol *kcontrol, int event, u16 adc_mux0_cfg)
@@ -1187,7 +1186,6 @@ static int lpass_cdc_va_macro_enable_dmic(struct snd_soc_dapm_widget *w,
 	unsigned int dmic = 0;
 
 #ifndef OPLUS_ARCH_EXTENDS
-/*Minyi.Hu@MULTIMEDIA.AUDIODRIVER.CODEC.CR3093277, 2021/12/15, fix dmic pop issue, case 05550769*/
 	int ret = 0;
 	char *wname;
 
@@ -1232,7 +1230,6 @@ static int lpass_cdc_va_macro_enable_dec(struct snd_soc_dapm_widget *w,
 	u8 hpf_cut_off_freq;
 	u16 adc_mux_reg = 0;
 #ifdef OPLUS_ARCH_EXTENDS
-/*Minyi.Hu@MULTIMEDIA.AUDIODRIVER.CODEC.CR3093277, 2021/12/15, fix dmic pop issue, case 05550769*/
 	u16 adc_mux0_reg = 0;
 #endif
 	u16 tx_fs_reg = 0;
@@ -1262,7 +1259,6 @@ static int lpass_cdc_va_macro_enable_dec(struct snd_soc_dapm_widget *w,
 			LPASS_CDC_VA_MACRO_ADC_MUX_CFG_OFFSET * decimator;
 
 #ifdef OPLUS_ARCH_EXTENDS
-/*Minyi.Hu@MULTIMEDIA.AUDIODRIVER.CODEC.CR3093277, 2021/12/15, fix dmic pop issue, case 05550769*/
 	adc_mux0_reg = LPASS_CDC_VA_INP_MUX_ADC_MUX0_CFG0 +
 			LPASS_CDC_VA_MACRO_ADC_MUX_CFG_OFFSET * decimator;
 #endif
@@ -1272,7 +1268,6 @@ static int lpass_cdc_va_macro_enable_dec(struct snd_soc_dapm_widget *w,
 				tx_fs_reg) & 0x0F);
 
 #ifdef OPLUS_ARCH_EXTENDS
-/*Minyi.Hu@MULTIMEDIA.AUDIODRIVER.CODEC.CR3093277, 2021/12/15, fix dmic pop issue, case 05550769*/
 	if(!is_amic_enabled(component, decimator))
 		lpass_cdc_va_macro_enable_dmic(w, kcontrol, event, adc_mux0_reg);
 #endif
@@ -1891,7 +1886,6 @@ static const struct snd_soc_dapm_widget lpass_cdc_va_macro_dapm_widgets[] = {
 		lpass_cdc_va_macro_enable_micbias,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 #ifndef OPLUS_ARCH_EXTENDS
-/*Minyi.Hu@MULTIMEDIA.AUDIODRIVER.CODEC.CR3093277, 2021/12/15, fix dmic pop issue, case 05550769*/
 	SND_SOC_DAPM_ADC_E("VA DMIC0", NULL, SND_SOC_NOPM, 0, 0,
 		lpass_cdc_va_macro_enable_dmic, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),

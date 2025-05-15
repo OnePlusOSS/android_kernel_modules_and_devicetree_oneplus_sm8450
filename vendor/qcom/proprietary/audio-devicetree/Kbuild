@@ -14,10 +14,6 @@ dtbo-$(CONFIG_ARCH_DIWALI) += diwali-audio.dtbo \
 
 #PLUS_DTS_OVERLAY start
 dtbo-y += oplus/wly-20846-audio-waipio-overlay.dtbo
-dtbo-y += oplus/mt-20845-audio-waipio-overlay.dtbo
-dtbo-y += oplus/jnc-20865-audio-waipio-overlay.dtbo
-dtbo-y += oplus/baize-21001-audio-waipio-overlay.dtbo
-dtbo-y += oplus/ferrari-21631-audio-waipio-overlay.dtbo
 #PLUS_DTS_OVERLAY end
 
  always-y    := $(dtb-y) $(dtbo-y)

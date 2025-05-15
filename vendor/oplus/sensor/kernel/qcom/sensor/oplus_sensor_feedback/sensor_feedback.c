@@ -128,7 +128,8 @@ struct sensor_fb_conf g_fb_conf[] = {
 	{ACCEL_FIRST_REPORT_DELAY_COUNT_ID, "device_acc_rpt_delay", SENSOR_DEBUG_DEVICE_TYPE},
 	{ACCEL_ORIGIN_DATA_TO_ZERO_ID, "device_acc_to_zero", SENSOR_DEBUG_DEVICE_TYPE},
 	{ACCEL_CALI_DATA_ID, "device_acc_cali_data", SENSOR_DEBUG_DEVICE_TYPE},
-
+	{ACCEL_DATA_BLOCK_ID, "device_acc_data_block", SENSOR_DEVICE_TYPE},
+	{ACCEL_SUB_DATA_BLOCK_ID, "device_sub_acc_data_block", SENSOR_DEVICE_TYPE},
 
 	{GYRO_INIT_FAIL_ID, "device_gyro_init_fail", SENSOR_DEVICE_TYPE},
 	{GYRO_I2C_ERR_ID, "device_gyro_i2c_err", SENSOR_DEVICE_TYPE},

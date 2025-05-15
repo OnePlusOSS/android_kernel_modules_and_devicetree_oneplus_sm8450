@@ -510,7 +510,6 @@ static bool is_amic_enabled(struct snd_soc_component *component, int decimator)
 			TX_MACRO_ADC_MUX_CFG_OFFSET * decimator;
 	if (snd_soc_component_read(component, adc_mux_reg) & SWR_MIC) {
 		#ifndef OPLUS_ARCH_EXTENDS
-		/*Jianfeng.Qiu@MULTIMEDIA.AUDIODRIVER.CODEC.CR2822196, 2020/11/19, Modify for amic pop at record, case04926606*/
 		if (tx_priv->version == BOLERO_VERSION_2_1)
 		#else /* OPLUS_ARCH_EXTENDS */
 		if (tx_priv->version == BOLERO_VERSION_2_1 ||

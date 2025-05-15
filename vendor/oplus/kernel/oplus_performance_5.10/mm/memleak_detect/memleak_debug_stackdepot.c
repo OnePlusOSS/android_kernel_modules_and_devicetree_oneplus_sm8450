@@ -28,9 +28,9 @@
 #define STACK_ALLOC_SIZE (1LL << (PAGE_SHIFT + STACK_ALLOC_ORDER))
 #define STACK_ALLOC_ALIGN 4
 #define STACK_ALLOC_OFFSET_BITS (STACK_ALLOC_ORDER + PAGE_SHIFT - \
-		STACK_ALLOC_ALIGN) //9
+		STACK_ALLOC_ALIGN)
 #define STACK_ALLOC_INDEX_BITS (DEPOT_STACK_BITS - \
-		STACK_ALLOC_NULL_PROTECTION_BITS - STACK_ALLOC_OFFSET_BITS) //22
+		STACK_ALLOC_NULL_PROTECTION_BITS - STACK_ALLOC_OFFSET_BITS)
 #define STACK_ALLOC_SLABS_CAP 10240
 #define STACK_ALLOC_MAX_SLABS \
 	(((1LL << (STACK_ALLOC_INDEX_BITS)) < STACK_ALLOC_SLABS_CAP) ? \
@@ -154,7 +154,7 @@ static inline u32 ml_hash_stack(unsigned long *entries, unsigned int size)
 int ml_stackdepot_memcmp(const unsigned long *u1, const unsigned long *u2,
 		unsigned int n)
 {
-	for ( ; n-- ; u1++, u2++) {
+	for (; n-- ; u1++, u2++) {
 		if (*u1 != *u2)
 			return 1;
 	}

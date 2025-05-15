@@ -1,5 +1,5 @@
 /*
- *  linux/drivers/soc/oplus/oppo_midas/dispcap_dev.c
+ *  linux/drivers/soc/oplus/oplus_midas/dispcap_dev.c
  *
  *      Added dispcap drivers
  *

@@ -245,7 +245,7 @@ inline bool test_task_is_fair(struct task_struct *task)
 	BUG_ON(!task);
 
 	/* valid CFS priority is MAX_RT_PRIO..MAX_PRIO-1 */
-	if (task->prio >= MAX_RT_PRIO && task->prio <= MAX_PRIO-1)
+	if ((task->prio >= MAX_RT_PRIO) && (task->prio <= MAX_PRIO-1))
 		return true;
 	return false;
 }
@@ -255,7 +255,7 @@ inline bool test_task_is_rt(struct task_struct *task)
 	BUG_ON(!task);
 
 	/* valid RT priority is 0..MAX_RT_PRIO-1 */
-	if (task->prio >= 0 && task->prio <= MAX_RT_PRIO-1)
+	if ((task->prio >= 0) && (task->prio <= MAX_RT_PRIO-1))
 		return true;
 	return false;
 }
@@ -304,13 +304,6 @@ inline bool test_task_ux(struct task_struct *task)
 
 	if (!test_task_is_fair(task))
 		return false;
-
-#ifdef CONFIG_OPLUS_FEATURE_SCHED_SPREAD
-	/* during SA_ANIM, top application should not be optimized except launcher */
-	if (sched_assist_scene(SA_ANIM) && !sched_assist_scene(SA_LAUNCH)
-		&& save_top_app_tgid && (task->tgid == save_top_app_tgid) && (top_app_type != 1))
-		return false;
-#endif
 
 	if (oplus_get_ux_state(task) & (SA_TYPE_HEAVY | SA_TYPE_LIGHT | SA_TYPE_ANIMATOR | SA_TYPE_LISTPICK)) {
 		struct oplus_task_struct *ots = get_oplus_task_struct(task);
@@ -711,18 +704,26 @@ void adjust_rt_lowest_mask(struct task_struct *p, struct cpumask *local_cpu_mask
 			continue;
 		}
 #endif
+		/* avoid sf premmpt heavy ux tasks,such as ui, render... */
+		if ((oplus_get_im_flag(p) == IM_FLAG_SURFACEFLINGER || oplus_get_im_flag(p) == IM_FLAG_RENDERENGINE) &&
+			((oplus_get_ux_state(task) & SA_TYPE_HEAVY) || (oplus_get_ux_state(task) & SA_TYPE_LISTPICK))) {
+			cpumask_clear_cpu(drop_cpu, local_cpu_mask);
+			if (unlikely(global_debug_enabled & DEBUG_FTRACE)) {
+				trace_printk("clear cpu from lowestmask, curr_heavy task=%-12s pid=%d drop_cpu=%d\n", task->comm, task->pid, drop_cpu);
+			}
+		}
 
 		if (sched_assist_scene(SA_LAUNCH) && (oplus_get_ux_state(task) & SA_TYPE_HEAVY)) {
 			cpumask_clear_cpu(drop_cpu, local_cpu_mask);
 			if (unlikely(global_debug_enabled & DEBUG_FTRACE)) {
-				trace_printk("clear cpu from lowestmask, curr_heavy task=%-12s pid=%d drop_cpu=%d\n", p->comm, p->pid, drop_cpu);
+				trace_printk("clear cpu from lowestmask, curr_heavy task=%-12s pid=%d drop_cpu=%d\n", task->comm, task->pid, drop_cpu);
 			}
 		}
 
 		if (oplus_get_ux_state(task) & SA_TYPE_ANIMATOR) {
 			cpumask_clear_cpu(drop_cpu, local_cpu_mask);
 			if (unlikely(global_debug_enabled & DEBUG_FTRACE)) {
-				trace_printk("clear cpu from lowestmask, curr_anima task=%-12s pid=%d drop_cpu=%d\n", p->comm, p->pid, drop_cpu);
+				trace_printk("clear cpu from lowestmask, curr_anima task=%-12s pid=%d drop_cpu=%d\n", task->comm, task->pid, drop_cpu);
 			}
 		}
 

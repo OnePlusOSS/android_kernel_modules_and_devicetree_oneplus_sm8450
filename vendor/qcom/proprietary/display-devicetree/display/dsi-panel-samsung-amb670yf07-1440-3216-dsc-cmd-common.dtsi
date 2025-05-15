@@ -1,6 +1,5 @@
 /*******************************************************************
 ** Copyright (C) 2021, OPLUS. All rights reserved.
-** Liuhe.Zhong@MULTIMEDIA, 2021/01/13
 ** some config is general, add them into every 120hz timing is too boring
 ** so add this 120hz common file and include it to every 120hz timing instead
 ********************************************************************/
@@ -236,6 +235,21 @@
 				];
 				qcom,mdss-dsi-panel-read-register-close-command = [
 					39 00 00 00 00 00 03 F0 A5 A5
+				];
+
+				qcom,mdss-dsi-panel-oha-on = [
+					39 00 00 00 00 00 03 f0 5a 5a
+					39 00 00 40 00 00 04 b0 00 01 60
+					15 00 00 40 00 00 02 60 05
+					15 00 00 00 00 00 02 f7 0f
+					39 00 00 00 24 00 03 f0 a5 a5
+				];
+				qcom,mdss-dsi-panel-oha-off = [
+					39 00 00 00 00 00 03 f0 5a 5a
+					39 00 00 40 00 00 04 b0 00 01 60
+					15 00 00 40 00 00 02 60 00
+					15 00 00 00 00 00 02 f7 0f
+					39 00 00 00 24 00 03 f0 a5 a5
 				];
 
 				qcom,mdss-dsi-adfr-pre-switch-command-state = "dsi_hs_mode";

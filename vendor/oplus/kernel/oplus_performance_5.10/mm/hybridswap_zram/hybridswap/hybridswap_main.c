@@ -813,19 +813,16 @@ static struct cftype mem_cgroup_hybridswap_legacy_files[] = {
 	},
 	{
 		.name = "app_score",
-		.flags = CFTYPE_WORLD_WRITABLE,
 		.write_s64 = mem_cgroup_app_score_write,
 		.read_s64 = mem_cgroup_app_score_read,
 	},
 	{
 		.name = "app_uid",
-		.flags = CFTYPE_WORLD_WRITABLE,
 		.write_s64 = mem_cgroup_app_uid_write,
 		.read_s64 = mem_cgroup_app_uid_read,
 	},
 	{
 		.name = "ub_ufs2zram_ratio",
-		.flags = CFTYPE_WORLD_WRITABLE,
 		.write_s64 = mem_cgroup_ub_ufs2zram_ratio_write,
 		.read_s64 = mem_cgroup_ub_ufs2zram_ratio_read,
 	},
@@ -845,7 +842,7 @@ static struct cftype mem_cgroup_hybridswap_legacy_files[] = {
 	},
 	{
 		.name = "stored_wm_ratio",
-		.flags = CFTYPE_ONLY_ON_ROOT | CFTYPE_WORLD_WRITABLE,
+		.flags = CFTYPE_ONLY_ON_ROOT,
 		.write_s64 = mem_cgroup_stored_wm_ratio_write,
 		.read_s64 = mem_cgroup_stored_wm_ratio_read,
 	},

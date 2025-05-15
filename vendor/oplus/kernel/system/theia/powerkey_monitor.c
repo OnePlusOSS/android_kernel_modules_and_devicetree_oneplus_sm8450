@@ -451,7 +451,7 @@ void __exit powerkey_monitor_exit(void)
 late_initcall(powerkey_monitor_init);
 module_exit(powerkey_monitor_exit);
 
-MODULE_AUTHOR("jianping.zheng <jianping.zheng@oplus.com>");
+MODULE_AUTHOR("jianping.zheng");
 MODULE_DESCRIPTION("powerkey_monitor@1.0");
 MODULE_VERSION("1.0");
 #if IS_MODULE(CONFIG_OPLUS_FEATURE_THEIA)

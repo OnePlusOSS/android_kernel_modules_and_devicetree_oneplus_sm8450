@@ -31,6 +31,7 @@
 		resin {
 			compatible = "qcom,pmk8350-resin";
 			interrupts = <0x0 0x13 0x6 IRQ_TYPE_EDGE_BOTH>;
+//#ifdef OPLUS_FEATURE_TP_BASIC
 			linux,code = <KEY_VOLUMEUP>;
 //#endif /*OPLUS_FEATURE_TP_BASIC*/
 		};

@@ -1,5 +1,4 @@
 /* #ifdef OPLUS_ARCH_EXTENDS */
-/* Jie.Du@MULTIMEDIA.AUDIODRIVER.SMARTPA, 2021/06/24, modify fsa4480 */
 &fsa4480 {
 	status = "disabled";
 };
@@ -17,7 +16,6 @@
 //waipio-pinctrl.dtsi
 &tlmm {
     //#ifdef OPLUS_FEATURE_FINGERPRINT
-	//#len.nie@BSP.Fingerprint.Basic 2021/05/21 add for oplus fingerprint
 	oplus_fp_common{
 		gpio_id2_default: gpio_id2_default {
 			mux {
@@ -48,7 +46,7 @@
 	};
 	//#endif /*OPLUS_FEATURE_FINGERPRINT*/
 
-//#ifdef OPLUS_FEATURE_TP_BASIC /* Ping.Zhang@BSP.TP.Basic, 2020/06/04, Add for tp and key*/
+//#ifdef OPLUS_FEATURE_TP_BASIC
 	pmx_ts_int_active {
 		ts_int_active: ts_int_active {
 			mux {
@@ -149,14 +147,12 @@
 		linux,contiguous-region = <&bootloader_log_mem>;
 	};
 /* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
-/* leo.liuch@BSP.Kernel.Driver, 2021/09/02, Add for device_info */
 	dump_device_info {
 		compatible = "dump_device_info";
 		linux,contiguous-region = <&dump_device_info_mem>;
 	};
 /* #endif OPLUS_FEATURE_DUMP_DEVICE_INFO */
 	//#ifdef OPLUS_FEATURE_FINGERPRINT
-	//#len.nie@BSP.Fingerprint.Basic 2021/05/21 add for oplus fingerprint
 	oplus_fp_common {
 		compatible = "oplus,fp_common";
 		oplus,fp_gpio_num = <1>;
@@ -203,7 +199,6 @@
 	//#endif /*OPLUS_FEATURE_SECURITY_COMMON*/
 
 	//#ifdef OPLUS_FEATRUE_ESIM
-	//ChenGuoyao@NETWORK.IMS.216784, 2020/08/04
 	oplus-gpio {
 		compatible = "oplus,oplus-gpio";
 		pinctrl-names = "default", "sim2_det_no_pull", "sim2_det_pull_high", "sim2_det_pull_low";
@@ -219,7 +214,6 @@
 	//#endif /* OPLUS_FEATRUE_ESIM */
 
 	//#ifdef OPLUS_FEATRUE_SIM_HOLDER_DETECT
-	//ChenGuoyao@NETWORK.IMS.216784, 2020/09/02
 	oplus_sim_detect {
 		compatible = "oplus, sim_detect";
 		Hw,sim_det = "modem_det";
@@ -227,7 +221,6 @@
 	//#endif /* OPLUS_FEATRUE_SIM_HOLDER_DETECT */
 
 	//#ifdef OPLUS_FEATURE_THERMAL_HORAE
-	//wangmignyuan@BSP.Power.Thermal 2021/08/04 add for horae thermal
 	shell_front {
 		compatible = "oplus,shell-temp";
 	};
@@ -242,7 +235,6 @@
 	//#endif
 
 	//#ifdef CONFIG_OPLUS_OMRG
-	//Long.Gao@BSP.Power.Basic 2021/09/24 add for oplus omrg
 	oplus-omrg {
 		compatible = "oplus,oplus-omrg";
 		oplus-omrg0 {
@@ -258,7 +250,7 @@
 
 	gpio_keys {
 		vol_up {
-//#ifdef OPLUS_FEATURE_TP_BASIC /* Ping.Zhang@BSP.TP.Basic, 2020/06/04,  for key */
+//#ifdef OPLUS_FEATURE_TP_BASIC
 			linux,code = <KEY_VOLUMEDOWN>;
 //#endif /*OPLUS_FEATURE_TP_BASIC*/
 		};
@@ -292,7 +284,7 @@
 			aboard-patterns = <2 3 4 2 3>;
 
 			/*main board*/
-			match-projects = <20846 20846 20846 20846 20846>;
+			match-projects = <21001 21001 21201 21001 21001>;
 
 			/*rf type*/
 			rf_match_support;
@@ -300,13 +292,11 @@
 		};
 	};
  
-	//martin.li@kernel.stability 2021.8.16 enable qmp /proc/send_aop_message
 	aop-msg-client {
 		compatible = "qcom,debugfs-qmp-client";
 		mboxes = <&qmp_aop 0>;
 		mbox-names = "aop";
 	};
-	//martin.li@kernel.stability 2021.8.16 enable qmp /proc/send_aop_message
 
 	//#ifdef CONFIG_OPLUS_FEATURE_PMIC_MONITOR, read pmic info from nvmem(only for xblloader close)
 		oplus-pmic-monitor-log {
@@ -318,24 +308,14 @@
 };
 
 //#ifdef OPLUS_FEATURE_WIFI_MAC
-//WuGuotian@CONNECTIVITY.WIFI.HARDWARE.MAC.1068489, 2021/05/27,Add for use wlan NV mac
 &wlan {
 	use-nv-mac;
 };
 //#endif /* OPLUS_FEATURE_WIFI_MAC */
 
 //#ifdef OPLUS_BUG_STABILITY
-/* zhongyun@BSP.Bootloader.Bootflow, 2021/07/21 add enable pstore to get KMSG */
 &reserved_memory {
-/* remove by yanghao@PSW.Kernel.Stability for boot crash
-	ramoops: ramoops@0xa1f00000 {
-		compatible = "ramoops";
-		reg = <0 0xa1f00000 0 0x00100000>;  //1M
-		console-size = <0x40000>; //256k
-	};
-*/
 /* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
-/* leo.liuch@BSP.Kernel.Driver, 2021/09/02, Add for device_info */
 	dump_device_info_mem: device_info_mem@0xA4F00000 {
 		reg = <0 0xA4F00000 0 0x00008000>;
 		label = "dump_device_info_mem";
@@ -360,7 +340,6 @@
 
 &tlmm {
 	//#ifdef OPLUS_FEATRUE_ESIM
-	//ChenGuoyao@NETWORK.IMS.216784, 2020/08/04
 	esim_gpio: esim_gpio {
 		mux {
 			pins = "gpio125";
@@ -390,7 +369,7 @@
 };
 
 &qupv3_se9_i2c {
-//#ifdef OPLUS_FEATURE_TP_BASIC /* Ping.Zhang@BSP.TP.Basic, 2020/06/04, Add for key */
+//#ifdef OPLUS_FEATURE_TP_BASIC
 	ist8801@19 {
 		compatible = "oplus,hall-ist8801,up";
 		reg = <0x19>;
@@ -451,14 +430,14 @@
 };
 
 &qupv3_se4_i2c {
-//#ifdef OPLUS_FEATURE_TP_BASIC /* Ping.Zhang@BSP.TP.Basic, 2020/06/04, Add for tp */
+//#ifdef OPLUS_FEATURE_TP_BASIC
 	qcom,i2c-touch-active = "synaptics-s3908";
 
 	focaltech@38 {
 		status = "disabled";
 	};
 
-	mtp_20846:synaptics20031@4B {
+	mtp_21001:synaptics20031@4B {
 		compatible = "synaptics-s3908";
 		reg = <0x4B>;
 		chip-name = "S3908";
@@ -522,8 +501,8 @@
 		panel_type = <8>;
 		// type of tp_dev ,TP-SAMSUNG = 8;
 		firmware_name = "SS";
-		platform_support_project = <20846 20847 20848 20849 0x2084A>;
-		platform_support_project_dir = <20846 20846 20846 20846 20846>;
+		platform_support_project = <20031 21001 21201 20846 20847 20848 20849 0x2084A 21009>;
+		platform_support_project_dir = <21001 21001 21001 21001 21001 21001 21001 21001 21009>;
 		platform_support_project_commandline = "mdss_dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd";
 
 		/* SW Support Feature Control */
@@ -573,13 +552,12 @@
 	};
 //#endif /*OPLUS_FEATURE_TP_BASIC*/
 };
-//#ifdef OPLUS_FEATURE_TP_BASIC /* Ping.Zhang@BSP.TP.Basic, 2020/06/04, Add for tp */
-#include "tp/mtp20846-s3908-firmware.dtsi"
+//#ifdef OPLUS_FEATURE_TP_BASIC
+#include "tp/mtp21001-s3908-firmware.dtsi"
 //#endif /*OPLUS_FEATURE_TP_BASIC*/
 
 &pm8350_gpios {
 	//#ifdef OPLUS_FEATRUE_DUAL_SIM_DETECT
-	//ChenGuoyao@NETWORK.IMS.216784, 2020/09/02, add for dual sim detect
 	sim2_det_no_pull: sim2_det_no_pull {
 			pins = "gpio8";
 			function = "normal";
@@ -608,7 +586,6 @@
 
 &pm8350b_haptics {
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-/* Brian@BSP.CHG.Misc,2021/7/16, Modify for haptic calibration */
 	qcom,vmax-mv = <1680>;
 	qcom,cl-vmax-mv = <1680>;
 	qcom,lra-period-us = <5882>;
@@ -622,7 +599,6 @@
 
 //waipio.dtsi
 /* #ifdef OPLUS_ARCH_EXTENDS */
-/* Jie.Du@MULTIMEDIA.AUDIODRIVER.ADSP, 2021/08/18, Increase Memory for adsp */
 &video_mem {
 	reg = <0x0 0x9fd00000 0x0 0x700000>;
 };

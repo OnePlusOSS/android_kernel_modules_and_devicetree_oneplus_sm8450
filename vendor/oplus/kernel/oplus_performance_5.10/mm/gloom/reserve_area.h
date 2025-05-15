@@ -21,7 +21,7 @@
 #define RESERVE_LOGGING		0x008
 
 #define RESERVE_FEATURES 	(RESERVE_AREA | ANTI_FRAGMENT_AREA | ZYGOTE_HEAP | RESERVE_LOGGING)
-#define HEAP_SIZE_MASK		(~((1<<FLAG_BITS) - 1))
+#define HEAP_SIZE_MASK		(~((1 << FLAG_BITS) - 1))
 
 #define ANTI_FRAGMENT_AREA_BASE_SIZE	0x4900000
 #define ANTI_FRAGMENT_AREA_MASK			0x1e00000
@@ -47,4 +47,4 @@ extern void special_arch_pick_mmap_layout(struct mm_struct *mm);
 static inline void special_arch_pick_mmap_layout(struct mm_struct *mm) {}
 #endif
 
-#endif
+#endif /* _RESERVE_AREA_H_ */

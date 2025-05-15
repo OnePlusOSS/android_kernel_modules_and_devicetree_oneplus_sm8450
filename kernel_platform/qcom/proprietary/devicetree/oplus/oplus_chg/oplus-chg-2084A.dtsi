@@ -1,9 +1,8 @@
 //ifdef OPLUS_FEATURE_CHG_BASIC
-//Jianchao.Shi@BSP.CHG.Basic, 2021/05/29, sjc Add for charging, 1+
 
 #include "oplus_chg_2084A.h"
 
-//#ifdef OPLUS_FEATURE_CHG_BASIC /* Jianchao.Shi@BSP.CHG.Basic, 2020/05/20, sjc Add for charging */
+//#ifdef OPLUS_FEATURE_CHG_BASIC
 &soc {
 	oplus,adsp-voocphy {
 		compatible = "oplus,adsp-voocphy";
@@ -551,11 +550,12 @@
 //#endif OPLUS_FEATURE_CHG_BASIC
 
 
-//#ifdef OPLUS_FEATURE_CHG_BASIC /* Jianchao.Shi@BSP.CHG.Basic, 2020/05/20, sjc Add for charging */
+//#ifdef OPLUS_FEATURE_CHG_BASIC
 &battery_charger {
 	oplus,ic_type = <OPLUS_CHG_IC_BUCK>;
 	oplus,ic_index = <0>;
 	oplus,wls_boost_soft_start;
+	oplus,wls_sim_detect_wr;
 };
 
 &soc {
@@ -740,7 +740,7 @@
 		oplus,vooc-vol-mv = <12000>;
 		oplus,svooc-vol-mv = <12000>;
 
-		oplus,fastchg-max-soc = <90>;
+		oplus,fastchg-max-soc = <94>;
 
 		/*
 		 * | temp_min | temp_max | target_curr_ma | vol_max_mv |need wait | soc_max |

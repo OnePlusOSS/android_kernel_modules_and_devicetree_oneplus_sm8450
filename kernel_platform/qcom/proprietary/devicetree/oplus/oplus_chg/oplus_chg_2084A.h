@@ -1,5 +1,4 @@
 //ifdef OPLUS_FEATURE_CHG_BASIC
-//Jianchao.Shi@BSP.CHG.Basic, 2021/05/29, sjc Add for charging, 1+
 
 #define OPLUS_CHG_IC_BUCK		0x00
 #define OPLUS_CHG_IC_BOOST		0x01

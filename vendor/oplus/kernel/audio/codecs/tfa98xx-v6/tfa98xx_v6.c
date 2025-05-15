@@ -40,7 +40,7 @@
 #ifdef OPLUS_ARCH_EXTENDS
 #include <linux/proc_fs.h>
 
-//#include <soc/oppo/oplus_project.h>
+//#include <soc/oplus/oppo_project.h>
 //extern int get_boot_mode(void);
 
 struct tfa98xx *tfa98xx_whole_v6;

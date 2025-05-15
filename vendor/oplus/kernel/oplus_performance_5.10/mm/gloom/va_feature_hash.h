@@ -11,7 +11,7 @@
 struct va_metadata {
 	pid_t nr;
 	int va_feature;
-	unsigned int zygoteheap_in_MB;
+	unsigned int zygoteheap_in_mb;
 	unsigned long va_feature_rnd;
 	struct hlist_node pid_chain;
 };
@@ -22,4 +22,4 @@ extern void oplus_gloom_va_feature_add_hash(pid_t pid, struct va_metadata *data)
 extern struct va_metadata *oplus_gloom_va_feature_search_hash(pid_t pid);
 extern void oplus_gloom_va_feature_delete_hash_and_trigger_event(pid_t pid, struct mm_struct *mm);
 
-#endif
+#endif /* _VA_FEATURE_HASH_H_ */

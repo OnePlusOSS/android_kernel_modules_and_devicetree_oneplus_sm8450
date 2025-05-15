@@ -11,13 +11,14 @@
 #define HH_LIST_LOCK_BIT HH_LIST_MCG_SHIFT_HALF
 #define HH_LIST_PRIV_BIT (HH_LIST_PTR_SHIFT + HH_LIST_MCG_SHIFT_HALF + \
 				HH_LIST_MCG_SHIFT_HALF + 1)
+
 struct hyb_list_head {
-	unsigned int mcg_hi : HH_LIST_MCG_SHIFT_HALF;
+	unsigned int mcg_hi : 8;
 	unsigned int lock : 1;
-	unsigned int prev : HH_LIST_PTR_SHIFT;
-	unsigned int mcg_lo : HH_LIST_MCG_SHIFT_HALF;
+	unsigned int prev : 23;
+	unsigned int mcg_lo : 8;
 	unsigned int priv : 1;
-	unsigned int next : HH_LIST_PTR_SHIFT;
+	unsigned int next : 23;
 };
 struct hyb_list_table {
 	struct hyb_list_head *(*get_node)(int, void *);

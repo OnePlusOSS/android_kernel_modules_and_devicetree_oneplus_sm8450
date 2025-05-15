@@ -83,7 +83,7 @@
     qcom,init-voltage = <2800000>;
 };
 
-&mtp_20846 {
+&mtp_21001 {
 	vcc_1v8-supply = <&L6C>;
 	enable1v8_gpio = <&tlmm 186 0x1>;
 };
@@ -130,7 +130,6 @@
 
 //#ifdef OPLUS_FEATURE_RF_CABLE_DETECT
 &tlmm {
-//jacob.gou@network.RF 2021/07/19 modify for rf_cable
   rf_cable0_active: rf_cable0_active {
     mux {
       pins = "gpio89";
@@ -146,7 +145,6 @@
 };
 
 &soc {
-//jacob.gou@network.RF 2021/07/19 modify for rf_cable
   oplus_rf_cable {
     compatible = "oplus,rf_cable";
     interrupt-parent = <&tlmm>;
@@ -161,7 +159,6 @@
 
 &soc {
 	//#ifdef OPLUS_FEATURE_THERMAL_HORAE
-	//wangmignyuan@BSP.Power.Thermal 2021/08/04 add for horae thermal
 		shell_front {
 				compatible = "oplus,shell-temp";
 		};
@@ -177,7 +174,6 @@
 };
 
 //#ifdef OPLUS_FEATURE_CHG_BASIC
-/* Brian@BSP.CHG.Misc,2021/7/16, Modify for haptic */
 &pm8350b_haptics {
     qcom,fifo-vmax-mv = <8700>;
     qcom,old-steady-vmax-mv = <8700>;//8.7v

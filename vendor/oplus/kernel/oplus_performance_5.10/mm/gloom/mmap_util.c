@@ -80,7 +80,7 @@ void special_arch_pick_mmap_layout(struct mm_struct *mm)
 			&& !mmap_is_legacy(rlim_stack)) {
 		random_factor = arch_mmap_rnd() % (1 << 25);
 		new_mmap_base = mmap_base(random_factor, rlim_stack);
-		//pr_info("gloom special_arch_pick_mmap_layout pid = %d, mmap_base 0x%lx -> 0x%lx\n", current->pid, old_mmap_base, new_mmap_base);
+		/* pr_info("gloom special_arch_pick_mmap_layout pid = %d, mmap_base 0x%lx -> 0x%lx\n", current->pid, old_mmap_base, new_mmap_base); */
 		mm->mmap_base = max_t(unsigned long, new_mmap_base, old_mmap_base);
 	}
 }

@@ -114,7 +114,9 @@ void binder_reply_handler(void *data, struct binder_proc *target_proc,
 {
 	/*only sync binder call has BC_REPLY*/
 	if (target_proc
-		&& (task_uid(target_proc->tsk).val > MIN_USERAPP_UID)
+		&& (NULL != target_proc->tsk)
+		&& (NULL != proc->tsk)
+		&& (task_uid(target_proc->tsk).val <= MAX_SYSTEM_UID)
 		&& (proc->pid != target_proc->pid)
 		&& is_frozen_tg(target_proc->tsk)) {
 		hans_report(SYNC_BINDER, task_tgid_nr(proc->tsk), task_uid(proc->tsk).val, task_tgid_nr(target_proc->tsk), task_uid(target_proc->tsk).val, "SYNC_BINDER_REPLY", -1);
@@ -140,7 +142,7 @@ void binder_alloc_handler(void *data, size_t size, struct binder_alloc *alloc, i
 void send_signal_handler(void *data, int sig, struct task_struct *killer, struct task_struct *dst)
 {
 	if (is_frozen_tg(dst)  /*signal receiver thread group is frozen?*/
-		&& (sig == SIGKILL || sig == SIGTERM || sig == SIGABRT || sig == SIGQUIT)) {
+		&& (sig == SIGKILL || sig == SIGTERM || sig == SIGABRT || sig == SIGQUIT || sig == SIGIO)) {
 		if (hans_report(SIGNAL, task_tgid_nr(killer), task_uid(killer).val, task_tgid_nr(dst), task_uid(dst).val, "signal", -1) == HANS_ERROR) {
 			printk(KERN_ERR "HANS: report signal-freeze failed, sig = %d, caller = %d, target_uid = %d\n", sig, task_tgid_nr(killer), task_uid(dst).val);
 		}

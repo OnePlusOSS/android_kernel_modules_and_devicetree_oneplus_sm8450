@@ -731,4 +731,4 @@ arch_initcall(oplus_project_init);
 
 MODULE_DESCRIPTION("OPLUS project version");
 MODULE_LICENSE("GPL v2");
-MODULE_AUTHOR("Joshua <gyx@oplus.com>");
+MODULE_AUTHOR("Joshua");

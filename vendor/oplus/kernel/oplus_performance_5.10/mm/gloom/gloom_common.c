@@ -24,7 +24,7 @@ static int register_gloom_vendor_hooks(void)
 	REGISTER_TRACE_VH(android_vh_include_reserved_zone, get_unmapped_area_include_reserved_zone_handler);
 	REGISTER_TRACE_VH(android_vh_exit_mm, exit_mm_handler);
 
-	pr_info("gloom register_gloom_vendor_hooks succeed!\n"); //for debug
+	pr_info("gloom register_gloom_vendor_hooks succeed!\n"); /* for debug */
 
 	return 0;
 }
@@ -36,7 +36,7 @@ static void unregister_gloom_vendor_hooks(void)
 	UNREGISTER_TRACE_VH(android_vh_include_reserved_zone, get_unmapped_area_include_reserved_zone_handler);
 	UNREGISTER_TRACE_VH(android_vh_exit_mm, exit_mm_handler);
 
-	pr_info("gloom unregister_gloom_vendor_hooks succeed!\n"); //for debug
+	pr_info("gloom unregister_gloom_vendor_hooks succeed!\n"); /* for debug */
 }
 
 static int __init oplus_gloom_init(void)

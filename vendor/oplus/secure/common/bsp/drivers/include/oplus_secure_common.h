@@ -8,7 +8,6 @@
 **
 ** Version: 1.0
 ** Date created: 18:03:11,23/07/2016
-** Author: Ziqing.guo@Prd.BaseDrv
 **
 ** --------------------------- Revision History: --------------------------------
 **  <author>                 <data>                        <desc>

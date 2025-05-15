@@ -5,7 +5,7 @@
 #include "../qcom/waipio-mtp-pm8010-overlay.dts"
 #include "waipio_overlay_common.dtsi"
 #include "wly_20846_overlay_common.dtsi"
-#include "oplus_chg/oplus-chg-20846.dtsi"
+#include "oplus_chg/oplus-chg-20845.dtsi"
 #include "nfc/wly-nfc-sn100t.dtsi"
 #include "sensor/wly-oplus-sensor.dtsi"
 

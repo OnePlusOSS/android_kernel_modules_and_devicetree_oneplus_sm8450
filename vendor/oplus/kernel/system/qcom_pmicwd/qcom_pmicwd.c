@@ -42,6 +42,12 @@
 #define QPNP_PON_WD_RESET_PET(pon)  		((pon)->base + 0x58)
 #define QPNP_PON_RT_STS(pon)				((pon)->base + 0x10)
 
+#define QPNP_PON_GEN3_WD_RST_S1_TIMER(pon)       ((pon)->base + 0x4c)
+#define QPNP_PON_GEN3_WD_RST_S2_TIMER(pon)       ((pon)->base + 0x4d)
+#define QPNP_PON_GEN3_WD_RST_S2_CTL(pon)         ((pon)->base + 0x4e)
+#define QPNP_PON_GEN3_WD_RST_S2_CTL2(pon)        ((pon)->base + 0x4f)
+#define QPNP_PON_GEN3_WD_RESET_PET(pon)          ((pon)->base + 0x50)
+
 #define QPNP_PON_S2_CNTL_TYPE_MASK		(0xF)
 #define QPNP_PON_WD_S2_TIMER_MASK		(0x7F)
 #define QPNP_PON_WD_S1_TIMER_MASK		(0x7F)
@@ -66,15 +72,18 @@ static bool is_pon_gen3(struct qpnp_pon *pon)
 
 static int oplus_qpnp_pon_wd_config(bool enable)
 {
-        if (!sys_reset_dev)
-                return -EPROBE_DEFER;
+	if (!sys_reset_dev)
+		return -EPROBE_DEFER;
 
-        if (is_pon_gen3(sys_reset_dev))
-                return -EPERM;
-
-        return dup_qpnp_pon_masked_write(sys_reset_dev,
-                                QPNP_PON_WD_RST_S2_CTL2(sys_reset_dev),
-                                QPNP_PON_WD_EN, enable ? QPNP_PON_WD_EN : 0);
+	if (is_pon_gen3(sys_reset_dev)) {
+		return dup_qpnp_pon_masked_write(sys_reset_dev,
+							QPNP_PON_GEN3_WD_RST_S2_CTL2(sys_reset_dev),
+							QPNP_PON_WD_EN, enable ? QPNP_PON_WD_EN : 0);
+	} else {
+		return dup_qpnp_pon_masked_write(sys_reset_dev,
+							QPNP_PON_WD_RST_S2_CTL2(sys_reset_dev),
+							QPNP_PON_WD_EN, enable ? QPNP_PON_WD_EN : 0);
+	}
 }
 #else
 static int oplus_qpnp_pon_wd_config(bool enable)
@@ -109,25 +118,49 @@ static int qpnp_pon_wd_timer(unsigned char timer, enum pon_power_off_type reset_
 		s2_timer = timer&0xff;
 		s1_timer = 0;
 	}
-	rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_WD_RST_S2_TIMER(pmicwd->pon),
-			QPNP_PON_WD_S2_TIMER_MASK, s2_timer);
-	if (rc) {
-		PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
-				QPNP_PON_WD_RST_S2_TIMER(pmicwd->pon), rc);
-	}
 
-	rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_WD_RST_S1_TIMER(pmicwd->pon),
-			QPNP_PON_WD_S1_TIMER_MASK, s1_timer);
-	if (rc) {
-		PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
-				QPNP_PON_WD_RST_S1_TIMER(pmicwd->pon), rc);
-	}
+	if (is_pon_gen3(sys_reset_dev)) {
+		rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_GEN3_WD_RST_S2_TIMER(pmicwd->pon),
+				QPNP_PON_WD_S2_TIMER_MASK, s2_timer);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_GEN3_WD_RST_S2_TIMER(pmicwd->pon), rc);
+		}
 
-	rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_WD_RST_S2_CTL(pmicwd->pon),
-			QPNP_PON_S2_CNTL_TYPE_MASK, reset_type);
-	if (rc) {
-		PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
-				QPNP_PON_WD_RST_S2_CTL(pmicwd->pon), rc);
+		rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_GEN3_WD_RST_S1_TIMER(pmicwd->pon),
+				QPNP_PON_WD_S1_TIMER_MASK, s1_timer);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_GEN3_WD_RST_S1_TIMER(pmicwd->pon), rc);
+		}
+
+		rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_GEN3_WD_RST_S2_CTL(pmicwd->pon),
+				QPNP_PON_S2_CNTL_TYPE_MASK, reset_type);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_GEN3_WD_RST_S2_CTL(pmicwd->pon), rc);
+		}
+	} else {
+		rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_WD_RST_S2_TIMER(pmicwd->pon),
+				QPNP_PON_WD_S2_TIMER_MASK, s2_timer);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_WD_RST_S2_TIMER(pmicwd->pon), rc);
+		}
+
+		rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_WD_RST_S1_TIMER(pmicwd->pon),
+				QPNP_PON_WD_S1_TIMER_MASK, s1_timer);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_WD_RST_S1_TIMER(pmicwd->pon), rc);
+		}
+
+		rc = dup_qpnp_pon_masked_write(pmicwd->pon, QPNP_PON_WD_RST_S2_CTL(pmicwd->pon),
+				QPNP_PON_S2_CNTL_TYPE_MASK, reset_type);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_WD_RST_S2_CTL(pmicwd->pon), rc);
+		}
 	}
 
 	return rc;
@@ -139,11 +172,20 @@ int qpnp_pon_wd_pet(struct qpnp_pon *pon)
 
 	ASSERT(pon);
 
-	rc = dup_qpnp_pon_masked_write(pon, QPNP_PON_WD_RESET_PET(pon),
-			QPNP_PON_WD_RESET_PET_MASK, 1);
-	if (rc) {
-		PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
-				QPNP_PON_WD_RESET_PET(pon), rc);
+	if (is_pon_gen3(sys_reset_dev)) {
+		rc = dup_qpnp_pon_masked_write(pon, QPNP_PON_GEN3_WD_RESET_PET(pon),
+				QPNP_PON_WD_RESET_PET_MASK, 1);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_GEN3_WD_RESET_PET(pon), rc);
+		}
+	} else {
+		rc = dup_qpnp_pon_masked_write(pon, QPNP_PON_WD_RESET_PET(pon),
+				QPNP_PON_WD_RESET_PET_MASK, 1);
+		if (rc) {
+			PWD_ERR("Unable to write to addr=%x, rc(%d)\n",
+					QPNP_PON_WD_RESET_PET(pon), rc);
+		}
 	}
 
 	return rc;
@@ -160,9 +202,6 @@ static int pmicwd_kthread(void *arg)
 		PWD_INFO("pmicwd_kthread PET wd suspend state %d\n", pmicwd->suspend_state);
 		qpnp_pon_wd_pet(pmicwd->pon);
 
-		/* yanghao@PSW.Kernel.Stability for detect the suspend resume block issue
-		 * add at least 128 seconds ~ 256 seconds during resume suspend
-		 */
 		if ((pmicwd->suspend_state & 0x0F) >= 1) {
 			panic("suspend resume state %d\n", pmicwd->suspend_state);
 		} else if (pmicwd->suspend_state & 0xF0) {
@@ -181,7 +220,11 @@ static ssize_t pmicwd_proc_read(struct file *file, char __user *buf,
 	int len = 0;
 
 	mutex_lock(&pmicwd->wd_task_mutex);
-	regmap_read(pmicwd->pon->regmap, QPNP_PON_WD_RST_S2_CTL2(pmicwd->pon), &val);
+	if (is_pon_gen3(sys_reset_dev)) {
+		regmap_read(pmicwd->pon->regmap, QPNP_PON_GEN3_WD_RST_S2_CTL2(pmicwd->pon), &val);
+	} else {
+		regmap_read(pmicwd->pon->regmap, QPNP_PON_WD_RST_S2_CTL2(pmicwd->pon), &val);
+	}
 	PWD_INFO("pmicwd_proc_read:%x wd=%x\n", pmicwd->pmicwd_state, val);
 	//|reserver|rst type|timeout|enable|
 	len = snprintf(&page[len],128 - len,"enable = %d timeout = %d rstype = %d\n",
@@ -268,7 +311,6 @@ static ssize_t pmicwd_proc_write(struct file *file, const char __user *buf,
 	return count;
 }
 
-/* yanghao@PSW.Kernel.Stability add for debug suspend crash problem */
 void set_pmicWd_state(int enable)
 {
 	unsigned int new_state;
@@ -465,7 +507,6 @@ void pmicwd_init(struct platform_device *pdev)
 		}
 		#endif
 
-		//yanghao@PSW.Kernel.Stability for detect the suspend resume block issue 2020-1-2
 		rc = register_pm_notifier(&pmicWd_pm_nb);
 		if (rc) {
 			PWD_ERR("%s: pmicWd power state notif error %d\n", __func__, rc);

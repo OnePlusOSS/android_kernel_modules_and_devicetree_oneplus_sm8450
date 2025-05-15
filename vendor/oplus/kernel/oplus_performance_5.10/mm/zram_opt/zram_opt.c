@@ -35,69 +35,11 @@ free_swap_is_low_func free_swap_is_low_fp = NULL;
 EXPORT_SYMBOL(free_swap_is_low_fp);
 #endif
 
-#define PAGES_SZ_6G (6 * 1024 * 256)
-#define PAGES_SZ_8G (8 * 1024 * 256)
-
-enum swappiness_lvl {
-	SWAPPINESS_LEVEL_LOW = 0,
-	SWAPPINESS_LEVEL_MEDIUM,
-	SWAPPINESS_LEVEL_COUNT,
-};
-
-static int swappiness_val[SWAPPINESS_LEVEL_COUNT] = {
-	100,
-	120,
-};
-
-static int swappiness_threshold_array_size = SWAPPINESS_LEVEL_COUNT;
-/* pages */
-static const int swappiness_threshold_8G[SWAPPINESS_LEVEL_COUNT] = {
-	500 * 1024,	/* 2000MB */
-	375 * 1024,	/* 1500MB */
-};
-
-static const int swappiness_threshold_12G[SWAPPINESS_LEVEL_COUNT] = {
-	900 * 1024,	/* 3600MB */
-	375 * 1024,	/* 1500MB */
-};
-
-static int swappiness_threshold[SWAPPINESS_LEVEL_COUNT] = {
-	INT_MAX, INT_MAX,
-};
-
-static void setup_default_swappiness_threshold() {
-
-	if (totalram_pages() <= PAGES_SZ_6G)
-		return;
-
-	if (totalram_pages() <= PAGES_SZ_8G) {
-		memcpy(swappiness_threshold, swappiness_threshold_8G,
-		       sizeof(swappiness_threshold_8G));
-		return;
-	}
-
-	memcpy(swappiness_threshold, swappiness_threshold_12G,
-	       sizeof(swappiness_threshold_12G));
-}
-
-static inline uint32_t get_swappiness() {
-
-	int lvl;
-	unsigned long nr_file_pages = global_node_page_state(NR_ACTIVE_FILE) +
-		global_node_page_state(NR_INACTIVE_FILE);
-
-	for (lvl = SWAPPINESS_LEVEL_LOW; lvl < SWAPPINESS_LEVEL_COUNT; lvl++)
-		if (nr_file_pages >= swappiness_threshold[lvl])
-			return swappiness_val[lvl];
-
-	return g_swappiness;
-}
-
 static int g_kswapd_pid = -1;
 #define KSWAPD_COMM "kswapd0"
 
 #ifdef CONFIG_DYNAMIC_TUNING_SWAPPINESS
-int tune_dynamic_swappines(int swappiness)
+int tune_dynamic_swappines(void)
 {
 	unsigned long nr_file_pages = 0;
 
@@ -105,27 +47,21 @@ int tune_dynamic_swappines(int swappiness)
 		global_node_page_state(NR_INACTIVE_FILE);
 
 	if (threshold1_swappiness_size &&
-			nr_file_pages >= (threshold1_swappiness_size << 8)) {
-		if (threshold1_vm_swappiness &&
-				swappiness > threshold1_vm_swappiness)
-			swappiness = threshold1_vm_swappiness;
-	} else if (threshold2_swappiness_size &&
-			nr_file_pages >= (threshold2_swappiness_size << 8)) {
-		if (threshold2_vm_swappiness &&
-				swappiness > threshold2_vm_swappiness)
-			swappiness = threshold2_vm_swappiness;
-	}
+			(nr_file_pages >= (threshold1_swappiness_size << 8)))
+		return threshold1_vm_swappiness ? : g_swappiness;
+	else if (threshold2_swappiness_size &&
+			(nr_file_pages >= (threshold2_swappiness_size << 8)))
+		return threshold2_vm_swappiness ? : g_swappiness;
 
-	return swappiness;
+	return g_swappiness;
 }
 #endif
 
 static void zo_set_swappiness(void *data, int *swappiness)
 {
 	if (current_is_kswapd()) {
-		*swappiness = get_swappiness();
 #ifdef CONFIG_DYNAMIC_TUNING_SWAPPINESS
-		*swappiness = tune_dynamic_swappines(*swappiness);
+		*swappiness = tune_dynamic_swappines();
 #endif
 #ifdef CONFIG_HYBRIDSWAP_SWAPD
 	} else if (strncmp(current->comm, "hybridswapd:", sizeof("hybridswapd:") - 1) == 0) {
@@ -248,8 +184,11 @@ static ssize_t swappiness_para_read(struct file *file,
 			"direct_swappiness: %d\n", g_direct_swappiness);
 	len += snprintf(kbuf + len, PARA_BUF_LEN - len,
 			"swapd_swappiness: %d\n", g_hybridswapd_swappiness);
+#ifdef CONFIG_DYNAMIC_TUNING_SWAPPINESS
 	len += snprintf(kbuf + len, PARA_BUF_LEN - len,
-			"dyn_swappiness: %d\n", get_swappiness());
+			"kswapd_swappiness: %d\n",
+			tune_dynamic_swappines());
+#endif /* CONFIG_DYNAMIC_TUNING_SWAPPINESS */
 
 	if (len == PARA_BUF_LEN)
 		kbuf[len - 1] = '\0';
@@ -409,7 +348,6 @@ static int __init zram_opt_init(void)
 		destroy_swappiness_para_proc();
 		return ret;
 	}
-	setup_default_swappiness_threshold();
 
 	rcu_read_lock();
 	for_each_process(p) {
@@ -455,8 +393,6 @@ module_exit(zram_opt_exit);
 
 module_param_named(vm_swappiness, g_swappiness, int, S_IRUGO | S_IWUSR);
 module_param_named(direct_vm_swappiness, g_direct_swappiness, int, S_IRUGO | S_IWUSR);
-module_param_array_named(threshold, swappiness_threshold, int,
-			 &swappiness_threshold_array_size, S_IRUGO | S_IWUSR);
 module_param_named(kswapd_pid, g_kswapd_pid, int, S_IRUGO | S_IWUSR);
 module_param_named(hybridswapd_swappiness, g_hybridswapd_swappiness, int, S_IRUGO | S_IWUSR);
 #ifdef CONFIG_DYNAMIC_TUNING_SWAPPINESS

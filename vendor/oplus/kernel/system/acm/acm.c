@@ -10,13 +10,11 @@
  **
  ** Version: 1.0
  ** Date: 2020-06-26
- ** Author: Yuwei.Guan@BSP.Kernel.FS
  ** TAG: OPLUS_FEATURE_ACM
  **
  ** ------------------------- Revision History: --------------------------------
  ** <author>                      <date>       <version>   <desc>
  ** ------------------------------------------------------------------------------
- ** Yuwei.Guan@BSP.Kernel.FS     2020-06-26   1.0         Create this file
  ********************************************************************************/
 #include <linux/version.h>
 #include "acm.h"
