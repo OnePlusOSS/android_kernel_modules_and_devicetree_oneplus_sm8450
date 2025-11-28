@@ -63,6 +63,7 @@
 #include <linux/usb/typec.h>
 #include <oplus_chg_pps.h>
 #include <oplus_chg_wls.h>
+#include <oplus_chg_monitor.h>
 
 static int oplus_chg_set_pps_config(struct oplus_chg_ic_dev *ic_dev, int vbus_mv, int ibus_ma);
 static int oplus_chg_set_fixed_pd_config(struct oplus_chg_ic_dev *ic_dev, int vol_mv, int curr_ma);
@@ -3839,6 +3840,34 @@ static void oplus_charger_suspend_recovery_work(struct work_struct *work)
 	oplus_chg_suspend_charger(false, TCPC_IBUS_DRAW_VOTER);
 }
 
+#ifdef OPLUS_FEATURE_CHG_BASIC
+static bool is_err_topic_available(struct mtk_charger *chip)
+{
+	if (!chip->err_topic)
+		chip->err_topic = oplus_mms_get_by_name("error");
+	return !!chip->err_topic;
+}
+static void oplus_publish_close_cp_item_work(struct work_struct *work)
+{
+	struct mtk_charger *chip = container_of(work, struct mtk_charger, publish_close_cp_item_work.work);
+	struct mms_msg *msg;
+	int rc;
+	if (!is_err_topic_available(chip)) {
+		chg_err("error topic not found\n");
+		return;
+	}
+	msg = oplus_mms_alloc_int_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM, ERR_ITEM_CLOSE_CP, 1);
+	if (msg == NULL) {
+		chg_err("alloc close cp msg error\n");
+		return;
+	}
+	rc = oplus_mms_publish_msg(chip->err_topic, msg);
+	if (rc < 0) {
+		chg_err("publish close cp msg error, rc=%d\n", rc);
+		kfree(msg);
+	}
+}
+#endif
 static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -3863,7 +3892,7 @@ static int psy_charger_get_property(struct power_supply *psy,
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
 
-	chr_err("%s psp:%d\n",
+	chr_debug("%s psp:%d\n",
 		__func__, psp);
 
 
@@ -4405,10 +4434,13 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			chr_err("Type-C SINK plug in\n");
-		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
+		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC) &&
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
-			chr_err("Type-C plug out\n");
+			chr_err("Type-C SRC plug out\n");
+		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
+			noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			chr_err("Type-C SNK plug out\n");
+			schedule_delayed_work(&pinfo->publish_close_cp_item_work, 0);
 		}
 		pinfo->typec_state = noti->typec_state.new_state;
 		oplus_chg_ic_virq_trigger(pinfo->ic_dev, OPLUS_IC_VIRQ_TYPEC_STATE);
@@ -7988,6 +8020,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	pinfo->pd_chg_volt = VBUS_5V;
 	INIT_DELAYED_WORK(&pinfo->sourcecap_done_work, oplus_sourcecap_done_work);
 	INIT_DELAYED_WORK(&pinfo->charger_suspend_recovery_work, oplus_charger_suspend_recovery_work);
+	INIT_DELAYED_WORK(&pinfo->publish_close_cp_item_work, oplus_publish_close_cp_item_work);
 
 	if (oplus_mtk_ic_register(&pdev->dev, pinfo) != 0)
 		goto reg_ic_err;

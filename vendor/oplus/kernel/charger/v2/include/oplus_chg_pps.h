@@ -22,7 +22,6 @@
 enum pps_topic_item {
 	PPS_ITEM_ONLINE,
 	PPS_ITEM_CHARGING,
-	PPS_ITEM_ADAPTER_ID,
 	PPS_ITEM_OPLUS_ADAPTER,
 	PPS_ITEM_ONLINE_KEEP,
 };
@@ -99,8 +98,8 @@ enum pps_power_type {
 };
 
 int oplus_pps_current_to_level(struct oplus_mms *mms, int ibus_curr);
-enum fastchg_protocol_type oplus_pps_adapter_id_to_protocol_type(u32 id);
-int oplus_pps_adapter_id_to_power(u32 id);
+int oplus_pps_get_charging_power_watt(struct oplus_mms *mms);
+int oplus_pps_get_adapter_power_mw(struct oplus_mms *mms);
 int oplus_pps_get_curve_ibus(struct oplus_mms *mms);
 int oplus_pps_level_to_current(struct oplus_mms *mms, int level);
 #endif /* __OPLUS_CHG_PPS_H__ */

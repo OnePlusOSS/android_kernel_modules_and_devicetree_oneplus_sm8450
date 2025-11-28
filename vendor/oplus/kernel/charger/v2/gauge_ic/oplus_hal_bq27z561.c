@@ -867,8 +867,6 @@ static void bq27z561_parse_dt(struct chip_bq27z561 *chip)
 	struct device_node *node = chip->dev->of_node;
 	int rc = 0;
 
-	chip->fcc_too_small_check_support =
-		of_property_read_bool(node, "oplus,fcc_too_small_check_support");
 	chip->calib_info_save_support = of_property_read_bool(node, "oplus,calib_info_save_support");
 	rc = of_property_read_u32(node, "oplus,batt_num", &chip->batt_num);
 	if (rc < 0) {
@@ -2736,29 +2734,29 @@ static void bq27z561_fcc_too_small_check_work(struct work_struct *work)
 	struct chip_bq27z561 *chip = container_of(
 		work, struct chip_bq27z561, fcc_too_small_check_work);
 
-	if (chip->batt_bq27z561) {
-		ret = bq27z561_get_true_fcc(chip, &true_fcc);
-		if (!ret && (true_fcc > 200)) /* TODO: true_fcc value is more than 200 */
-			bq27z561_set_fcc_sync(chip);
-	}
+	ret = bq27z561_get_true_fcc(chip, &true_fcc);
+	if (!ret && (true_fcc > 200)) /* TODO: true_fcc value is more than 200 */
+		bq27z561_set_fcc_sync(chip);
 
 	chip->fcc_too_small_checking = false;
 }
 
 static void bq27541_fcc_too_small_check(struct chip_bq27z561 *chip, int fcc)
 {
-	if (!chip || !chip->fcc_too_small_check_support)
+	if (!chip)
 		return;
 
-	if (chip->fcc_too_small_checking) {
-		chg_info("fcc too small checking, ignore this time");
-		return;
-	}
+	if (chip->batt_bq27z561) {
+		if (chip->fcc_too_small_checking) {
+			chg_info("fcc too small checking, ignore this time");
+			return;
+		}
 
-	/* TODO: fcc value is less than 200 */
-	if (fcc < 200) {
-		chip->fcc_too_small_checking = true;
-		schedule_work(&chip->fcc_too_small_check_work);
+		/* TODO: fcc value is less than 200 */
+		if (fcc < 200) {
+			chip->fcc_too_small_checking = true;
+			schedule_work(&chip->fcc_too_small_check_work);
+		}
 	}
 }
 

@@ -694,7 +694,7 @@ static void oplus_adsp_voocphy_set_vooc_current(struct device *dev, int data, in
 	if (chip->fastchg_notify_status != FAST_NOTIFY_LOW_TEMP_FULL) {
 		cool_down = data >> 1;
 		chg_info("set cool_down %d\n", cool_down);
-		oplus_adsp_voocphy_set_cool_down(cool_down);
+		oplus_adsp_voocphy_set_cool_down(cool_down, curr_ma);
 	} else {
 		/* send the curve soc_range<<4|temp_range to adsp */
 		cool_down = data;

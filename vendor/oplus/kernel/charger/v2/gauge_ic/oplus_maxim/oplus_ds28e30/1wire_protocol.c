@@ -26,6 +26,7 @@
 #include <oplus_chg_ic.h>
 
 #include "1wire_protocol.h"
+#include "ds28e30.h"
 
 #define ONE_WIRE_CONFIG_OUT		writel_relaxed(g_onewire_data->onewire_gpio_cfg_out_val, g_onewire_data->gpio_cfg_out_reg)
 #define ONE_WIRE_CONFIG_IN		writel_relaxed(g_onewire_data->onewire_gpio_cfg_in_val, g_onewire_data->gpio_cfg_in_reg)
@@ -60,6 +61,13 @@ delay us subroutine
 void delay_us(unsigned int delay_us)    /* 1US */
 {
 	udelay(delay_us);
+}
+
+static struct timespec get_current_time(void)
+{
+	struct timespec ts;
+	getnstimeofday(&ts);
+	return ts;
 }
 
 void delay_ns(unsigned int delay_ns)
@@ -111,13 +119,36 @@ int ow_reset(void)
  */
 void write_bit(unsigned char bitval)
 {
-	ONE_WIRE_OUT_LOW;
-	delay_us(1);			/* keeping logic low for 1 us */
-	if (bitval != 0)
-		ONE_WIRE_OUT_HIGH;	/* ONE_WIRE_OUT_HIGH; set 1-wire to logic high if bitval='1' */
-	delay_us(10);			/*  waiting for 10us */
-	ONE_WIRE_OUT_HIGH;
-	delay_us(5);			/*  waiting for 5us to recover to logic high */
+	struct timespec w_start_ns, w_end_ns;
+	long w_diff_ns;
+	w_start_ns = get_current_time();
+
+	if (g_onewire_data->maxim_romid_crc_support) {
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		/* delay_ns(g_onewire_data->write_begin_low_level_time); */
+		if (bitval != 0) {
+			ONE_WIRE_OUT_HIGH;	/* ONE_WIRE_OUT_HIGH; set 1-wire to logic high if bitval='1' */
+			w_end_ns = get_current_time();
+			w_diff_ns = w_end_ns.tv_nsec - w_start_ns.tv_nsec;
+			check_womid_bit(w_diff_ns);
+		}
+		delay_us(8);			/*  waiting for 8us */
+		ONE_WIRE_OUT_HIGH;
+		delay_us(6);			/*  waiting for 6us to recover to logic high */
+		/* delay_us(g_onewire_data->write_relese_ic_time); */
+	} else {
+		ONE_WIRE_OUT_LOW;
+		delay_us(1);			/* keeping logic low for 1 us */
+		if (bitval != 0)
+			ONE_WIRE_OUT_HIGH;	/* ONE_WIRE_OUT_HIGH; set 1-wire to logic high if bitval='1' */
+		delay_us(10);			/*  waiting for 10us */
+		ONE_WIRE_OUT_HIGH;
+		delay_us(5);			/*  waiting for 5us to recover to logic high */
+	}
 }
 
 /* Send 1 bit of read communication to the 1-Wire Net and and return the
@@ -126,20 +157,49 @@ void write_bit(unsigned char bitval)
  */
 unsigned char read_bit(void)
 {
-	unsigned int vamm;
+	unsigned int vamm = 0;
 	unsigned int value;
+	unsigned char i;
+	struct timespec r_start_ns;
+	struct timespec r_end_ns;
+	long r_diff_ns;
 
 	ONE_WIRE_CONFIG_OUT;
-	ONE_WIRE_OUT_LOW;
-	ONE_WIRE_OUT_LOW;
-	ONE_WIRE_CONFIG_IN;
-	delay_ns(500);	/* wait 500 ns */
-	value = readl_relaxed(g_onewire_data->gpio_in_reg);
-	vamm = value >> g_onewire_data->gpio_addr_offset & 0x1;
+	if (g_onewire_data->maxim_romid_crc_support) {
+		r_start_ns = get_current_time();
+		/* Execute output '0' 5 times*/
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		/* set 1-wire as input */
+		ONE_WIRE_CONFIG_IN;
+		r_end_ns = get_current_time();
+		for (i = 0; i < 7; i++) {
+			value = readl_relaxed(g_onewire_data->gpio_in_reg);
+			value = (value >> g_onewire_data->gpio_addr_offset) & 0x1;
+			vamm += value;
+		}
+		r_diff_ns = r_end_ns.tv_nsec - r_start_ns.tv_nsec;
+		/* set threshold to justify logic '1' or '0' */
+		if (vamm > 5)
+			vamm = 1;
+		else
+			vamm = 0;
+	} else {
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_OUT_LOW;
+		ONE_WIRE_CONFIG_IN;
+		delay_ns(500);	/* wait 500 ns */
+		value = readl_relaxed(g_onewire_data->gpio_in_reg);
+		vamm = value >> g_onewire_data->gpio_addr_offset & 0x1;
+	}
 	delay_us(5);	/* waiting for 5us Keep GPIO at the input state */
 	ONE_WIRE_OUT_HIGH;
 	ONE_WIRE_CONFIG_OUT;
-
+	if (g_onewire_data->maxim_romid_crc_support)
+		check_romid_bit(r_diff_ns, vamm, i);
 	delay_us(6);	/* waiting for 6us Keep GPIO at the output state */
 	return(vamm);	/*  return value of 1-wire dat pin */
 }
@@ -213,8 +273,12 @@ int onewire_init(struct onewire_gpio_data *onewire_data)
 	g_onewire_data->onewire_gpio_cfg_in_val = onewire_data->onewire_gpio_cfg_in_val;
 	g_onewire_data->onewire_gpio_level_high_val = onewire_data->onewire_gpio_level_high_val;
 	g_onewire_data->onewire_gpio_level_low_val = onewire_data->onewire_gpio_level_low_val;
+	g_onewire_data->write_begin_low_level_time = onewire_data->write_begin_low_level_time;
+	g_onewire_data->write_relese_ic_time = onewire_data->write_relese_ic_time;
+	g_onewire_data->maxim_romid_crc_support = onewire_data->maxim_romid_crc_support;
 	ONE_WIRE_CONFIG_OUT;
 	ONE_WIRE_OUT_HIGH;
+	delay_ms(10);
 	return 0;
 }
 
@@ -228,4 +292,9 @@ void onewire_set_gpio_config_out(void)
 {
 	ONE_WIRE_CONFIG_OUT;
 	chg_info("%s set gpio out", __func__);
+}
+
+bool get_maxim_romid_crc_support(void)
+{
+	return g_onewire_data->maxim_romid_crc_support;
 }

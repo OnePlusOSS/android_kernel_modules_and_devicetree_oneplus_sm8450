@@ -27,6 +27,7 @@
 #define FAST_NOTIFY_USER_EXIT_FASTCHG   0x5f
 #define FAST_NOTIFY_CHECK_FASTCHG_REAL_ALLOW 0x61
 #define FAST_NOTIFY_CURR_LIMIT_SMALL	0x62
+#define FAST_NOTIFY_IC_BURN		0x64
 
 enum {
 	FASTCHG_CHARGER_TYPE_UNKOWN,
@@ -62,6 +63,7 @@ struct hw_vphy_info {
 	bool (*vphy_get_retry_flag)(struct device *dev);
 	void (*vphy_set_bal_curr_limit)(struct device *dev, int curr);
 	int (*vphy_get_frame_head)(struct device *dev, int *head);
+	void (*vphy_set_wired_online)(struct device *dev, int online);
 };
 
 struct vphy_chip {

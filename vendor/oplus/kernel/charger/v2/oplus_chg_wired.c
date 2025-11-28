@@ -1440,8 +1440,9 @@ static void oplus_wired_qc_check_work(struct work_struct *work)
 		return;
 	}
 	if (chip->chg_type == OPLUS_CHG_USB_TYPE_QC2 ||
-		chip->chg_type == OPLUS_CHG_USB_TYPE_QC3) {
-		chg_info("is qc charging, not retry\n");
+		chip->chg_type == OPLUS_CHG_USB_TYPE_QC3 ||
+		chip->chg_type == OPLUS_CHG_USB_TYPE_UNKNOWN) {
+		chg_info("type is qc charging or unknown, not retry\n");
 		return;
 	}
 	oplus_wired_qc_detect_enable(true);
@@ -1521,7 +1522,8 @@ static void oplus_pdqc_retention_disconnect_work(struct work_struct *work)
 	chip->pdqc_connect_error_count = data.intval;
 	chg_debug("cpa_current_type= %d, pdqc_connect_error_count =%d\n",
 		chip->cpa_current_type, chip->pdqc_connect_error_count);
-	if (chip->pdqc_connect_error_count > DPQC_CONNECT_ERROR_COUNT_LEVEL) {
+	if (chip->pdqc_connect_error_count > DPQC_CONNECT_ERROR_COUNT_LEVEL ||
+		(!chip->irq_plugin && chip->pdqc_connect_error_count >= DPQC_CONNECT_ERROR_COUNT_LEVEL)) {
 		if (chip->cpa_current_type == CHG_PROTOCOL_QC) {
 			oplus_cpa_protocol_disable(chip->cpa_topic, CHG_PROTOCOL_QC);
 			oplus_cpa_switch_end(chip->cpa_topic, CHG_PROTOCOL_QC);

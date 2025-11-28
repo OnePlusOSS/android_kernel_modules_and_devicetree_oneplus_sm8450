@@ -66,6 +66,7 @@
 #define PROT_WP			0x02  /* Write Protection  */
 #define PROT_EM			0x04  /* EPROM Emulation Mode  */
 #define PROT_DC			0x08  /* Decrement Counter mode (only page 4) */
+#define PROT_PRI		0x10  /* Private key Read authentication result value */
 #define PROT_AUTH		0x20  /* AUTH mode for authority public key X&Y */
 #define PROT_ECH		0x40  /* Encrypted read and write using shared key from ECDH */
 #define PROT_ECW		0x80  /* Authentication Write Protection ECDSA (not applicable to KEY_PAGES) */
@@ -82,6 +83,21 @@
 #define SELECT_SEARCH	4
 #define SELECT_READROM	5
 #define SELECT_ODSKIP	6
+
+#define ZERO_VALUE  0
+/* define expected read length in DS28E30 function commands */
+#define EXPECTED_READ_LENGTH_1   1
+#define EXPECTED_READ_LENGTH_2   2
+#define EXPECTED_READ_LENGTH_5   5
+#define EXPECTED_READ_LENGTH_33  33
+#define EXPECTED_READ_LENGTH_65  65
+#define DATA_PACKET_NO_ACTION		0 /* no correction action for other function commands */
+#define DATA_PACKET_BITS_CORRECT	1 /* all bits are correct */
+#define DATA_PACKET_2_BITS_ERROR	2 /* try to correct 2 bits */
+#define DATA_PACKET_3_BITS_ERROR	3 /* try to correct 3 bits */
+#define DATA_PACKET_4_BITS_ERROR	4 /* try to correct 4 bits */
+void check_romid_bit(long r_diff_ns, unsigned int vamm, unsigned char cnt);
+void check_womid_bit(long w_diff_ns);
 
 /* constants */
 #define DS28E30_FAM	0x5B       /* 0xDB for custom DS28E30 */

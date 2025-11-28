@@ -97,6 +97,8 @@ enum oplus_track_item_idx {
 	TRACK_PRE_AGING,
 	TRACK_CUR_AGING,
 	TRACK_BATT_CC,
+	TRACK_PRE_SHOW_AG,
+	TRACK_CUR_SHOW_AG,
 	TRACK_ITEM_END
 };
 
@@ -107,7 +109,7 @@ const static unsigned int oplus_chg_track_pattern[] = {
 		BIT(TRACK_PRE_CAR_C)  | BIT(TRACK_CUR_CAR_C)  | BIT(TRACK_PRE_TOTAL_CAR) | BIT(TRACK_CUR_TOTAL_CAR) |
 		BIT(TRACK_PRE_C_SOC)  | BIT(TRACK_CUR_C_SOC)  | BIT(TRACK_PRE_V_SOC)     | BIT(TRACK_CUR_V_SOC) |
 		BIT(TRACK_PRE_UI_SOC) | BIT(TRACK_CUR_UI_SOC) |	BIT(TRACK_CUR_QMAX)      | BIT(TRACK_CUR_QUSE) |
-		BIT(TRACK_CUR_AGING),
+		BIT(TRACK_CUR_AGING)  | BIT(TRACK_CUR_SHOW_AG),
 
 	/*full*/
 	[GAUGE_TRACK_CALI_FLAG_CHG_FULL] =
@@ -125,9 +127,9 @@ const static unsigned int oplus_chg_track_pattern[] = {
 
 	/*aging*/
 	[GAUGE_TRACK_CALI_FLAG_AGING] =
-		BIT(TRACK_CUR_VBAT) | BIT(TRACK_CUR_TBAT) | BIT(TRACK_PRE_QMAX)  | BIT(TRACK_CUR_QMAX) |
-		BIT(TRACK_PRE_QUSE) | BIT(TRACK_CUR_QUSE) | BIT(TRACK_PRE_AGING) | BIT(TRACK_CUR_AGING) |
-		BIT(TRACK_BATT_CC)
+		BIT(TRACK_CUR_VBAT) | BIT(TRACK_CUR_TBAT)    | BIT(TRACK_PRE_QMAX)  | BIT(TRACK_CUR_QMAX) |
+		BIT(TRACK_PRE_QUSE) | BIT(TRACK_CUR_QUSE)    | BIT(TRACK_PRE_AGING) | BIT(TRACK_CUR_AGING) |
+		BIT(TRACK_BATT_CC)  | BIT(TRACK_CUR_SHOW_AG) | BIT(TRACK_CUR_SHOW_AG)
 };
 
 static int oplus_mt6375_cali_info_item_to_val(struct gauge_track_cali_info_s *info,
@@ -171,6 +173,9 @@ static int oplus_mt6375_cali_info_item_to_val(struct gauge_track_cali_info_s *in
 	case TRACK_PRE_AGING:
 	case TRACK_CUR_AGING:
 		return info->aging_factor;
+	case TRACK_PRE_SHOW_AG:
+	case TRACK_CUR_SHOW_AG:
+		return info->show_ag;
 	case TRACK_BATT_CC:
 		return info->batt_cc;
 	default:
@@ -185,6 +190,7 @@ static int oplus_mt6375_pack_cali_info(struct gauge_track_cali_info_s *pre,
 {
 	int i;
 	int index = 0;
+	int offset = 0;
 	unsigned int pattern;
 
 	pattern = oplus_chg_track_pattern[reason];
@@ -197,11 +203,12 @@ static int oplus_mt6375_pack_cali_info(struct gauge_track_cali_info_s *pre,
 			continue;
 
 		if (i == TRACK_BATT_CC) {
+			offset++;
 			index += snprintf(buf + index, OPLUS_CHG_TRACK_MTK_CALI_INFO_LEN - index,
 				"%d", oplus_mt6375_cali_info_item_to_val(cur, i));
 			continue;
 		}
-		if (i % 2 == 0)
+		if ((offset + i) % 2 == 0)
 			index += snprintf(buf + index, OPLUS_CHG_TRACK_MTK_CALI_INFO_LEN - index,
 				"%d", oplus_mt6375_cali_info_item_to_val(pre, i));
 		else
@@ -263,6 +270,7 @@ static void oplus_chg_update_gauge_cali_track_info_internal(struct mtk_battery *
 	info->quse = gm->prev_batt_fcc;
 	info->zcv = gm->zcv;
 	info->batt_cc = gm->bat_cycle;
+	info->show_ag = gm->soh;
 #endif /*OPLUS_FEATURE_GAUGE_CALI_TRACK*/
 }
 

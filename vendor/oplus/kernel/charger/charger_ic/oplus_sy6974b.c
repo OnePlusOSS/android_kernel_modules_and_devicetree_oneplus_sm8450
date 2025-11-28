@@ -3162,6 +3162,44 @@ static void register_charger_devinfo(struct chip_sy6974b *chip)
 	}
 #endif
 }
+
+static bool oplus_match_sy6974b_cmdline_str(void)
+{
+	struct device_node *cmdline_node = NULL;
+	const char *cmdline;
+	char *match = NULL;
+	char *support_second_chg_ic_str = "support_2ed_chg_ic";
+	char *chg_ic_str = "sy6974b";
+	int ret = 0;
+
+	cmdline_node = of_find_node_by_path("/chosen");
+	if (!cmdline_node) {
+		chg_err("NULL pointer!!!\n");
+		return true;
+	}
+
+	ret = of_property_read_string(cmdline_node, "bootargs", &cmdline);
+	if (ret) {
+		chg_err("failed to read bootargs\n");
+		return true;
+	}
+
+	match = strstr(cmdline, support_second_chg_ic_str);
+	if (match) {
+		match = strstr(cmdline, chg_ic_str);
+		if (match) {
+			chg_info("match: %s success in cmdline\n", chg_ic_str);
+		} else {
+			chg_err("match: %s fail in cmdline\n", chg_ic_str);
+			return false;
+		}
+	} else {
+		chg_info("not support second chg ic\n");
+	}
+
+	return true;
+}
+
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 static enum power_supply_usb_type sy6974b_charger_usb_types[] = {
 	POWER_SUPPLY_USB_TYPE_UNKNOWN,
@@ -3739,7 +3777,16 @@ void sy6974b_charger_exit(void)
 int sy6974b_charger_init(void)
 {
 	int ret = 0;
+	bool is_match = false;
 	chg_err(" init start\n");
+
+	is_match = oplus_match_sy6974b_cmdline_str();
+	if (is_match) {
+		chg_info("continue init\n");
+	} else {
+		chg_err("exit init\n");
+		return -EINVAL;
+	}
 
 	if (i2c_add_driver(&sy6974b_charger_driver) != 0) {
 		chg_err(" failed to register sy6974b i2c driver.\n");

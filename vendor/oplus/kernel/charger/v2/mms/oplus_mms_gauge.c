@@ -2908,7 +2908,7 @@ static void oplus_mms_gauge_check_calib_time_update(struct oplus_mms *mms,
 			int dod_calib_time, int qmax_calib_time, struct gauge_calib_info *calib_info)
 {
 	int i;
-	bool update;
+	bool update = false;
 	bool calib_info_init = false;
 	struct oplus_mms_gauge *chip;
 

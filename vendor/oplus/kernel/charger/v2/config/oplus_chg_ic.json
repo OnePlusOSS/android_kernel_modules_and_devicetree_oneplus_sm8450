@@ -522,6 +522,13 @@
                         "zh": "BATT_BAL错误"
                     },
                     "str": "BATT_BAL"
+                },
+                {
+                    "lable": "OPLUS_IC_ERR_BURN",
+                    "desc": {
+                        "zh": "IC烧坏"
+                    },
+                    "str": "BURN"
                 }
             ]
         },
@@ -993,42 +1000,42 @@
                     "desc": {
                         "zh": "旁路不支持"
                     },
-                    "str": "plc not support"
+                    "str": "not_support"
                 },
                 {
                     "lable": "PLC_STATUS_NOT_ALLOW",
                     "desc": {
                         "zh": "旁路不允许"
                     },
-                    "str": "plc not allow"
+                    "str": "not_allow"
                 },
                 {
                     "lable": "PLC_STATUS_DISABLE",
                     "desc": {
                         "zh": "旁路关闭"
                     },
-                    "str": "plc disable"
+                    "str": "disable"
                 },
                 {
                     "lable": "PLC_STATUS_ENABLE",
                     "desc": {
                         "zh": "旁路使能"
                     },
-                    "str": "plc enable"
+                    "str": "enable"
                 },
                 {
                     "lable": "PLC_STATUS_WAIT",
                     "desc": {
                         "zh": "旁路等待"
                     },
-                    "str": "plc wait"
+                    "str": "wait"
                 },
                 {
                     "lable": "PLC_STATUS_MAX",
                     "desc": {
                         "zh": "旁路未知状态"
                     },
-                    "str": "plc unknown"
+                    "str": "unknown"
                 }
             ]
         }

@@ -23,7 +23,7 @@
 #include "../v2/include/oplus_chg.h"
 #include <linux/platform_device.h>
 #else
-#include "../oplus_charger.h"
+#include "../v1/oplus_charger.h"
 #endif
 
 #if IS_ENABLED(CONFIG_DEVICE_MODULES_PINCTRL_MTK_V2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))

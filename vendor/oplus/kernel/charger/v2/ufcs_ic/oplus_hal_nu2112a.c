@@ -47,11 +47,25 @@
 #include <oplus_mms.h>
 #include <oplus_mms_gauge.h>
 #include <oplus_impedance_check.h>
+#include <oplus_chg_monitor.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
 #include <linux/pinctrl/consumer.h>
 #endif
 #include "../voocphy/oplus_voocphy.h"
 #include "oplus_hal_nu2112a.h"
+
+enum nu2112a_osc_status {
+	NU2112A_OSC_INIT,
+	NU2112A_OSC_ENABLE,
+	NU2112A_OSC_DISABLE,
+	NU2112A_OSC_INVALID,
+};
+
+enum nu2112a_ic_status {
+	NU2112A_IC_OK,
+	NU2112A_IC_PIN_DIAG_FAIL,
+	NU2112A_IC_POWER_NG,
+};
 
 static struct oplus_voocphy_manager *oplus_voocphy_mg = NULL;
 static struct mutex i2c_rw_lock;
@@ -62,6 +76,11 @@ static bool error_reported = false;
 #define DEFUALT_VBUS_HIGH 200
 #define I2C_ERR_NUM 10
 #define MAIN_I2C_ERROR (1 << 0)
+
+#define TRACK_REG_ADDR_START	NU2112A_REG_07
+#define TRACK_REG_ADDR_END	NU2112A_REG_15
+#define TRACK_REG_DUMP_NUM	(TRACK_REG_ADDR_END - TRACK_REG_ADDR_START)
+#define NU2112A_FLAG_REG_NUMS	3
 
 static struct ufcs_config nu2112a_ufcs_config = {
 	.check_crc = false,
@@ -100,6 +119,15 @@ struct nu2112a_device {
 	bool vac_support;
 
 	u8 ufcs_reg_dump[NU2112A_FLAG_NUM];
+	u8 track_reg_dump[TRACK_REG_DUMP_NUM];
+
+	enum nu2112a_osc_status osc_status;
+	struct mutex osc_status_lock;
+	struct delayed_work osc_status_daemon_work;
+	bool osc_ctrl_support;
+	enum oplus_cp_work_mode mode;
+	struct work_struct abnormal_upload_info_work;
+	enum nu2112a_ic_status ic_status;
 };
 
 static enum oplus_cp_work_mode g_cp_support_work_mode[] = {
@@ -113,6 +141,9 @@ static int nu2112a_init_device(struct nu2112a_device *chip);
 static int nu2112a_svooc_hw_setting(struct nu2112a_device *chip);
 static int nu2112a_vooc_hw_setting(struct nu2112a_device *chip);
 static int nu2112a_set_chg_enable(struct oplus_voocphy_manager *chip, bool enable);
+static void nu2112a_set_osc_status(
+			struct nu2112a_device *chip, enum nu2112a_osc_status osc_status);
+
 const char *nu2112a_adapter_error_info[16] = {
 	"adapter output OVP!",
 	"adapter outout UVP!",
@@ -598,6 +629,126 @@ static void nu2112a_dump_reg_in_err_issue(struct oplus_voocphy_manager *chip)
 	return;
 }
 
+static void nu2112a_track_dump_reg(struct oplus_voocphy_manager *voocphy)
+{
+	struct nu2112a_device *chip = voocphy->priv_data;
+
+	if (chip == NULL) {
+		chg_err("nu2112a chip is NULL\n");
+		return;
+	}
+
+	i2c_smbus_read_i2c_block_data(chip->client, TRACK_REG_ADDR_START, TRACK_REG_DUMP_NUM, chip->track_reg_dump);
+}
+
+#define ERR_MSG_BUF	PAGE_SIZE
+__printf(3, 4)
+static int nu2112a_publish_ic_err_msg(int type, int sub_type, const char *format, ...)
+{
+	va_list args;
+	char *buf;
+	int rc;
+	struct mms_msg *topic_msg;
+	struct oplus_mms *err_topic = oplus_mms_get_by_name("error");
+
+	if (!err_topic)
+		return -ENODEV;
+
+	buf = kzalloc(ERR_MSG_BUF, GFP_KERNEL);
+	if (buf == NULL)
+		return -ENOMEM;
+
+	va_start(args, format);
+	vsnprintf(buf, ERR_MSG_BUF, format, args);
+	va_end(args);
+
+	topic_msg =
+		oplus_mms_alloc_str_msg(MSG_TYPE_ITEM, MSG_PRIO_HIGH, ERR_ITEM_IC,
+					"[%s]-[%d]-[%d]:%s", "nu2112a", type, sub_type, buf);
+	kfree(buf);
+	if (topic_msg == NULL) {
+		chg_err("alloc topic msg error\n");
+		return -ENOMEM;
+	}
+
+	rc = oplus_mms_publish_msg_sync(err_topic, topic_msg);
+	if (rc < 0) {
+		chg_err("publish error topic msg error, rc=%d\n", rc);
+		kfree(topic_msg);
+	}
+
+	return rc;
+}
+
+static void nu2112a_track_abnormal_upload_info_work(struct work_struct *work)
+{
+	struct nu2112a_device *chip =
+		container_of(work, struct nu2112a_device, abnormal_upload_info_work);
+	char *buf;
+	int i;
+	size_t index = 0;
+
+	buf = kzalloc(ERR_MSG_BUF, GFP_KERNEL);
+	if (buf == NULL)
+		return;
+
+	if (chip->ic_status == NU2112A_IC_PIN_DIAG_FAIL)
+		index += scnprintf(buf + index, ERR_MSG_BUF, "$$err_reason@@pin_diag_fail$$reg_info@@");
+	else
+		index += scnprintf(buf + index, ERR_MSG_BUF, "$$err_reason@@power_ng$$reg_info@@");
+
+	for (i = 0; i < TRACK_REG_DUMP_NUM; i++)
+		index += scnprintf(buf + index, ERR_MSG_BUF, "0x%04x=%02x,",
+			(TRACK_REG_ADDR_START + i), chip->track_reg_dump[i]);
+	if (index > 0)
+		buf[index - 1] = 0;
+
+	nu2112a_publish_ic_err_msg(OPLUS_IC_ERR_BURN, 0, "%s", buf);
+	kfree(buf);
+}
+
+static bool nu2112a_ic_is_abnormal(struct oplus_voocphy_manager *chip)
+{
+	u8 data = 0;
+	struct nu2112a_device *device_chip;
+	enum nu2112a_ic_status ic_status;
+
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return false;
+	}
+
+	device_chip = chip->priv_data;
+	if (!device_chip) {
+		chg_err("device chip is NULL\n");
+		return false;
+	}
+
+	ic_status = device_chip->ic_status;
+	nu2112a_read_byte(chip->client, NU2112A_REG_14, &data);
+
+	if (data & NU2112A_PIN_DIAG_FALL_FLAG_MASK)
+		device_chip->ic_status = NU2112A_IC_PIN_DIAG_FAIL;
+	else if (data & NU2112A_POWER_NG_FLAG_MASK)
+		device_chip->ic_status = NU2112A_IC_POWER_NG;
+	else
+		device_chip->ic_status = NU2112A_IC_OK;
+
+	chg_info("reg[0x%x] = 0x%x, pre_ic_status:%d, ic_status:%d\n",
+		NU2112A_REG_14, data, ic_status, device_chip->ic_status);
+	if (device_chip->ic_status != NU2112A_IC_OK) {
+		if (ic_status != device_chip->ic_status) {
+			nu2112a_track_dump_reg(chip);
+			if (NU2112A_REG_14 >= TRACK_REG_ADDR_START && NU2112A_REG_14 < TRACK_REG_ADDR_END)
+				device_chip->track_reg_dump[NU2112A_REG_14 - TRACK_REG_ADDR_START] = data;
+			schedule_work(&device_chip->abnormal_upload_info_work);
+		}
+		return true;
+	}
+
+	return false;
+}
+
 static int nu2112a_cp_reg_dump(struct oplus_chg_ic_dev *ic_dev)
 {
 	struct nu2112a_device *chip;
@@ -687,6 +838,8 @@ static int nu2112a_cp_set_work_mode(struct oplus_chg_ic_dev *ic_dev, enum oplus_
 		return -EINVAL;
 	}
 
+	chip->mode = mode;
+	chg_info("work mode=%d\n", mode);
 	if (mode == CP_WORK_MODE_BYPASS)
 		rc = nu2112a_vooc_hw_setting(chip);
 	else
@@ -753,6 +906,11 @@ static int nu2112a_cp_set_work_start(struct oplus_chg_ic_dev *ic_dev, bool start
 
 	chg_info("%s work %s\n", chip->dev->of_node->name, start ? "start" : "stop");
 
+	if (start && chip->mode != CP_WORK_MODE_BYPASS)
+		nu2112a_set_osc_status(chip, NU2112A_OSC_ENABLE);
+	else
+		nu2112a_set_osc_status(chip, NU2112A_OSC_DISABLE);
+
 	rc = nu2112a_set_chg_enable(chip->voocphy, start);
 	if (rc < 0)
 		return rc;
@@ -782,7 +940,7 @@ static int nu2112a_get_adc_enable(struct oplus_voocphy_manager *chip, u8 *data)
 	return ret;
 }
 
-static u8 nu2112a_match_err_value(struct oplus_voocphy_manager *chip, u8 data_block[4])
+static u8 nu2112a_match_err_value(struct oplus_voocphy_manager *chip, u8 *data_block)
 {
 	/* TODO */
 	return 0;
@@ -792,23 +950,23 @@ static u8 nu2112a_get_int_value(struct oplus_voocphy_manager *chip)
 {
 	int ret = 0;
 	u8 data = 0;
-	u8 data_block[4] = { 0 };
+	u8 data_block[NU2112A_FLAG_REG_NUMS] = { 0 };
 	int i = 0;
 
 	if (!chip) {
 		pr_err("%s: chip null\n", __func__);
 		return -1;
 	}
-	memset(data_block, 0, sizeof(u8) * 4);
+	memset(data_block, 0, sizeof(u8) * NU2112A_FLAG_REG_NUMS);
 
-	ret = i2c_smbus_read_i2c_block_data(chip->client, NU2112A_REG_11, 4, data_block);
+	ret = i2c_smbus_read_i2c_block_data(chip->client, NU2112A_REG_11, NU2112A_FLAG_REG_NUMS, data_block);
 	if (ret < 0) {
 		nu2112a_i2c_error(true);
 		pr_err("nu2112a_get_int_value read vac error\n");
 	} else {
 		nu2112a_i2c_error(false);
 	}
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < NU2112A_FLAG_REG_NUMS; i++) {
 		pr_info("read int data_block[%d] = %u\n", i, data_block[i]);
 	}
 
@@ -823,6 +981,7 @@ static int nu2112a_set_chg_enable(struct oplus_voocphy_manager *chip, bool enabl
 		pr_err("Failed\n");
 		return -1;
 	}
+
 	if (enable)
 		return nu2112a_write_byte(chip->client, NU2112A_REG_07, 0x82); /*Enable CP, 500KHz*/
 	else
@@ -956,6 +1115,8 @@ static int nu2112a_reset_voocphy(struct oplus_voocphy_manager *chip)
 
 	/* turn off mos */
 	nu2112a_write_byte(chip->client, NU2112A_REG_07, 0x02);
+	nu2112a_set_osc_status(chip->priv_data, NU2112A_OSC_DISABLE);
+
 	/* hwic config with plugout */
 	reg_data = chip->ovp_reg;
 	nu2112a_write_byte(chip->client, NU2112A_REG_00, reg_data); /* vbat ovp=4.65V */
@@ -1154,6 +1315,7 @@ static irqreturn_t nu2112a_charger_interrupt(int irq, void *dev_id)
 static int nu2112a_init_device(struct nu2112a_device *chip)
 {
 	u8 reg_data;
+
 	nu2112a_write_byte(chip->client, NU2112A_REG_18, 0x10); /* ADC_CTRL:disable */
 	nu2112a_write_byte(chip->client, NU2112A_REG_02, 0x4); /*VAC OVP=12V*/
 	nu2112a_write_byte(chip->client, NU2112A_REG_03, 0x50); /* VBUS_OVP:10V */
@@ -1161,7 +1323,8 @@ static int nu2112a_init_device(struct nu2112a_device *chip)
 	nu2112a_write_byte(chip->client, NU2112A_REG_00, reg_data); /* VBAT_OVP:4.65V */
 	reg_data = chip->ocp_reg & 0x3f;
 	nu2112a_write_byte(chip->client, NU2112A_REG_04, reg_data); /* IBUS_OCP_UCP:3.6A */
-	nu2112a_write_byte(chip->client, NU2112A_REG_0D, 0x03); /* IBUS UCP Falling =150ms */
+	nu2112a_write_byte(chip->client, NU2112A_REG_0D, 0x01); /* IBUS UCP Falling =150ms */
+	nu2112a_write_byte(chip->client, NU2112A_REG_09, 0x80); /* IBUS_UCP_RISE:1.28S */
 	nu2112a_write_byte(chip->client, NU2112A_REG_0C, 0x01); /* IBUS UCP 150ma Falling,300ma Rising */
 
 	nu2112a_write_byte(chip->client, NU2112A_REG_01, 0xa8); /*IBAT OCP Disable*/
@@ -1170,6 +1333,10 @@ static int nu2112a_init_device(struct nu2112a_device *chip)
 	nu2112a_write_byte(chip->client, NU2112A_REG_08, 0x0); /*VOOC Option2*/
 	nu2112a_write_byte(chip->client, NU2112A_REG_17, 0x28); /*REG_17=0x28, IBUS_UCP_RISE_MASK_MASK*/
 	nu2112a_write_byte(chip->client, NU2112A_REG_15, 0x02); /* mask insert irq */
+
+	nu2112a_update_bits(chip->client, NU2112A_REG_0A, NU2112A_CFLY_PRECHG_TIMEOUT_MASK,
+		NU2112A_CFLY_PRECHG_20_MS << NU2112A_CFLY_PRECHG_TIMEOUT_SHIFT);
+
 	pr_err("nu2112a_init_device done");
 
 	return 0;
@@ -1198,6 +1365,175 @@ static int nu2112a_init_vooc(struct oplus_voocphy_manager *voocphy)
 	nu2112a_write_byte(chip->client, NU2112A_REG_30, 0x05);
 
 	return 0;
+}
+
+static int nu2112a_osc_enable(struct nu2112a_device *chip)
+{
+	int rc = 0;
+	u8 data = 0;
+	int retry_count = 1;
+
+	do {
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_18, 0x90);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x00);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x78);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x87);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0xAA);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x55);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_E7, 0x80);
+		rc |= nu2112a_read_byte(chip->client, NU2112A_REG_E7, &data);
+	} while (data != 0x80 && retry_count-- > 0);
+
+	rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x00);
+	chg_info("rc =%d, reg:0x%x\n", rc, data);
+
+	if (data == 0x80)
+		return 0;
+	else
+		return -1;
+}
+
+static int nu2112a_osc_disable(struct nu2112a_device *chip)
+{
+	int rc = 0;
+	u8 data  = 0x80;
+	int retry_count = 1;
+
+	do {
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_18, 0x90);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x00);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x78);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x87);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0xAA);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x55);
+		rc |= nu2112a_write_byte(chip->client, NU2112A_REG_E7, 0x00);
+		rc |= nu2112a_read_byte(chip->client, NU2112A_REG_E7, &data);
+	} while (data != 0x00 && retry_count-- > 0);
+
+	rc |= nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x00);
+	rc |= nu2112a_write_byte(chip->client, NU2112A_REG_18, 0x10);
+	chg_info("rc =%d, reg:0x%x\n", rc, data);
+
+	if (data == 0x00)
+		return 0;
+	else
+		return -1;
+}
+
+static void nu2112a_force_osc_disable(struct nu2112a_device *chip)
+{
+	if (!chip || !chip->osc_ctrl_support || !chip->client)
+		return;
+
+	nu2112a_write_byte(chip->client, NU2112A_REG_18, 0x90);
+	nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x00);
+	nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x78);
+	nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x87);
+	nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0xAA);
+	nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x55);
+	nu2112a_write_byte(chip->client, NU2112A_REG_E7, 0x00);
+	nu2112a_write_byte(chip->client, NU2112A_REG_DE, 0x00);
+	nu2112a_write_byte(chip->client, NU2112A_REG_18, 0x10);
+}
+
+static void nu2112a_set_osc_status(
+			struct nu2112a_device *chip, enum nu2112a_osc_status osc_status)
+{
+	int rc;
+
+	if (!chip)
+		return;
+
+	if (!chip->osc_ctrl_support)
+		return;
+
+	mutex_lock(&chip->osc_status_lock);
+	chg_info("current status:%d, set status:%d\n",
+		chip->osc_status, osc_status);
+	if (chip->osc_status == NU2112A_OSC_INVALID) {
+		chg_info("osc status invalid, wait work recovery\n");
+		mutex_unlock(&chip->osc_status_lock);
+		return;
+	}
+
+	if (osc_status == chip->osc_status) {
+		mutex_unlock(&chip->osc_status_lock);
+		return;
+	}
+
+	switch (osc_status) {
+	case NU2112A_OSC_INIT:
+	case NU2112A_OSC_DISABLE:
+		rc = nu2112a_osc_disable(chip);
+		if (!rc) {
+			chip->osc_status = NU2112A_OSC_DISABLE;
+			mutex_unlock(&chip->osc_status_lock);
+			cancel_delayed_work_sync(&chip->osc_status_daemon_work);
+		} else {
+			chg_err("disable osc fail, start work rerun\n");
+			chip->osc_status = NU2112A_OSC_INVALID;
+			mutex_unlock(&chip->osc_status_lock);
+			if (osc_status == NU2112A_OSC_INIT)
+				schedule_delayed_work(&chip->osc_status_daemon_work, msecs_to_jiffies(1500));
+		}
+		break;
+	case NU2112A_OSC_ENABLE:
+		rc = nu2112a_osc_enable(chip);
+		chip->osc_status = NU2112A_OSC_ENABLE;
+		mutex_unlock(&chip->osc_status_lock);
+		cancel_delayed_work_sync(&chip->osc_status_daemon_work);
+		schedule_delayed_work(&chip->osc_status_daemon_work, msecs_to_jiffies(1500));
+		break;
+	default:
+		chip->osc_status = NU2112A_OSC_INVALID;
+		mutex_unlock(&chip->osc_status_lock);
+		chg_err("!!!not goto here\n");
+		break;
+	}
+}
+
+static void nu2112a_osc_status_daemon_work(struct work_struct *work)
+{
+	int rc;
+	int cp_vbus;
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct nu2112a_device *chip = container_of(dwork,
+		struct nu2112a_device, osc_status_daemon_work);
+
+	mutex_lock(&chip->osc_status_lock);
+	if (chip->osc_status == NU2112A_OSC_DISABLE) {
+		chg_err("osc status has disable, not need handle\n");
+		mutex_unlock(&chip->osc_status_lock);
+		return;
+	}
+
+	cp_vbus = nu2112a_get_cp_vbus(chip->voocphy);
+	if (cp_vbus < 2000) { /* cp vbus less than 2000 mv detected */
+		usleep_range(5000, 5000);
+		cp_vbus = nu2112a_get_cp_vbus(chip->voocphy);
+	}
+	chg_info("cp_vbus=%d\n", cp_vbus);
+
+	/* osc_status is invalid or cp vbus less than 2000 mv detected */
+	if (chip->osc_status == NU2112A_OSC_INVALID || cp_vbus < 2000) {
+		rc = nu2112a_osc_disable(chip);
+		if (!rc) {
+			chip->osc_status = NU2112A_OSC_DISABLE;
+			mutex_unlock(&chip->osc_status_lock);
+			return;
+		}
+		chg_err("disable osc fail, start work rerun\n");
+	}
+	mutex_unlock(&chip->osc_status_lock);
+	schedule_delayed_work(&chip->osc_status_daemon_work, msecs_to_jiffies(1500));
+}
+
+static void nu2112a_osc_init(struct nu2112a_device *chip)
+{
+	mutex_init(&chip->osc_status_lock);
+	INIT_DELAYED_WORK(&chip->osc_status_daemon_work, nu2112a_osc_status_daemon_work);
+	chip->osc_status = NU2112A_OSC_DISABLE;
+	nu2112a_set_osc_status(chip, NU2112A_OSC_INIT);
 }
 
 static int nu2112a_irq_gpio_init(struct oplus_voocphy_manager *chip)
@@ -1327,6 +1663,7 @@ static int nu2112a_svooc_hw_setting(struct nu2112a_device *chip)
 
 	nu2112a_write_byte(chip->client, NU2112A_REG_33, 0xd1); /* Loose_det=1 */
 	nu2112a_write_byte(chip->client, NU2112A_REG_35, 0x20);
+
 	return 0;
 }
 
@@ -1395,6 +1732,7 @@ static int nu2112a_hw_setting(struct oplus_voocphy_manager *voocphy, int reason)
 		break;
 	case SETTING_REASON_SVOOC:
 		nu2112a_svooc_hw_setting(chip);
+		nu2112a_set_osc_status(chip, NU2112A_OSC_ENABLE);
 		pr_info("SETTING_REASON_SVOOC\n");
 		break;
 	case SETTING_REASON_VOOC:
@@ -1487,6 +1825,9 @@ static int nu2112a_parse_dt(struct nu2112a_device *chip)
 	/* Parsing gpio switch gpio47*/
 	node = chip->dev->of_node;
 
+	chip->osc_ctrl_support = of_property_read_bool(node, "oplus,osc_ctrl_support");
+	chg_info("osc_ctrl_support:%d\n", chip->osc_ctrl_support);
+
 	rc = of_property_read_u32(node, "ovp_reg", &chip->ovp_reg);
 	if (rc) {
 		chip->ovp_reg = 0x5C;
@@ -1535,6 +1876,7 @@ static struct oplus_voocphy_operations oplus_nu2112a_ops = {
 	.set_chg_pmid2out = nu2112a_set_chg_pmid2out,
 	.get_chg_pmid2out = nu2112a_get_chg_pmid2out,
 	.dump_voocphy_reg = nu2112a_dump_reg_in_err_issue,
+	.ic_is_abnormal = nu2112a_ic_is_abnormal,
 };
 
 static int nu2112a_ufcs_init(struct ufcs_dev *ufcs)
@@ -1920,6 +2262,33 @@ static int nu2112a_cp_wd_enable(struct oplus_chg_ic_dev *ic_dev, int timeout_ms)
 	return 0;
 }
 
+static int nu2112a_cp_set_ucp_disable(struct oplus_chg_ic_dev *ic_dev, bool disable)
+{
+	struct nu2112a_device *chip;
+	int ret = 0;
+
+	if (ic_dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL");
+		return -ENODEV;
+	}
+	chip = oplus_chg_ic_get_priv_data(ic_dev);
+
+	chg_info("%s %s\n", chip->dev->of_node->name, disable ? "disable" : "enable");
+	if (disable)
+		ret = nu2112a_update_bits(chip->client, NU2112A_REG_0C,
+				NU2112A_IBUS_UCP_DIS_MASK, NU2112A_IBUS_UCP_DISABLE << NU2112A_IBUS_UCP_DIS_SHIFT);
+	else
+		ret = nu2112a_update_bits(chip->client, NU2112A_REG_0C,
+				NU2112A_IBUS_UCP_DIS_MASK, NU2112A_IBUS_UCP_ENABLE << NU2112A_IBUS_UCP_DIS_SHIFT);
+
+	if (ret < 0) {
+		chg_err("failed to set ucp reg disable to 0x%02x, ret=%d\n", disable, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static void *nu2112a_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum oplus_chg_ic_func func_id)
 {
 	void *func = NULL;
@@ -1985,6 +2354,9 @@ static void *nu2112a_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum oplus_chg
 		break;
 	case OPLUS_IC_FUNC_CP_SET_ADC_ENABLE:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_SET_ADC_ENABLE, nu2112a_cp_adc_enable);
+		break;
+	case OPLUS_IC_FUNC_CP_SET_UCP_DISABLE:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_SET_UCP_DISABLE, nu2112a_cp_set_ucp_disable);
 		break;
 	case OPLUS_IC_FUNC_CP_WATCHDOG_ENABLE:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_WATCHDOG_ENABLE, nu2112a_cp_wd_enable);
@@ -2106,7 +2478,9 @@ static int nu2112a_driver_probe(struct i2c_client *client, const struct i2c_devi
 		goto regmap_init_err;
 	}
 
+	nu2112a_osc_init(chip);
 	nu2112a_create_device_node(&(client->dev));
+	INIT_WORK(&chip->abnormal_upload_info_work, nu2112a_track_abnormal_upload_info_work);
 
 	chip->use_vooc_phy = of_property_read_bool(chip->dev->of_node, "oplus,use_vooc_phy");
 	chip->use_ufcs_phy = of_property_read_bool(chip->dev->of_node, "oplus,use_ufcs_phy");
@@ -2228,7 +2602,14 @@ static int nu2112a_driver_remove(struct i2c_client *client)
 
 static void nu2112a_shutdown(struct i2c_client *client)
 {
+	struct oplus_voocphy_manager *chip;
+
 	nu2112a_write_byte(client, NU2112A_REG_18, 0x10);
+
+	chip = i2c_get_clientdata(client);
+	if (chip)
+		nu2112a_force_osc_disable(chip->priv_data);
+
 	return;
 }
 

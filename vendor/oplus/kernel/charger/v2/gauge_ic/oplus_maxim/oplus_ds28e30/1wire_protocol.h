@@ -32,6 +32,9 @@ struct onewire_gpio_data {
 	unsigned int onewire_gpio_level_high_val;
 	unsigned int onewire_gpio_level_low_val;
 	unsigned int gpio_addr_offset;
+	unsigned int write_begin_low_level_time;
+	unsigned int write_relese_ic_time;
+	bool maxim_romid_crc_support;
 	unsigned int gpio_reg[2];
 };
 
@@ -48,5 +51,6 @@ unsigned char read_byte(void);
 int onewire_init(struct onewire_gpio_data *onewire_data);
 void onewire_set_gpio_config_in(void);
 void onewire_set_gpio_config_out(void);
+bool get_maxim_romid_crc_support(void);
 
 #endif /* _1WIRE_PROTOCOL_H */

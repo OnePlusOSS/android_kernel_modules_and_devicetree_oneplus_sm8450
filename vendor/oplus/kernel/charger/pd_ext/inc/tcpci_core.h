@@ -380,6 +380,7 @@ struct tcpc_device {
 	int recv_msg_cnt;
 	int int_invaild_cnt;
 /********* workaround MO.230913213000256759: sc6607 workaround for pd abnormal end*********/
+	bool support_role_swap_delay; /* add for GTS.UsbRoleSwapTest */
 #endif
 
 	/* For TCPC TypeC */

@@ -75,6 +75,7 @@
 #define ONE_MINUTE 		60
 #define MAX_UI_DECIMAL_TIME	24
 #define UPDATE_TIME		1
+#define PLUGOUT_SOC_THRESHOLD	95
 #define NORMAL_FULL_SOC		100
 #define VBAT_GAP_CHECK_CNT	3
 #define VBAT_MAX_GAP		50
@@ -376,7 +377,8 @@ struct oplus_chg_comm {
 	int delta_soc;
 	int uisoc_keep_2_err;
 	int shell_temp;
-	unsigned long soc_update_jiffies;
+	unsigned long soc_up_update_jiffies;
+	unsigned long soc_down_update_jiffies;
 	unsigned long vbat_uv_jiffies;
 	unsigned long batt_full_jiffies;
 	unsigned long sleep_tm_sec;
@@ -428,8 +430,16 @@ struct oplus_chg_comm {
 
 	unsigned int nvid_support_flags;
 	int plc_status;
-	int plc_support;
 };
+
+typedef struct {
+	int charge_limit_enable;
+	int charge_limit_value;
+	int is_force_set_charge_limit;
+	int charge_limit_recharge_value;
+	int callname;
+}chg_up_limit_info;
+static chg_up_limit_info chg_up_limit_data;
 
 static struct oplus_comm_spec_config default_spec = {
 	.fcc_gear_shake_mv = {
@@ -510,6 +520,22 @@ static const char *const POWER_SUPPLY_HEALTH_TEXT[] = {
 	[POWER_SUPPLY_HEALTH_COOL]		    = "Cool",
 	[POWER_SUPPLY_HEALTH_HOT]		    = "Hot",
 };
+
+static void oplus_comm_update_soc_jiffies(struct oplus_chg_comm *chip)
+{
+	chip->soc_up_update_jiffies = jiffies;
+	chip->soc_down_update_jiffies = jiffies;
+}
+
+static void oplus_comm_plugout_update_down_jiffies(struct oplus_chg_comm *chip, bool wired_online, bool wls_online)
+{
+	if (!wired_online && !wls_online && chip->smooth_soc >= PLUGOUT_SOC_THRESHOLD &&
+	    chip->ui_soc >= PLUGOUT_SOC_THRESHOLD) {
+		chg_info("smooth_soc=%d, ui_soc=%d, plugout soc_down from %ums to %ums\n", chip->smooth_soc,
+			 chip->ui_soc, jiffies_to_msecs(chip->soc_down_update_jiffies), jiffies_to_msecs(jiffies));
+		chip->soc_down_update_jiffies = jiffies;
+	}
+}
 
 bool oplus_comm_get_boot_completed(void)
 {
@@ -1158,13 +1184,10 @@ static void oplus_comm_start_timeout_work(struct oplus_chg_comm *chip)
 	if (chip->wls_online)
 		goto start;
 
-	if (!chip->plc_support)
-		goto start;
-
 	if (chip->chging_over_time)
 		return;
 
-	if (chip->plc_status != PLC_STATUS_ENABLE && chip->plc_status != PLC_STATUS_WAIT)
+	if (chip->plc_status != PLC_STATUS_ENABLE)
 		goto start;
 
 	if (delayed_work_pending(&chip->charge_timeout_work))
@@ -1691,7 +1714,7 @@ void oplus_comm_set_rechg_soc_limit(struct oplus_mms *topic, int rechg_soc, bool
 		chip->rechg_now = true;
 		chg_info("recharge directly if disable ui_soc rechg.\n");
 	} else if (en && (chip->ui_soc == 100)) {
-		chip->soc_update_jiffies = jiffies;
+		oplus_comm_update_soc_jiffies(chip);
 		chg_info("keep 100 for 5minutes when enable ui_soc rechg.\n");
 	}
 
@@ -2182,14 +2205,10 @@ static int oplus_comm_set_ui_soc(struct oplus_chg_comm *chip, int soc)
 
 	if (chip->ui_soc == soc)
 		return 0;
-
-	if ((chip->plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT) && (chip->ui_soc < soc))
-		chip->ui_soc = chip->ui_soc;
-	else
-		chip->ui_soc = soc;
+	chip->ui_soc = soc;
 
 	chg_info("set ui_soc=%d\n", soc);
-	chip->soc_update_jiffies = jiffies;
+	oplus_comm_update_soc_jiffies(chip);
 	chip->batt_full_jiffies = jiffies;
 
 	if (soc == 0)
@@ -2629,13 +2648,13 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 					t_soc_x_to_2 = t_sum / (ui_soc - 2);
 					chg_err("ui_soc x to 2 smooth soc:%d temp:%d %d vbat_min:%d, term_v:%d %d jiff_n:%ld jiff:%ld t_soc:%d %d %d %d",
 					    ui_soc, chip->shell_temp, volt_diff_of_soc_2, chip->vbat_min_mv,
-					    term_voltage, vbat_low_soc_to_2, soc_down_jiffies, chip->soc_update_jiffies,
+					    term_voltage, vbat_low_soc_to_2, soc_down_jiffies, chip->soc_down_update_jiffies,
 					    t_soc_x_to_2, back_rm, load_current, chip->ibat_ma);
 				}
 
 				if (t_soc_x_to_2 < UI_SOC_DEC_SPEED_OF_LOW_BATT)
 					t_soc_x_to_2 = UI_SOC_DEC_SPEED_OF_LOW_BATT;
-				soc_down_jiffies = chip->soc_update_jiffies + (unsigned long)(t_soc_x_to_2 * HZ);
+				soc_down_jiffies = chip->soc_down_update_jiffies + (unsigned long)(t_soc_x_to_2 * HZ);
 				*p_force_down_1 = true;
 			}
 		} else {
@@ -2660,13 +2679,13 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 					t_soc_x_to_1 = t_sum / (ui_soc - 1);
 					chg_err("ui_soc x to 1 smooth soc:%d temp:%d %d vbat_min:%d, term_v:%d %d jiff_n:%ld jiff:%ld t_soc:%d %d %d %d\n",
 					    ui_soc, chip->shell_temp, volt_diff_of_soc_2, chip->vbat_min_mv,
-					    term_voltage, vbat_low_soc_to_1, soc_down_jiffies, chip->soc_update_jiffies,
+					    term_voltage, vbat_low_soc_to_1, soc_down_jiffies, chip->soc_down_update_jiffies,
 					    t_soc_x_to_1, *p_force_down_1, back_rm, load_current);
 				}
 
 				if (t_soc_x_to_1 < UI_SOC_DEC_SPEED_OF_UV_BATT)
 					t_soc_x_to_1 = UI_SOC_DEC_SPEED_OF_UV_BATT;
-				soc_down_jiffies = chip->soc_update_jiffies + (unsigned long)(t_soc_x_to_1 * HZ);
+				soc_down_jiffies = chip->soc_down_update_jiffies + (unsigned long)(t_soc_x_to_1 * HZ);
 			}
 		} else {
 			vbat_low_soc_to_1 = 0;
@@ -2683,6 +2702,16 @@ static unsigned long oplus_comm_ui_soc_low_battery_control(struct oplus_chg_comm
 	return soc_down_jiffies;
 }
 
+#define CHG_UP_LIMIT_FAIL_THRESHOLD	3
+#define CHG_UP_LIMIT_REAL_SOC_THRESHOLD	99
+static bool get_chg_up_not_limit_state(int ui_soc, int smooth_soc)
+{
+	if (chg_up_limit_data.charge_limit_enable == 1 && ui_soc >= chg_up_limit_data.charge_limit_value &&
+	    smooth_soc <= (ui_soc + CHG_UP_LIMIT_FAIL_THRESHOLD) && smooth_soc <= CHG_UP_LIMIT_REAL_SOC_THRESHOLD)
+		return false;
+	else
+		return true;
+}
 #define CHARGE_FORCE_DEC_INTERVAL	60
 #define NON_CHARGE_FORCE_DEC_INTERVAL	20
 #define AGING_VERSION_SMOOTH_MIN_UISOC	1
@@ -2721,25 +2750,25 @@ static void oplus_comm_ui_soc_update(struct oplus_chg_comm *chip)
 	smooth_soc = chip->smooth_soc;
 	charging = chip->wired_online || chip->wls_online;
 
-	soc_up_jiffies = chip->soc_update_jiffies + (unsigned long)(10 * HZ);
+	soc_up_jiffies = chip->soc_up_update_jiffies + (unsigned long)(10 * HZ);
 	if (ui_soc == 100) {
 		soc_down_jiffies =
-			chip->soc_update_jiffies + (unsigned long)(300 * HZ);
+			chip->soc_down_update_jiffies + (unsigned long)(300 * HZ);
 	} else if (ui_soc >= 95) {
 		soc_down_jiffies =
-			chip->soc_update_jiffies + (unsigned long)(150 * HZ);
+			chip->soc_down_update_jiffies + (unsigned long)(150 * HZ);
 	} else if (ui_soc >= 60) {
 		soc_down_jiffies =
-			chip->soc_update_jiffies + (unsigned long)(60 * HZ);
+			chip->soc_down_update_jiffies + (unsigned long)(60 * HZ);
 	} else if (charging && ui_soc == 1) {
 		soc_down_jiffies =
-			chip->soc_update_jiffies + (unsigned long)(90 * HZ);
+			chip->soc_down_update_jiffies + (unsigned long)(90 * HZ);
 	} else if (ui_soc <= 10 && chip->config.support_uisoc_low_battery_control) {
 		soc_down_jiffies =
-			chip->soc_update_jiffies + (unsigned long)(UI_SOC_DEC_SPEED_OF_LOW_BATT * HZ);
+			chip->soc_down_update_jiffies + (unsigned long)(UI_SOC_DEC_SPEED_OF_LOW_BATT * HZ);
 	} else {
 		soc_down_jiffies =
-			chip->soc_update_jiffies + (unsigned long)(40 * HZ);
+			chip->soc_down_update_jiffies + (unsigned long)(40 * HZ);
 	}
 
 	if (chip->config.support_uisoc_low_battery_control)
@@ -2803,7 +2832,7 @@ static void oplus_comm_ui_soc_update(struct oplus_chg_comm *chip)
 				    chip->config.volt_of_fast_drop_soc_1, vbatt_too_low,
 				    charging, chip->vbat_min_mv, chip->vbat_mv,
 				    force_dec_interval, config->chg_shutdown_max_mv, chip->ui_soc);
-				soc_down_jiffies = chip->soc_update_jiffies +
+				soc_down_jiffies = chip->soc_down_update_jiffies +
 						   (unsigned long)(UI_SOC_DEC_SPEED_OF_UV_BATT * HZ);
 				force_down_2 = true;
 			} else {
@@ -2820,7 +2849,7 @@ static void oplus_comm_ui_soc_update(struct oplus_chg_comm *chip)
 	     (charging ? spec->sub_vbat_charging_uv_thr_mv : spec->sub_vbat_uv_thr_mv))) {
 		/* Force ui_soc to drop to 0 when the voltage is too low */
 		if (time_is_before_jiffies(vbat_uv_jiffies)) {
-			soc_down_jiffies = chip->soc_update_jiffies +
+			soc_down_jiffies = chip->soc_down_update_jiffies +
 					   (unsigned long)(UI_SOC_DEC_SPEED_OF_UV_BATT * HZ);
 			force_down_2 = true;
 		} else {
@@ -2871,7 +2900,7 @@ static void oplus_comm_ui_soc_update(struct oplus_chg_comm *chip)
 
 	/* Here ui_soc is only allowed to drop to 1% as low as possible */
 	mmi_chg = oplus_comm_get_mmi_state(chip);
-	if (charging && mmi_chg) {
+	if (charging && mmi_chg && get_chg_up_not_limit_state(ui_soc, smooth_soc)) {
 		if (ui_soc < smooth_soc &&
 		    time_is_before_jiffies(soc_up_jiffies)) {
 			ui_soc = (ui_soc < 100) ? (ui_soc + 1) : 100;
@@ -3152,7 +3181,8 @@ void oplus_comm_ui_soc_decimal_deinit(struct oplus_chg_comm *chip)
 	ui_soc = (soc_decimal->ui_soc_integer + soc_decimal->ui_soc_decimal) / 1000;
 	mutex_unlock(&chip->decimal_lock);
 	if (ui_soc != 0) {
-		if (soc_decimal->ui_soc_decimal != 0 && ui_soc < chip->smooth_soc)
+		if (soc_decimal->ui_soc_decimal != 0 && ui_soc < chip->smooth_soc &&
+		    get_chg_up_not_limit_state(ui_soc, chip->smooth_soc))
 			ui_soc = (ui_soc < 100) ? (ui_soc + 1) : 100;
 		oplus_comm_set_ui_soc(chip, ui_soc);
 	}
@@ -3202,7 +3232,7 @@ static void oplus_comm_show_ui_soc_decimal(struct work_struct *work)
 
 	/*calculate the speed*/
 	mmi_chg = oplus_comm_get_mmi_state(chip);
-	if (icharging > 0 && mmi_chg) {
+	if (icharging > 0 && mmi_chg && get_chg_up_not_limit_state(chip->ui_soc, chip->smooth_soc)) {
 		if (!oplus_comm_calculate_eis_soc_speed(chip, &speed))
 			speed = 100000 * icharging * UPDATE_TIME * batt_num / (chip->batt_fcc * 3600);
 
@@ -3221,6 +3251,11 @@ static void oplus_comm_show_ui_soc_decimal(struct work_struct *work)
 	}
 	if (speed > 500)
 		speed = 500;
+
+	if (get_chg_up_not_limit_state(chip->ui_soc, chip->smooth_soc) == false) {
+		speed = 0;
+		soc_decimal->ui_soc_decimal = 0;
+	}
 
 	mutex_lock(&chip->decimal_lock);
 	soc_decimal->ui_soc_decimal += speed;
@@ -3263,15 +3298,6 @@ is_chg_suspend_votable_available(struct oplus_chg_comm *chip)
 	return !!chip->chg_suspend_votable;
 }
 
-typedef struct {
-    int charge_limit_enable;
-    int charge_limit_value;
-    int is_force_set_charge_limit;
-    int charge_limit_recharge_value;
-    int callname;
-}chg_up_limit_info;
-static chg_up_limit_info chg_up_limit_data;
-
 int oplus_set_chg_up_limit(struct oplus_mms *topic, int charge_limit_enable, int charge_limit_value,
 	int is_force_set_charge_limit, int charge_limit_recharge_value, int callname)
 {
@@ -3293,12 +3319,65 @@ int oplus_set_chg_up_limit(struct oplus_mms *topic, int charge_limit_enable, int
 	return 1;
 }
 
+#define DEFAULT_OVER_CHARGE_DOD 550
+static bool chg_up_limit_decimal_enable(struct oplus_chg_comm *chip)
+{
+	union mms_msg_data data = { 0 };
+	int ui_soc_decimal;
+	int batt_rm;
+	int batt_fcc;
+
+	if (chip == NULL || chip->gauge_topic == NULL) {
+		chg_err("chg_up chip->gauge_topic == NULL\n");
+		return true;
+	}
+
+	oplus_mms_get_item_data(chip->gauge_topic, GAUGE_ITEM_RM, &data, false);
+	batt_rm = data.intval;
+	if (batt_rm < 0) {
+		chg_err("batt_rm is < 0\n");
+		goto out;
+	}
+	oplus_mms_get_item_data(chip->gauge_topic, GAUGE_ITEM_FCC, &data, false);
+	batt_fcc = data.intval;
+	if (batt_fcc == 0) {
+		chg_err("batt_fcc is 0\n");
+		goto out;
+	}
+	ui_soc_decimal =
+		batt_rm * 100000 / batt_fcc;
+	if (ui_soc_decimal >
+	    (chg_up_limit_data.charge_limit_value - 1) * 1000 + DEFAULT_OVER_CHARGE_DOD ||
+	    chip->smooth_soc > chg_up_limit_data.charge_limit_value) {
+		chg_info("chg_up get_ui_soc_decimal %d %d %d %d %d\n",
+		    ui_soc_decimal, batt_rm, batt_fcc, chip->smooth_soc,
+		    chg_up_limit_data.charge_limit_value);
+		return true;
+	}
+	return false;
+
+out:
+	if (chip->smooth_soc > chg_up_limit_data.charge_limit_value) {
+		chg_info("chg_up get_ui_soc_decimal %d %d\n",
+		    chip->smooth_soc, chg_up_limit_data.charge_limit_value);
+		return true;
+	}
+	return false;
+}
+
 static int oplus_enforce_chg_up_limit_result(struct oplus_chg_comm *chip, bool cut_off_charge)
 {
 	int val = cut_off_charge;
 	int rc = 0;
 	static int pre_val = 0;
 	static int pre_is_force_set_flag = 0;
+	bool decimal_status;
+
+	if (chip == NULL) {
+		chg_err("chip == NULL\n");
+		return rc;
+	}
+
 	chg_debug("oplus_set_chg_up_limit %d\n", val);
 	if ((pre_val == val) && (pre_is_force_set_flag == chg_up_limit_data.is_force_set_charge_limit)) {
 		if ((val == true && (get_client_vote(chip->chg_disable_votable, CHG_LIMIT_CHG_VOTER) > 0 ||
@@ -3309,6 +3388,26 @@ static int oplus_enforce_chg_up_limit_result(struct oplus_chg_comm *chip, bool c
 			chg_debug("set same chg up limit command %d %d\n", val, pre_is_force_set_flag);
 			return rc;
 		}
+	}
+
+	/* When the charging upper limit suspend is enabled before, 
+	and ui_soc drops to the charging upper limit value, change it to disable charge. */
+	if (cut_off_charge == true &&
+	    chip->ui_soc == chg_up_limit_data.charge_limit_value &&
+		chg_up_limit_data.is_force_set_charge_limit == 1 &&
+		get_client_vote(chip->chg_suspend_votable, CHG_LIMIT_CHG_VOTER) > 0) {
+		rc = vote(chip->chg_suspend_votable, CHG_LIMIT_CHG_VOTER, false, 0, false);
+		if (is_chg_disable_votable_available(chip))
+			rc = vote(chip->chg_disable_votable, CHG_LIMIT_CHG_VOTER,
+				  true, val, false);
+		else
+			rc = -ENOTSUPP;
+	}
+
+	if (chip->ui_soc == chg_up_limit_data.charge_limit_value && cut_off_charge == true) {
+		decimal_status = chg_up_limit_decimal_enable(chip);
+		if (decimal_status == false)
+			return rc;
 	}
 
 	if (chg_up_limit_data.is_force_set_charge_limit == 0 || chip->ui_soc == chg_up_limit_data.charge_limit_value) {
@@ -3387,7 +3486,8 @@ static void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip, b
 		chg_up_limit_data.charge_limit_recharge_value, over_count);
 
 	if (chg_up_limit_data.charge_limit_enable == 1) {
-		if (chip->ui_soc >= chg_up_limit_data.charge_limit_value) {
+		if (chip->ui_soc >= chg_up_limit_data.charge_limit_value &&
+			chg_up_limit_data.charge_limit_value < OPLUS_FULL_SOC) {
 			over_count++;
 			if (over_count >= CHG_UP_DELAY_COUNT || chip->vooc_charging || chip->ufcs_charging ||
 			    chip->pps_charging || is_wls_fastchg_started(chip)) {
@@ -3395,7 +3495,8 @@ static void monitor_ui_soc_to_enable_chg_up_limit(struct oplus_chg_comm *chip, b
 				oplus_enforce_chg_up_limit_result(chip, true);
 			}
 			return;
-		} else if (chip->ui_soc >= chg_up_limit_data.charge_limit_recharge_value) {
+		} else if (chip->ui_soc >= chg_up_limit_data.charge_limit_recharge_value &&
+		    chg_up_limit_data.charge_limit_recharge_value < OPLUS_FULL_SOC) {
 			over_count = 0;
 			return;
 		} else {
@@ -3744,6 +3845,8 @@ static void oplus_comm_check_ffc(struct oplus_chg_comm *chip)
 				oplus_comm_get_ffc_temp_region_str(ffc_temp_region));
 			oplus_ffc_exit_reset_info(chip);
 			if (chip->wired_online) {
+				if (chip->soc >= 100)
+					goto err;
 				if (is_wired_charging_disable_votable_available(chip))
 					vote(chip->wired_charging_disable_votable, FFC_VOTER, true, 1, false);
 				oplus_comm_set_ffc_status(chip, FFC_IDLE);
@@ -4887,7 +4990,7 @@ static void oplus_comm_subscribe_gauge_topic(struct oplus_mms *topic,
 		oplus_hidden_soc_smooth(chip);
 	else
 		oplus_comm_set_smooth_soc(chip, chip->soc);
-	chip->soc_update_jiffies = jiffies;
+	oplus_comm_update_soc_jiffies(chip);
 	chip->vbat_uv_jiffies = jiffies;
 	chg_info("shutdown_soc=%d, soc=%d, partition_uisoc=%d, smooth_soc=%d\n",
 	    chip->shutdown_soc, chip->soc, chip->partition_uisoc, chip->smooth_soc);
@@ -4914,7 +5017,7 @@ static void oplus_comm_subscribe_gauge_topic(struct oplus_mms *topic,
 	else
 		chip->ui_soc = chip->smooth_soc > 0 ? chip->smooth_soc : 1;
 
-	chip->soc_update_jiffies = jiffies;
+	oplus_comm_update_soc_jiffies(chip);
 	chip->batt_full_jiffies = jiffies;
 
 	/* gauge is ready now!!! */
@@ -5096,6 +5199,7 @@ static void oplus_comm_wls_subs_callback(struct mms_subscribe *subs,
 		switch (id) {
 		case WLS_ITEM_PRESENT:
 			oplus_mms_get_item_data(chip->wls_topic, id, &data, false);
+			oplus_comm_plugout_update_down_jiffies(chip, chip->wired_online, !!data.intval);
 			chip->wls_online = !!data.intval;
 			schedule_work(&chip->plugin_work);
 			break;
@@ -5275,12 +5379,6 @@ static void oplus_comm_plc_subs_callback(struct mms_subscribe *subs,
 	switch (type) {
 	case MSG_TYPE_ITEM:
 		switch (id) {
-		case PLC_ITEM_SUPPORT:
-			oplus_mms_get_item_data(chip->plc_topic, id, &data,
-						false);
-			chip->plc_support = !!data.intval;
-			oplus_comm_start_timeout_work(chip);
-			break;
 		case PLC_ITEM_STATUS:
 			oplus_mms_get_item_data(chip->plc_topic, id, &data,
 						false);
@@ -5313,9 +5411,6 @@ static void oplus_comm_subscribe_plc_topic(struct oplus_mms *topic,
 		return;
 	}
 
-	rc = oplus_mms_get_item_data(chip->plc_topic, PLC_ITEM_SUPPORT, &data, true);
-	if (rc >= 0)
-		chip->plc_support = data.intval;
 	rc = oplus_mms_get_item_data(chip->plc_topic, PLC_ITEM_STATUS, &data, true);
 	if (rc >= 0)
 		chip->plc_status = data.intval;
@@ -5461,6 +5556,7 @@ static void oplus_comm_plugin_work(struct work_struct *work)
 
 	oplus_mms_get_item_data(chip->wired_topic, WIRED_ITEM_ONLINE, &data,
 				false);
+	oplus_comm_plugout_update_down_jiffies(chip, !!data.intval, chip->wls_online);
 	chip->wired_online = data.intval;
 
 	chg_info("wired_online = %d, wls_online = %d\n", chip->wired_online, chip->wls_online);
@@ -7838,6 +7934,11 @@ static ssize_t proc_ui_soc_decimal_read(struct file *file,
 		if(!soc_decimal->decimal_control)
 			val = 0;
 	} else {
+		val = 0;
+	}
+
+	if (get_chg_up_not_limit_state(chip->ui_soc, chip->smooth_soc) == false) {
+		soc_decimal->init_decimal_ui_soc = 0;
 		val = 0;
 	}
 

@@ -6,3 +6,4 @@ config OPLUS_FEATURE_STORAGE_IO_METRICS
 	  The function of this module is to collect various metrics on the IO path
 
 source "drivers/soc/oplus/storage/common/fmonitor/Kconfig"
+source "drivers/soc/oplus/storage/common/iolimit/Kconfig"

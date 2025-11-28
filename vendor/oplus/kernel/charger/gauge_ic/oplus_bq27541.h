@@ -381,7 +381,14 @@
 #define ZY0603_GFCONFIG_R2D_REG			0x475A
 #define ZY0603_GFMAXDELTA_REG			0x479B
 
-
+#define GAUGE_SUBCMD_TRY_COUNT	3
+#define GAUGE_EXTERN_DATAFLASHBLOCK	0x3e
+#define BQ27541_BLOCK_SIZE			32
+#define BQ28Z610_EXTEND_DATA_SIZE		34
+#define BQ28Z610_REG_TRUE_FCC			0x0073
+#define BQ28Z610_TRUE_FCC_NUM_SIZE		2
+#define BQ28Z610_TRUE_FCC_OFFSET		8
+#define BQ28Z610_FCC_SYNC_CMD			0x0043
 
 #define U_DELAY_1_MS	1000
 #define U_DELAY_5_MS	5000
@@ -703,6 +710,9 @@ struct chip_bq27541 {
 	struct delayed_work hw_config_retry_work;
 	bool modify_soc_smooth;
 	bool modify_soc_calibration;
+
+	bool fcc_too_small_checking;
+	struct work_struct fcc_too_small_check_work;
 
 	bool allow_reading;
 	bool wlchg_started;

@@ -526,6 +526,7 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 			|| str_equal(panel->oplus_priv.vendor_name, "TM_NT37705_DVT")
 			|| str_equal(panel->oplus_priv.vendor_name, "TM_NT37705_DVT_ID05")
 			|| str_equal(panel->oplus_priv.vendor_name, "BOE_NT37705")
+			|| str_equal(panel->oplus_priv.vendor_name, "S6E3FAC")
 			|| panel->oplus_priv.power_seq_adj) {
 		DSI_INFO("delay 10ms before reset panel");
 		usleep_range(10000, 10000 + 10);

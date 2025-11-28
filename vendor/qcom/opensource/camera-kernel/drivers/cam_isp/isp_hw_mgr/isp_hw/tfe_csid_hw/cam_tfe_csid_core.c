@@ -3278,8 +3278,18 @@ static int cam_tfe_csid_evt_bottom_half_handler(
 	struct cam_tfe_csid_hw *csid_hw;
 	struct cam_csid_evt_payload *evt_payload;
 	const struct cam_tfe_csid_reg_offset    *csid_reg;
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	const struct cam_tfe_csid_csi2_rx_reg_offset   *csi2_reg;
+	struct cam_isp_hw_error_event_info err_evt_info = {0};
+	struct cam_isp_hw_event_info event_info = {0};
+	struct cam_hw_soc_info *soc_info;
+	uint32_t  long_pkt_ftr_val;
+	uint32_t  total_crc;
+	uint32_t  val;
+#else
 	struct cam_isp_hw_error_event_info err_evt_info;
 	struct cam_isp_hw_event_info event_info;
+#endif
 	int i;
 	int rc = 0;
 
@@ -3293,6 +3303,10 @@ static int cam_tfe_csid_evt_bottom_half_handler(
 	csid_hw = (struct cam_tfe_csid_hw *)handler_priv;
 	evt_payload = (struct cam_csid_evt_payload *)evt_payload_priv;
 	csid_reg = csid_hw->csid_info->csid_reg;
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	soc_info = &csid_hw->hw_info->soc_info;
+	csi2_reg = csid_reg->csi2_reg;
+#endif
 
 	if (!csid_hw->event_cb || !csid_hw->event_cb_priv) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
@@ -3341,17 +3355,50 @@ static int cam_tfe_csid_evt_bottom_half_handler(
 			evt_payload->irq_status[TFE_CSID_IRQ_REG_RDI1],
 			evt_payload->irq_status[TFE_CSID_IRQ_REG_RDI2]);
 	}
+
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	if (evt_payload->irq_status[TFE_CSID_IRQ_REG_RX] & TFE_CSID_CSI2_RX_ERROR_CRC) {
+		err_evt_info.err_type = CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED;
+		long_pkt_ftr_val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csi2_reg->csid_csi2_rx_captured_long_pkt_ftr_addr);
+		total_crc = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			csi2_reg->csid_csi2_rx_total_crc_err_addr);
+
+		if (csid_hw->csi2_rx_cfg.lane_type == CAM_ISP_LANE_TYPE_CPHY) {
+			val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+				csi2_reg->csid_csi2_rx_captured_cphy_pkt_hdr_addr);
+
+			CAM_ERR(CAM_ISP,"PHY_CRC_ERROR: Long pkt payload CRC mismatch. \
+					Total CRC Errs: %u, Rcvd CRC: 0x%x Caltd CRC: 0x%x, \
+					VC:%d DT:%d WC:%d",
+					total_crc, long_pkt_ftr_val & 0xffff,
+					long_pkt_ftr_val >> 16, val >> 22,
+					(val >> 16) & 0x3F, val & 0xFFFF);
+		} else {
+			CAM_ERR(CAM_ISP,"PHY_CRC_ERROR: Long pkt payload CRC mismatch. \
+					Totl CRC Errs: %u, Rcvd CRC: 0x%x Caltd CRC: 0x%x",
+					total_crc, long_pkt_ftr_val & 0xffff,
+					long_pkt_ftr_val >> 16);
+		}
+	}
+#endif
+
 	/* this hunk can be extended to handle more cases
 	 * which we want to offload to bottom half from
 	 * irq handlers
 	 */
+#ifndef OPLUS_FEATURE_CAMERA_COMMON
 	err_evt_info.err_type = evt_payload->evt_type;
+#endif
 	event_info.hw_idx = evt_payload->hw_idx;
 
 	switch (evt_payload->evt_type) {
 	case CAM_ISP_HW_ERROR_CSID_FATAL:
 		if (csid_hw->fatal_err_detected)
 			break;
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+		err_evt_info.err_type = evt_payload->evt_type;
+#endif
 		event_info.event_data = (void *)&err_evt_info;
 		csid_hw->fatal_err_detected = true;
 		rc = csid_hw->event_cb(NULL,
@@ -3359,9 +3406,22 @@ static int cam_tfe_csid_evt_bottom_half_handler(
 		break;
 
 	default:
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+		event_info.event_data = (void *)&err_evt_info;
+		if (err_evt_info.err_type ==
+			CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED) {
+			rc = csid_hw->event_cb(NULL,
+				CAM_ISP_HW_EVENT_ERROR, (void *)&event_info);
+		}
+		CAM_DBG(CAM_ISP, "CSID[%d] error type %d err_type = %u",
+			csid_hw->hw_intf->hw_idx,
+			evt_payload->evt_type，
+			err_evt_info.err_type);
+#else
 		CAM_DBG(CAM_ISP, "CSID[%d] error type %d",
 			csid_hw->hw_intf->hw_idx,
 			evt_payload->evt_type);
+#endif
 		break;
 	}
 end:

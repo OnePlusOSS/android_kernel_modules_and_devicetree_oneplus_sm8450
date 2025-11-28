@@ -5515,6 +5515,16 @@ static int cam_tfe_hw_mgr_handle_csid_event(
 			&recovery_data);
 		break;
 	}
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	case CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED: {
+		error_event_data.error_type = err_type;
+		error_event_data.error_code = CAM_REQ_MGR_CSID_RX_PKT_PAYLOAD_CORRUPTION;
+		cam_tfe_hw_mgr_find_affected_ctx(&error_event_data,
+			event_info->hw_idx,
+			&recovery_data);
+		break;
+	}
+#endif
 	default:
 		break;
 	}

@@ -513,6 +513,9 @@ static void oplus_chglib_check_charger_out_work(struct work_struct *work)
 		if (chip->vinf->vphy_disconnect_detect)
 			chip->vinf->vphy_disconnect_detect(chip->dev);
 	}
+
+	if (chip->vinf->vphy_set_wired_online)
+		chip->vinf->vphy_set_wired_online(chip->dev, data.intval);
 }
 
 #define TRACK_LOCAL_T_NS_TO_S_THD		1000000000

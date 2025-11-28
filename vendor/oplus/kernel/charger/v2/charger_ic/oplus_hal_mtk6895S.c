@@ -64,6 +64,7 @@
 #include <oplus_chg_pps.h>
 #include "../../../misc/mediatek/typec/tcpc/inc/tcpci.h"
 #include <oplus_chg_wls.h>
+#include <oplus_chg_monitor.h>
 
 static int oplus_chg_set_pps_config(struct oplus_chg_ic_dev *ic_dev, int vbus_mv, int ibus_ma);
 static int oplus_chg_set_fixed_pd_config(struct oplus_chg_ic_dev *ic_dev, int vol_mv, int curr_ma);
@@ -93,6 +94,7 @@ static int oplus_chg_get_pps_status(struct oplus_chg_ic_dev *ic_dev, u32 *src_in
 #define PPS_RANDOM_NUMBER	    4
 #define NO_OF_DATA_OBJECTS_MAX      7
 #define PPS_KEY_COUNT		    4
+#define LOW_BATT_SOC 1
 
 static uint32_t pps_random[PPS_RANDOM_NUMBER] = { 1111, 2222, 3333, 4444 };
 static uint32_t pps_adapter_result[NO_OF_DATA_OBJECTS_MAX] = { 0 };
@@ -392,6 +394,30 @@ int get_uisoc(struct mtk_charger *info)
 	chr_debug("%s:%d\n", __func__,
 		ret);
 	return ret;
+}
+
+int oplus_chg_get_batt_soc(void)
+{
+	int batt_soc = 50; /* default batt_soc set 50 */
+	struct oplus_mms *gauge_topic;
+	union mms_msg_data data = { 0 };
+	int rc;
+
+	gauge_topic = oplus_mms_get_by_name("gauge");
+	if (!gauge_topic)
+		return batt_soc;
+
+	rc = oplus_mms_get_item_data(gauge_topic, GAUGE_ITEM_SOC, &data, true);
+	if (!rc) {
+		batt_soc = data.intval;
+		if (batt_soc < 0) {
+			chg_err("batt soc not ready, batt_soc=%d\n", batt_soc);
+			batt_soc = 50;
+		}
+	}
+
+	chr_info("get batt soc = %d\n", batt_soc);
+	return batt_soc;
 }
 
 int get_battery_voltage(struct mtk_charger *info)
@@ -3816,6 +3842,34 @@ static void oplus_charger_suspend_recovery_work(struct work_struct *work)
 	oplus_chg_suspend_charger(false, TCPC_IBUS_DRAW_VOTER);
 }
 
+#ifdef OPLUS_FEATURE_CHG_BASIC
+static bool is_err_topic_available(struct mtk_charger *chip)
+{
+	if (!chip->err_topic)
+		chip->err_topic = oplus_mms_get_by_name("error");
+	return !!chip->err_topic;
+}
+static void oplus_publish_close_cp_item_work(struct work_struct *work)
+{
+	struct mtk_charger *chip = container_of(work, struct mtk_charger, publish_close_cp_item_work.work);
+	struct mms_msg *msg;
+	int rc;
+	if (!is_err_topic_available(chip)) {
+		chg_err("error topic not found\n");
+		return;
+	}
+	msg = oplus_mms_alloc_int_msg(MSG_TYPE_ITEM, MSG_PRIO_MEDIUM, ERR_ITEM_CLOSE_CP, 1);
+	if (msg == NULL) {
+		chg_err("alloc close cp msg error\n");
+		return;
+	}
+	rc = oplus_mms_publish_msg(chip->err_topic, msg);
+	if (rc < 0) {
+		chg_err("publish close cp msg error, rc=%d\n", rc);
+		kfree(msg);
+	}
+}
+#endif
 static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -4482,10 +4536,13 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 		} else if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
 			noti->typec_state.new_state == TYPEC_ATTACHED_SNK) {
 			chr_err("Type-C SINK plug in\n");
-		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
-			noti->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
+		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC) &&
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
-			chr_err("Type-C plug out\n");
+			chr_err("Type-C SRC plug out\n");
+		} else if ((noti->typec_state.old_state == TYPEC_ATTACHED_SNK) &&
+			noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			chr_err("Type-C SNK plug out\n");
+			schedule_delayed_work(&pinfo->publish_close_cp_item_work, 0);
 		}
 		pinfo->typec_state = noti->typec_state.new_state;
 		oplus_chg_ic_virq_trigger(pinfo->ic_dev, OPLUS_IC_VIRQ_TYPEC_STATE);
@@ -5301,6 +5358,7 @@ static int mtk_chg_set_otg_boost_curr_limit(struct oplus_chg_ic_dev *ic_dev, int
 	int rc;
 	struct mtk_charger *info = oplus_chg_ic_get_drvdata(ic_dev);
 	struct charger_device *chg;
+	int batt_soc;
 
 	if (info == NULL) {
 		chg_err("info is NULL");
@@ -5308,7 +5366,14 @@ static int mtk_chg_set_otg_boost_curr_limit(struct oplus_chg_ic_dev *ic_dev, int
 	}
 
 	chg = info->chg1_dev;
-	rc =  charger_dev_set_boost_current_limit(chg, curr_uA);
+	batt_soc = oplus_chg_get_batt_soc();
+	chg_info("mtk_chg_set_otg_boost_curr_limit get batt_soc is %d\n", batt_soc);
+	if ((batt_soc <= LOW_BATT_SOC) && (info->low_batt_otg_boost_curr_ua != 0) &&
+		(info->low_batt_otg_boost_curr_ua <= curr_uA)) {
+		curr_uA = info->low_batt_otg_boost_curr_ua;
+		chg_info("batt_soc is low, set curr %d ua\n", curr_uA);
+	}
+	rc = charger_dev_set_boost_current_limit(chg, curr_uA);
 	if (rc < 0)
 		chg_err("set otg cc err, rc=%d\n", rc);
 	return rc;
@@ -8128,6 +8193,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	pinfo->pd_chg_volt = VBUS_5V;
 	INIT_DELAYED_WORK(&pinfo->sourcecap_done_work, oplus_sourcecap_done_work);
 	INIT_DELAYED_WORK(&pinfo->charger_suspend_recovery_work, oplus_charger_suspend_recovery_work);
+	INIT_DELAYED_WORK(&pinfo->publish_close_cp_item_work, oplus_publish_close_cp_item_work);
 
 	if (oplus_mtk_ic_register(&pdev->dev, pinfo) != 0)
 		goto reg_ic_err;

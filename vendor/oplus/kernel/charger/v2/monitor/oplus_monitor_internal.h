@@ -243,7 +243,7 @@ struct oplus_monitor {
 
 	/* plc */
 	int plc_status;
-	int plc_support;
+	bool plc_support;
 	int enable_count;
 	int plc_init_sm_soc;
 	int plc_init_ui_soc;

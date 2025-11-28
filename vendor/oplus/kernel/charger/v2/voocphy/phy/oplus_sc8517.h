@@ -124,6 +124,9 @@
 /* Register 10h */
 #define SC8517_REG_10                      0x10
 
+/* Register 12h */
+#define SC8517_REG_12                      0x12
+
 /* Register 15h */
 #define SC8517_REG_15                      0x15
 #define SC8517_CHG_MODE_MASK               (BIT(1)|BIT(0))

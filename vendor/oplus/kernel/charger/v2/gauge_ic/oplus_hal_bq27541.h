@@ -339,6 +339,40 @@
 #define BQ28Z610_TRUE_FCC_OFFSET		8
 #define BQ28Z610_FCC_SYNC_CMD			0x0043
 
+#define BQ28Z610_BATT_INFO_RETRY_MAX		3
+#define BQ28Z610_BATTINFO_EN_ADDR		0x3E
+#define BQ28Z610_BATTINFO_MANUDATE_CMD		0x004D
+#define BQ28Z610_BATT_MANU_DATE_READ_BUF_LEN	4
+
+#define BQ28Z610_BATTINFO_VDMDATA_CMD		0x0070
+#define BQ28Z610_BATT_VDM_DATA_READ_BUF_LEN	34
+#define BQ28Z610_BATTINFO_DEFAULT_CHECKSUM	0xFF
+
+#define BQ28Z610_BATTINFO_NO_CHECKSUM		0x00
+#define BQ28Z610_BATT_USED_FLAG			23
+
+#define BQ28Z610_BATT_FIRST_USAGE_DATE_WLEN	5
+#define BQ28Z610_BATT_FIRST_USAGE_DATE_WADDR	0x404E
+#define BQ28Z610_BATT_FIRST_USAGE_DATE_CHECK	17
+#define BQ28Z610_BATT_FIRST_USAGE_DATE_L	15
+#define BQ28Z610_BATT_FIRST_USAGE_DATE_H	16
+
+#define BQ28Z610_BATT_UI_CYCLE_COUNT_CHECK	22
+#define BQ28Z610_BATT_UI_CYCLE_COUNT_L		20
+#define BQ28Z610_BATT_UI_CYCLE_COUNT_H		21
+
+#define BQ28Z610_BATT_UI_SOH			18
+#define BQ28Z610_BATT_UI_SOH_CHECK		19
+#define BQ28Z610_BATT_WRITE_CHECK_SUM_ADDR	0x60
+#define BQ28Z610_BATT_USED_FLAG_CHECK		24
+
+#define BQ28Z610_BATT_UI_CC_WLEN		5
+#define BQ28Z610_BATT_UI_CC_WADDR		0x4053
+#define BQ28Z610_BATT_UI_SOH_WLEN		4
+#define BQ28Z610_BATT_UI_SOH_WADDR		0x4051
+#define BQ28Z610_BATT_USED_FLAG_WLEN		4
+#define BQ28Z610_BATT_USED_FLAG_WADDR		0x4056
+
 #define U_DELAY_1_MS	1000
 #define U_DELAY_5_MS	5000
 #define M_DELAY_10_S	10000
@@ -565,7 +599,6 @@ struct chip_bq27541 {
 	int min_vol_pre;
 	int batt_num;
 
-	bool fcc_too_small_check_support;
 	bool fcc_too_small_checking;
 	struct work_struct fcc_too_small_check_work;
 
@@ -588,6 +621,8 @@ struct chip_bq27541 {
 	const u8 *static_df_checksum_60;
 	const u8 **afi_buf;
 	unsigned int *afi_buf_len;
+	u8 *bq28z610_afi_buf;
+	int bq28z610_afi_cnt;
 	bool batt_bq28z610;
 	bool batt_bq27z561;
 	bool batt_nfg8011b;
@@ -657,6 +692,7 @@ struct chip_bq27541 {
 	u8 chem_id[CHEM_ID_LENGTH + 1];
 	int last_cc_pre;
 	int gauge_type;
+	int bq28z610_seal_flag;
 };
 
 struct gauge_track_info_reg {

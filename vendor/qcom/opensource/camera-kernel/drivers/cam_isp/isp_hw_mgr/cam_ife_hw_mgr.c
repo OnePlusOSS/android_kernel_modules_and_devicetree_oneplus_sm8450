@@ -12354,7 +12354,8 @@ static int cam_ife_hw_mgr_handle_csid_error(
 		CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED)) &&
 		g_ife_hw_mgr.debug_cfg.enable_csid_recovery) {
 #else
-	if ((err_type & CAM_ISP_HW_ERROR_CSID_FATAL) &&
+	if ((err_type & (CAM_ISP_HW_ERROR_CSID_FATAL |
+		CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED)) &&
 		(g_ife_hw_mgr.debug_cfg.enable_csid_recovery || full_recovery_num) ) {
 #endif
 		error_event_data.error_type = CAM_ISP_HW_ERROR_CSID_FATAL;
@@ -12414,6 +12415,16 @@ end:
 		goto skip_recovery;
 
 	recovery_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
+
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+	if (err_type & CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED)
+	{
+		error_event_data.error_code = CAM_REQ_MGR_CSID_RX_PKT_PAYLOAD_CORRUPTION;
+		error_event_data.error_type = err_type;
+		recovery_data.error_type = CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED;
+	}
+#endif
+
 	cam_ife_hw_mgr_do_error_recovery(&recovery_data);
 	CAM_DBG(CAM_ISP, "Exit CSID[%u] error %d", event_info->hw_idx,
 		err_type);

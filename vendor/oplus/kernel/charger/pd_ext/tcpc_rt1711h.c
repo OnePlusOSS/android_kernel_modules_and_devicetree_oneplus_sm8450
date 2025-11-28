@@ -1565,6 +1565,11 @@ static int rt1711_tcpcdev_init(struct rt1711_chip *chip, struct device *dev)
 		dev_info(dev, "PD_REV20\n");
 #endif	/* CONFIG_USB_PD_REV30 */
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_ALERT_V10;
+#ifdef OPLUS_FEATURE_CHG_BASIC
+	/* add for GTS.UsbRoleSwapTest */
+	chip->tcpc->support_role_swap_delay = of_property_read_bool(np, "support_role_swap_delay");
+	dev_info(dev, "support_role_swap_delay:%d\n", chip->tcpc->support_role_swap_delay);
+#endif
 
 	return 0;
 }

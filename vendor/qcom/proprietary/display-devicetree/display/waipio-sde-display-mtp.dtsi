@@ -244,6 +244,7 @@
 &qupv3_se4_i2c {
 	synaptics20031@4B {
 		panel = <&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd
+				&dsi_panel_samsung_amb670yf08_fs_1440_3216_dsc_cmd
 				&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd_t0>;
 	};
 };
@@ -251,6 +252,7 @@
 //#ifdef OPLUS_FEATURE_CHG_BASIC
 &battery_charger {
 	panel = <&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd
+				&dsi_panel_samsung_amb670yf08_fs_1440_3216_dsc_cmd
 				&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd_t0
 				>;
 };
@@ -259,7 +261,7 @@
 &soc {
 	//#ifdef OPLUS_FEATURE_FINGERPRINT
 	goodix_fp {
-		panel = <&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd &dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd_t0 >;
+		panel = <&dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd &dsi_panel_samsung_amb670yf08_fs_1440_3216_dsc_cmd &dsi_panel_samsung_amb670yf07_1440_3216_dsc_cmd_t0>;
 	};
 	//#endif /*OPLUS_FEATURE_FINGERPRINT*/
 };

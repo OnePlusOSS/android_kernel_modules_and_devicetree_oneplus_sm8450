@@ -2057,6 +2057,11 @@ static int tcpm_put_tcp_dpm_event_bk(
 	do {
 		ret = __tcpm_put_tcp_dpm_event_bk(
 			tcpc, event, tout_ms, data, size);
+#ifdef OPLUS_FEATURE_CHG_BASIC
+		/* add for GTS.UsbRoleSwapTest */
+		if (tcpc && tcpc->support_role_swap_delay)
+			msleep(50);
+#endif
 	} while ((ret == TCP_DPM_RET_TIMEOUT) && (retry-- > 0));
 
 	mutex_unlock(&pd_port->tcpm_bk_lock);

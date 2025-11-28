@@ -240,6 +240,11 @@ struct ufcs_msg *ufcs_unpack_msg(struct ufcs_class *class, const u8 *buf, int le
 	case UFCS_DATA_MSG:
 		msg->data_msg.command = buf[MSG_DATA_INDEX];
 		msg->data_msg.length = buf[MSG_DATA_INDEX + 1];
+		if (msg->data_msg.length + msg_size + 1 != len) {
+			ufcs_err("data message length invalid, len=%d, msg_size=%d, buf[%*ph]\n",
+				len, msg_size, len, buf);
+			goto err;
+		}
 		memcpy(msg->data_msg.data, &buf[MSG_DATA_INDEX + 2], msg->data_msg.length);
 		ufcs_data_msg_init(&msg->data_msg);
 		if (config->check_crc) {
@@ -262,8 +267,9 @@ struct ufcs_msg *ufcs_unpack_msg(struct ufcs_class *class, const u8 *buf, int le
 			msg_size = MSG_HEAD_SIZE + 3 + msg->vendor_msg.length + 1;
 		else
 			msg_size = MSG_HEAD_SIZE + 3 + msg->vendor_msg.length;
-		if (len < msg_size) {
-			ufcs_err("vendor message length too short, len=%d, msg_size=%d\n", len, msg_size);
+		if (len != msg_size) {
+			ufcs_err("vendor message length invalid, len=%d, msg_size=%d, buf[%*ph]\n",
+				len, msg_size, len, buf);
 			goto err;
 		}
 		memcpy(msg->vendor_msg.data, &buf[MSG_DATA_INDEX + 3], msg->vendor_msg.length);
@@ -645,20 +651,20 @@ recv:
 	}
 
 	if (ufcs_check_handshake(class))
-		return;
+		goto done;
 	ufcs_send_state(UFCS_NOTIFY_ERR_FLAG, &dev_err_flag);
 	rc = ufcs_check_error_info(class, dev_err_flag);
 	if (rc != 0)
-		return;
+		goto done;
 
 	rc = ufcs->ops->read_msg(ufcs, buf, sizeof(buf));
 	if (rc < 0) {
 		ufcs_err("read ufcs msg error, rc=%d\n", rc);
-		return;
+		goto done;
 	}
 	if (rc == 0) {
 		ufcs_err("msg buf size is 0\n");
-		return;
+		goto done;
 	}
 
 	if (ufcs_log_level >= LOG_LEVEL_DEBUG)
@@ -667,7 +673,7 @@ recv:
 	msg = ufcs_unpack_msg(class, buf, rc);
 	if (msg == NULL) {
 		ufcs_err("ufcs_unpack_msg error\n");
-		return;
+		goto done;
 	}
 	ufcs_dump_msg_info(msg, "recv");
 
@@ -679,7 +685,7 @@ recv:
 		 */
 		if (ufcs_recv_ack_nck_msg(class, &msg->ctrl_msg)) {
 			devm_kfree(&ufcs->dev, msg);
-			return;
+			goto done;
 		}
 	} else if (!class->config.reply_ack) {
 		/*
@@ -706,9 +712,11 @@ recv:
 	class->recv_msg = msg;
 	kthread_queue_work(class->worker, &class->event_work);
 
+done:
 	spin_lock(&class->err_flag_lock);
 	if (!kfifo_is_empty(&ufcs->err_flag_fifo)) {
 		spin_unlock(&class->err_flag_lock);
+		ufcs_info("err_flag_fifo not empty\n");
 		goto recv;
 	}
 	spin_unlock(&class->err_flag_lock);

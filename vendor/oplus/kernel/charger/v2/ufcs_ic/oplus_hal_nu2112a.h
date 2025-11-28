@@ -65,6 +65,9 @@
 
 /* Register 0Ah */
 #define NU2112A_REG_0A 0x0A
+#define NU2112A_CFLY_PRECHG_TIMEOUT_MASK     (BIT(4) | BIT(5))
+#define NU2112A_CFLY_PRECHG_TIMEOUT_SHIFT    4
+#define NU2112A_CFLY_PRECHG_20_MS            1
 
 /* Register 0Bh */
 #define NU2112A_REG_0B 0x0B
@@ -120,6 +123,8 @@
 
 #define NU2112A_PIN_DIAG_FALL_FLAG_MASK 0x01
 #define NU2112A_PIN_DIAG_FALL_FLAG_SHIFT 0
+
+#define NU2112A_POWER_NG_FLAG_MASK 0x10
 
 /* Register 15h */
 #define NU2112A_REG_15 0x15
@@ -238,6 +243,11 @@
 /* Register 3Ch */
 #define NU2112A_REG_3C 0x3C
 
+/* Register DEh */
+#define NU2112A_REG_DE 0xDE
+
+/* Register E7h */
+#define NU2112A_REG_E7 0xE7
 /************************UFCS REG***********************************/
 #define UFCS_BTB_TEMP_MAX 80
 #define UFCS_USB_TEMP_MAX 80

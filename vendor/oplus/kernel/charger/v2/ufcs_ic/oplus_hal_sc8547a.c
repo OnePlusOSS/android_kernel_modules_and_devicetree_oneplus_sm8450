@@ -2382,6 +2382,32 @@ static int sc8547a_cp_adc_enable(struct oplus_chg_ic_dev *ic_dev, bool en)
 	return 0;
 }
 
+static int sc8547a_cp_set_ucp_disable(struct oplus_chg_ic_dev *ic_dev, bool disable)
+{
+	struct sc8547a_device *chip;
+	int ret = 0;
+
+	if (ic_dev == NULL) {
+		chg_err("oplus_chg_ic_dev is NULL");
+		return -ENODEV;
+	}
+	chip = oplus_chg_ic_get_priv_data(ic_dev);
+
+	chg_info("%s %s\n", chip->dev->of_node->name, disable ? "disable" : "enable");
+	if (disable)
+		ret = sc8547_update_bits(chip->client, SC8547_REG_05, SC8547_IBUS_UCP_DIS_MASK,
+				   SC8547_IBUS_UCP_DISABLE << SC8547_IBUS_UCP_DIS_SHIFT);
+	else
+		ret = sc8547_update_bits(chip->client, SC8547_REG_05, SC8547_IBUS_UCP_DIS_MASK,
+				   SC8547_IBUS_UCP_ENABLE << SC8547_IBUS_UCP_DIS_SHIFT);
+
+	if (ret < 0) {
+		chg_err("failed to set ucp reg disable to 0x%02x, ret=%d\n", disable, ret);
+		return ret;
+	}
+	return 0;
+}
+
 static void *sc8547a_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum oplus_chg_ic_func func_id)
 {
 	void *func = NULL;
@@ -2454,6 +2480,9 @@ static void *sc8547a_cp_get_func(struct oplus_chg_ic_dev *ic_dev, enum oplus_chg
 		break;
 	case OPLUS_IC_FUNC_CP_SET_ADC_ENABLE:
 		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_SET_ADC_ENABLE, sc8547a_cp_adc_enable);
+		break;
+	case OPLUS_IC_FUNC_CP_SET_UCP_DISABLE:
+		func = OPLUS_CHG_IC_FUNC_CHECK(OPLUS_IC_FUNC_CP_SET_UCP_DISABLE, sc8547a_cp_set_ucp_disable);
 		break;
 	default:
 		chg_err("this func(=%d) is not supported\n", func_id);

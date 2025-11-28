@@ -5463,6 +5463,10 @@ RECHECK:
 		case SY697X_VBUS_TYPE_CDP:
 			sy->chg_type = CHARGING_HOST;
 			sy->oplus_chg_type = POWER_SUPPLY_TYPE_USB_CDP;
+			if (!sy->cdp_retry) {
+				sy->cdp_retry = true;
+				schedule_delayed_work(&g_sy->sy697x_bc12_retry_work, OPLUS_BC12_RETRY_TIME_CDP);
+			}
 			break;
 		case SY697X_VBUS_TYPE_DCP:
 			sy->chg_type = STANDARD_CHARGER;

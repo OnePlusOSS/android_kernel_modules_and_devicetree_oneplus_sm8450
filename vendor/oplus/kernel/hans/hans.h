@@ -133,7 +133,7 @@ static inline bool is_frozen_state_compatible(struct task_struct *task)
 /* Check if the thread group is frozen */
 static inline bool is_frozen_tg(struct task_struct *task)
 {
-	return ((cgroup_task_frozen(task) && is_jobctl_frozen(task)) || is_frozen_state_compatible(task->group_leader) || freezing(task->group_leader));
+	return cgroup_task_frozen(task) || is_jobctl_frozen(task) || is_frozen_state_compatible(task->group_leader) || freezing(task->group_leader);
 }
 
 int hans_report(enum message_type type, int caller_pid, int caller_uid, int target_pid, int target_uid, const char *rpc_name, int code);

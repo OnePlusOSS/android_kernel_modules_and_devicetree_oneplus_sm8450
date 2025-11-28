@@ -62,6 +62,10 @@ MODULE_PARM_DESC(e30_test, "debug e30");
 #define PROGRAM_PAGE2_RESULT	14
 #define PROGRAM_PAGE3_RESULT	15
 #define DECREASINGCOUNTERVALUE_RESULT	16
+#define CRC_CORRECT_BIT_NUMBER	3
+short rbit_lowtime_buffer[CRC_CORRECT_BIT_NUMBER][2];
+short wbit_lowtime_buffer[CRC_CORRECT_BIT_NUMBER][2];
+unsigned short rbit_counter, wbit_counter;
 
 unsigned char testingitemresult[TESTING_ITEM_NUMBER];   /* maximal testing items */
 
@@ -111,30 +115,30 @@ unsigned char gp_page_protection_status[11] = {0x00, 0, 0, 0, 0x00, 0x00, 0x00, 
 #define OP_COUNTERVALUE_MSB	0xFF
 
 /* define constant for generating certificate */
-unsigned char op_certificate_constant[16] = {0xA5, 0xDB, 0x67, 0xD0, 0xD6, 0x7A, 0x7A, 0xBF, 0x65,
+const unsigned char op_certificate_constant[16] = {0xA5, 0xDB, 0x67, 0xD0, 0xD6, 0x7A, 0x7A, 0xBF, 0x65,
 					0x1B, 0x47, 0xF5, 0x59, 0xD7, 0xFE, 0x1A};
 /* 32-byte system-level public key X */
-unsigned char op_system_public_key_x[32] = {0xDF, 0x47, 0x0F, 0xA1, 0xE3, 0xDB, 0xB9, 0x19,
+const unsigned char op_system_public_key_x[32] = {0xDF, 0x47, 0x0F, 0xA1, 0xE3, 0xDB, 0xB9, 0x19,
 					0x47, 0x33, 0xB0, 0x36, 0xCB, 0x83, 0x0A, 0x59,
 					0x6D, 0xED, 0x66, 0xE6, 0x44, 0xB8, 0xC7, 0x89,
 					0xE1, 0xA4, 0x1C, 0x1B, 0x0F, 0x33, 0xF5, 0xD0};
 /* 32-byte system-level public key Y */
-unsigned char op_system_public_key_y[32] = {0x34, 0xB5, 0x54, 0xB1, 0x40, 0x9E, 0x95, 0x06,
+const unsigned char op_system_public_key_y[32] = {0x34, 0xB5, 0x54, 0xB1, 0x40, 0x9E, 0x95, 0x06,
 					0x4B, 0x41, 0xBD, 0xCF, 0x60, 0x39, 0x65, 0x9A,
 					0x3B, 0xDB, 0x0C, 0x98, 0xFD, 0x75, 0x7A, 0x11,
 					0xB8, 0xC6, 0xF8, 0x85, 0x02, 0xE5, 0x75, 0xA3};
-unsigned char  op_authority_public_key_x[32] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+const unsigned char  op_authority_public_key_x[32] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 					0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 					0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 					0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-unsigned char  op_authority_public_key_y[32] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+const unsigned char  op_authority_public_key_y[32] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 					0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 					0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
 					0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 unsigned char op_page_protection_status[11] = {0x02, 0, 0, 0, 0x02, 0x02, 0x00, 0x00, 0x02, 0x02, 0x03};
 
-void configure_ds28e30_parameters(void);
+bool configure_ds28e30_parameters(void);
 
 /* define system-level publick key, authority public key  and certificate constant variables */
 unsigned char system_public_key_x[32];
@@ -176,6 +180,7 @@ void ds28e30_set_private_key(u8 *priv);
 int ds28e30_read_romno_manid_hardware_version(void);
 unsigned short docrc16(unsigned short data);
 unsigned short crc16;
+unsigned short wdcrc16;
 
 /* int OWBlock(unsigned char *tran_buf, int tran_len); */
 int ow_read_rom(void);
@@ -197,6 +202,14 @@ static u8 crc8;
 u8 rom_no[8];
 u8 man_id[2];
 u8 hardware_version[2];
+/* define global variables for authenticate ds28e30 */
+unsigned char pagedata[4][32];
+unsigned char device_publickey_x[32], device_publickey_y[32];
+unsigned char page_certificate_r[32], page_certificate_s[32];
+bool pagedata_read_status[4] = {false, false, false, false};
+bool publickey_read_status = false;
+bool certificate_read_status = false;
+bool rom_no_manid_read_status = false;
 
 /* last result byte */
 u8 last_result_byte = RESULT_SUCCESS;
@@ -850,9 +863,10 @@ int verify_ecdsa_certificate_device(u8 *sig_r, u8 *sig_s, u8 *pub_key_x, u8 *pub
   setting expected MAN_ID, protection status, counter value, system-level public key,
   authority public key and certificate constants
 */
-void configure_ds28e30_parameters(void)
+bool configure_ds28e30_parameters(void)
 {
 	unsigned short cid_value;
+	bool flag = false;
 
 	cid_value = rom_no[6] << 4;
 	cid_value += (rom_no[5] & 0xF0) >> 4;
@@ -870,6 +884,7 @@ void configure_ds28e30_parameters(void)
 		memcpy(system_public_key_y, op_system_public_key_y, 32);
 		memcpy(authority_public_key_x, op_authority_public_key_x, 32);
 		memcpy(authority_public_key_y, op_authority_public_key_y, 32);
+		flag = true;
 		break;
 	default:
 		expected_cid[0] = GP_CID_LSB;
@@ -884,6 +899,7 @@ void configure_ds28e30_parameters(void)
 		memcpy(authority_public_key_y, gp_authority_public_key_y, 32);
 		break;
 	}
+	return flag;
 }
 
 /*
@@ -903,23 +919,34 @@ int authenticate_ds28e30(unsigned char sn_num[5][12], int batt_info_num, int pag
 {
 	int i;
 	unsigned char flag;
-	unsigned char pagedata[32], buf[128];
+	unsigned char buf[128];
 	static unsigned char sig_r[32], sig_s[32];
-	unsigned char device_publickey_x[32], device_publickey_y[32];
-	unsigned char page_certificate_r[32], page_certificate_s[32];
 	unsigned char challenge[32];
 	unsigned char page_sn[32];
 	bool sn_matched = false;
+	bool parameters_matched = false;
 
-	if ((ds28e30_read_romno_manid_hardware_version()) == false) {
-		chg_err("%s: read romid failed\n", __func__);
-		return false;
-	} else {
-		configure_ds28e30_parameters();
+	if (rom_no_manid_read_status == false) {
+		if ((ds28e30_read_romno_manid_hardware_version()) == false) {
+			chg_err("%s: read romid failed\n", __func__);
+			return false;
+		}
+		parameters_matched = configure_ds28e30_parameters();  /* configure DS28E30 with system-level key and authority key pairs */
+		if (!parameters_matched) {
+			return false;
+		}
+		rom_no_manid_read_status = true;
 	}
 
-	if (ds28e30_cmd_read_memory(PG_USER_EEPROM_0, page_sn) == false)
-		chg_err("%s: read sn failed\n", __func__);
+	if (pagedata_read_status[PG_USER_EEPROM_0] == false) {
+		flag = ds28e30_cmd_read_memory(PG_USER_EEPROM_0, pagedata[PG_USER_EEPROM_0]);   /* read sn/page 0 data from the given PageNumber 0 */
+		if (flag != true) {
+			chg_err("%s: read sn/page 0 failed\n", __func__);
+			return false;
+		}
+		pagedata_read_status[PG_USER_EEPROM_0] = true;
+	}
+	memcpy(page_sn, pagedata[PG_USER_EEPROM_0], 32);
 
 	for (i = 2; i <= 13; i++)
 		chg_info("%s: read sn[%d] %x\n", __func__, i, page_sn[i]);
@@ -939,34 +966,44 @@ int authenticate_ds28e30(unsigned char sn_num[5][12], int batt_info_num, int pag
 	}
 
 	/* read the device public key X&Y */
-	flag = ds28e30_cmd_read_device_public_key(buf);
-	if (flag != true) {
-		chg_err("%s: read device publickey failed\n", __func__);
-		return false;
-	} else {
-		memcpy(device_publickey_x, buf, 32);  /* reserve device public key X */
-		memcpy(device_publickey_y, &buf[32], 32);  /* reserve device public key Y */
-	}
-	/* read device certificate */
-	for (i = 0; i < 2; i++) {
-		flag = ds28e30_cmd_read_memory(PG_CERTIFICATE_R+i, buf+i*32);   /* read device Certificate R&S in buf[] */
+	if (publickey_read_status == false) {
+		flag = ds28e30_cmd_read_device_public_key(buf);
 		if (flag != true) {
-			chg_err("%s: %d read device certificate failed\n", __func__, i);
+			chg_err("%s: read device publickey failed\n", __func__);
 			return false;
+		} else {
+			memcpy(device_publickey_x, buf, 32);  /* reserve device public key X */
+			memcpy(device_publickey_y, &buf[32], 32);  /* reserve device public key Y */
+			publickey_read_status = true;
 		}
 	}
-	memcpy(page_certificate_r, buf, 32);  /* reserve device certificate R */
-	memcpy(page_certificate_s, &buf[32], 32);  /* reserve device certificate S */
+	/* read device certificate */
+	if (certificate_read_status == false) {
+		for (i = 0; i < 2; i++) {
+			flag = ds28e30_cmd_read_memory(PG_CERTIFICATE_R+i, buf+i*32);   /* read device Certificate R&S in buf[] */
+			if (flag != true) {
+				chg_err("%s: %d read device certificate failed\n", __func__, i);
+				return false;
+			}
+		}
+		memcpy(page_certificate_r, buf, 32);  /* reserve device certificate R */
+		memcpy(page_certificate_s, &buf[32], 32);  /* reserve device certificate S */
+		certificate_read_status = true;
+	}
 	/* authenticate DS28E30 by two steps: digital signature verification, device certificate verification */
 	/* to verify the digital signature */
 	/* prepare to verify the signature */
 	memcpy(public_key_x, device_publickey_x, 32);  /* copy device public key X to public key x buffer */
 	memcpy(public_key_y, device_publickey_y, 32);  /* copy device public key Y to public key x buffer */
 	/* read page data for digital signature */
-	flag = ds28e30_cmd_read_memory(page_number, pagedata);   /* read page data from the given PageNumber */
-	if (flag != true) {
-		chg_err("%s: read digital signature failed\n", __func__);
-		return false;
+	page_number = page_number & 0x03;    /* page number must less than 4 */
+	if (pagedata_read_status[page_number] == false) {
+		flag = ds28e30_cmd_read_memory(page_number, pagedata[page_number]);   /* read page data from the given PageNumber */
+		if (flag != true) {
+			chg_err("%s: read page %d failed\n", __func__, page_number);
+			return false;
+		}
+		pagedata_read_status[page_number] = true;
 	}
 	/* generate random challenge */
 	memcpy(buf, sig_r, 32);
@@ -975,12 +1012,12 @@ int authenticate_ds28e30(unsigned char sn_num[5][12], int batt_info_num, int pag
 
 	/* setup software ECDSA computation */
 	deep_cover_coproc_setup(0, 0, 0, 0);
-	flag = ds28e30_compute_verify_ecdsa(0, 0, pagedata, challenge, sig_r, sig_s);
+	flag = ds28e30_compute_verify_ecdsa_no_read(page_number, 0, pagedata[page_number], challenge, sig_r, sig_s);
 	if (flag == false) {
 		chg_err("%s: digital signature verify failed\n", __func__);
 		return false;  /* digital signature is not verified */
 	}
-
+	chg_err("%s: digital signature verify succ\n", __func__);
 	/* verify device certificate */
 	flag = verify_ecdsa_certificate_device(page_certificate_r, page_certificate_s, device_publickey_x,
 		device_publickey_y, rom_no, man_id, system_public_key_x, system_public_key_y);
@@ -1044,6 +1081,255 @@ u8 ds28e30_get_last_result_byte(void)
 	return last_result_byte;
 }
 
+/* try to correct 1-wire write data packet if wdcrc16 is error in function command Compute and Read Page Authentication(0xA5)
+if return true, the write data packet is corrected;if false, the write data packet is still wrong in wdcrc16 */
+int write_data_correction(u8 *pkt, u8 pkt_len, u8 *write_buf, u8 write_len)
+{
+	unsigned char temp[8] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80};
+	int i, j, count;
+	ushort temp_crc;
+
+	/* check wdcrc16 */
+	wdcrc16 = 0;
+	for (i = 0; i < pkt_len; i++)
+		docrc16(pkt[i]);
+	if (wdcrc16 == 0xB001)
+		return true;
+	if (write_buf[0] != CMD_COMP_READ_AUTH) return false;  /* no correction action for other function commands */
+
+	/* try to correct only one bit */
+	for (i = 0; i < CRC_CORRECT_BIT_NUMBER; i++) {
+		if (wbit_lowtime_buffer[i][1] < 40)
+		  continue;
+		memcpy(pkt+2, write_buf, write_len);
+		pkt[wbit_lowtime_buffer[i][1] / 8] ^= temp[wbit_lowtime_buffer[i][1] % 8];
+		wdcrc16 = 0;  /* check wdcrc16 */
+		for (j = 0; j < pkt_len-2; j++)
+		  docrc16(pkt[j]);
+		wdcrc16 ^= 0xFFFF;
+		temp_crc = pkt[pkt_len-1] << 8;
+		temp_crc += pkt[pkt_len-2];
+		temp_crc ^= wdcrc16;
+		wdcrc16 = temp_crc;
+		count = 0;
+		for (j = 0; j < 16; j++) {
+		  if ((temp_crc & 0x01) == 0) count++;
+		  temp_crc >>= 1;
+		}
+		if (count >= 14) {
+		  pkt[pkt_len-2] ^= (0xFF & wdcrc16);
+		  pkt[pkt_len-1] ^= (0xFF & (wdcrc16 >> 8));
+		  write_buf[(wbit_lowtime_buffer[i][1] / 8)-2] = pkt[wbit_lowtime_buffer[i][1] / 8];
+		  return 2;
+		}
+	}
+
+	/* try to correct two bits */
+	for (i = 0; i < CRC_CORRECT_BIT_NUMBER; i++) {
+		if ((wbit_lowtime_buffer[(i + 1) % CRC_CORRECT_BIT_NUMBER][1]) < 40)
+		  continue;
+		if ((wbit_lowtime_buffer[(i + 2) % CRC_CORRECT_BIT_NUMBER][1]) < 40)
+		  continue;
+		memcpy(pkt+2, write_buf, write_len);
+		pkt[wbit_lowtime_buffer[0][1] / 8] ^= temp[wbit_lowtime_buffer[i][1] % 8];
+		pkt[wbit_lowtime_buffer[1][1] / 8] ^= temp[wbit_lowtime_buffer[i][1] % 8];
+		pkt[wbit_lowtime_buffer[2][1] / 8] ^= temp[wbit_lowtime_buffer[i][1] % 8];
+		pkt[wbit_lowtime_buffer[i][1] / 8] ^= temp[wbit_lowtime_buffer[i][1] % 8];
+		wdcrc16 = 0;  /* check wdcrc16 */
+		for (j = 0; j < pkt_len-2; j++)
+		  docrc16(pkt[j]);
+		wdcrc16 ^= 0xFFFF;
+		temp_crc = pkt[pkt_len-1] << 8;
+		temp_crc += pkt[pkt_len-2];
+		temp_crc ^= wdcrc16;
+		wdcrc16 = temp_crc;
+		count = 0;
+		for (j = 0; j < 16; j++) {
+		  if ((temp_crc & 0x01) == 0) count++;
+		  temp_crc >>= 1;
+		}
+		if (count >= 14) {
+		  pkt[pkt_len-2] ^= (0xFF & wdcrc16);
+		  pkt[pkt_len-1] ^= (0xFF & (wdcrc16 >> 8));
+		  memcpy(write_buf, pkt+2, write_len);
+		  return 3;
+		}
+	}
+
+	/* try to correct 3 bits */
+	if (wbit_lowtime_buffer[0][1] < 40) return false;
+	if (wbit_lowtime_buffer[1][1] < 40) return false;
+	if (wbit_lowtime_buffer[2][1] < 40) return false;
+	memcpy(pkt+2, write_buf, write_len);
+	pkt[wbit_lowtime_buffer[0][1] / 8] ^= temp[ wbit_lowtime_buffer[0][1] % 8];
+	pkt[wbit_lowtime_buffer[1][1] / 8] ^= temp[ wbit_lowtime_buffer[1][1] % 8];
+	pkt[wbit_lowtime_buffer[2][1] / 8] ^= temp[ wbit_lowtime_buffer[2][1] % 8];
+	wdcrc16 = 0;  /* check wdcrc16 */
+	for (j = 0; j < pkt_len-2; j++)
+	  docrc16(pkt[j]);
+	wdcrc16 ^= 0xFFFF;
+	temp_crc = pkt[pkt_len-1] << 8;
+	temp_crc += pkt[pkt_len-2];
+	temp_crc ^= wdcrc16;
+	wdcrc16 = temp_crc;
+	count = 0;
+	for (j = 0; j < 16; j++) {
+	  if ((temp_crc & 0x01) == 0) count++;
+	  temp_crc >>=1;
+	}
+	if (count >= 14) {
+	  pkt[pkt_len-2] ^= (0xFF & wdcrc16);
+	  pkt[pkt_len-1] ^= (0xFF & (wdcrc16 >> 8));
+	  memcpy(write_buf, pkt+2, write_len);
+	  return 4;
+	}
+	return false;  /* not successfully correct write data packet */
+}
+
+/* try to correct 1-wire read data packet if crc16 is error in function command Compute and Read Page Authentication(0xA5)
+if return true, the read data packet is corrected;if false, the read data packet is still wrong in crc16 */
+static int read_data_correction(u8 *read_buf, int read_len, u8 *write_buf, int write_len)
+{
+	u8 pkt[256];
+	int i, j;
+	unsigned char temp[8] = {PROT_RP, PROT_WP, PROT_EM, PROT_DC, PROT_PRI, PROT_AUTH, PROT_ECH, PROT_ECW};
+
+	/* check crc16 */
+	memcpy(pkt, read_buf, read_len + EXPECTED_READ_LENGTH_2);
+	crc16 = ZERO_VALUE;
+	docrc16(read_len);
+	for (j = 0; j < read_len + EXPECTED_READ_LENGTH_2; j++)
+		docrc16(pkt[j]);
+	if (crc16 == SKIP_CRC_CHECK)
+		return DATA_PACKET_BITS_CORRECT;
+	if (write_buf[0] != CMD_COMP_READ_AUTH)
+		return DATA_PACKET_NO_ACTION;
+
+	/* try to correct only one bit */
+	for (i = 0; i < CRC_CORRECT_BIT_NUMBER; i++) {
+		memcpy(pkt, read_buf, read_len + EXPECTED_READ_LENGTH_2);
+		pkt[rbit_lowtime_buffer[i][1] / 8] ^= temp[rbit_lowtime_buffer[i][1] % 8];
+
+		crc16 = ZERO_VALUE;  /* check crc16 */
+		docrc16(read_len);
+		for (j = 0; j < read_len + EXPECTED_READ_LENGTH_2; j++)
+			docrc16(pkt[j]);
+		if (crc16 != SKIP_CRC_CHECK)
+			continue;
+		read_buf[rbit_lowtime_buffer[i][1] / 8] ^= temp[rbit_lowtime_buffer[i][1] % 8];
+		return DATA_PACKET_2_BITS_ERROR;
+	}
+
+	/* try to correct 2 bits */
+	for (i = 0; i < CRC_CORRECT_BIT_NUMBER; i++) {
+		memcpy(pkt, read_buf, read_len + EXPECTED_READ_LENGTH_2);
+		pkt[rbit_lowtime_buffer[0][1] / 8] ^= temp[rbit_lowtime_buffer[0][1] % 8];
+		pkt[rbit_lowtime_buffer[1][1] / 8] ^= temp[rbit_lowtime_buffer[1][1] % 8];
+		pkt[rbit_lowtime_buffer[2][1] / 8] ^= temp[rbit_lowtime_buffer[2][1] % 8];
+		pkt[rbit_lowtime_buffer[i][1] / 8] ^= temp[rbit_lowtime_buffer[i][1] % 8];
+
+		crc16 = ZERO_VALUE;  /* check crc16 */
+		docrc16(read_len);
+		for (j = 0; j < read_len + EXPECTED_READ_LENGTH_2; j++)
+			docrc16(pkt[j]);
+		if (crc16 != SKIP_CRC_CHECK)
+			continue;
+
+		read_buf[rbit_lowtime_buffer[0][1] / 8] ^= temp[rbit_lowtime_buffer[0][1] % 8];
+		read_buf[rbit_lowtime_buffer[1][1] / 8] ^= temp[rbit_lowtime_buffer[1][1] % 8];
+		read_buf[rbit_lowtime_buffer[2][1] / 8] ^= temp[rbit_lowtime_buffer[2][1] % 8];
+		read_buf[rbit_lowtime_buffer[i][1] / 8] ^= temp[rbit_lowtime_buffer[i][1] % 8];
+
+		return DATA_PACKET_3_BITS_ERROR;
+	}
+
+	/* try to correct 3 bits */
+	memcpy(pkt, read_buf, read_len + EXPECTED_READ_LENGTH_2);
+	pkt[rbit_lowtime_buffer[0][1] / 8] ^= temp[rbit_lowtime_buffer[0][1] % 8];
+	pkt[rbit_lowtime_buffer[1][1] / 8] ^= temp[rbit_lowtime_buffer[1][1] % 8];
+	pkt[rbit_lowtime_buffer[2][1] / 8] ^= temp[rbit_lowtime_buffer[2][1] % 8];
+
+	crc16 = ZERO_VALUE;  /* check crc16 */
+	docrc16(read_len);
+	for (j = 0; j < read_len + EXPECTED_READ_LENGTH_2; j++)
+		docrc16(pkt[j]);
+	if (crc16 != SKIP_CRC_CHECK)
+		return DATA_PACKET_NO_ACTION;
+
+	read_buf[rbit_lowtime_buffer[0][1] / 8] ^= temp[rbit_lowtime_buffer[0][1] % 8];
+	read_buf[rbit_lowtime_buffer[1][1] / 8] ^= temp[rbit_lowtime_buffer[1][1] % 8];
+	read_buf[rbit_lowtime_buffer[2][1] / 8] ^= temp[rbit_lowtime_buffer[2][1] % 8];
+
+	return DATA_PACKET_4_BITS_ERROR;
+}
+
+/* try to correct 1-wire read ROMID if CRC-8 is error in reading ROMID function
+if return not false, the read ROMID packet is corrected;if false, the read data packet is still wrong in crc16 */
+static int read_romid_correction(u8 *read_buf)
+{
+	u8 pkt[256];
+	int i;
+
+	/* verify CRC8 */
+	memcpy(pkt, read_buf, 8);
+	crc8 = ZERO_VALUE;
+	for (i = 0; i < 8; i++)
+		docrc8(pkt[i]);
+	if (crc8 == ZERO_VALUE)
+		return DATA_PACKET_BITS_CORRECT;
+
+	if (rom_no[0] == ZERO_VALUE) {
+		if (read_buf[0] == DS28E30_FAM && read_buf[7] == 0x8A) {   /* the defaule ROMID's CRC8=0x8A  */
+			memset(&read_buf[1], ZERO_VALUE, 6);   /* set to the default 48-bit serial number (all 0x00)  */
+			return DATA_PACKET_BITS_CORRECT;
+		}
+	}
+	return DATA_PACKET_NO_ACTION;
+}
+
+void check_romid_bit(long r_diff_ns, unsigned int vamm, unsigned char cnt)
+{
+	if (vamm == 1) {
+		if (r_diff_ns > rbit_lowtime_buffer[0][0]) {
+			for (cnt = CRC_CORRECT_BIT_NUMBER - 1; cnt > 0; cnt--) {
+				rbit_lowtime_buffer[cnt][0] = rbit_lowtime_buffer[cnt - 1][0];
+				rbit_lowtime_buffer[cnt][1] = rbit_lowtime_buffer[cnt - 1][1];
+			}
+			rbit_lowtime_buffer[0][0] = r_diff_ns;
+			rbit_lowtime_buffer[0][1] = rbit_counter;
+		} else if (r_diff_ns > rbit_lowtime_buffer[1][0] && r_diff_ns <= rbit_lowtime_buffer[0][0]) {
+			for (cnt = CRC_CORRECT_BIT_NUMBER - 1; cnt > 1; cnt--) {
+				rbit_lowtime_buffer[cnt][0] = rbit_lowtime_buffer[cnt - 1][0];
+				rbit_lowtime_buffer[cnt][1] = rbit_lowtime_buffer[cnt - 1][1];
+			}
+			rbit_lowtime_buffer[1][0] = r_diff_ns;
+			rbit_lowtime_buffer[1][1] = rbit_counter;
+		} else if (r_diff_ns > rbit_lowtime_buffer[2][0]) {
+			rbit_lowtime_buffer[2][0] = r_diff_ns;
+			rbit_lowtime_buffer[2][1] = rbit_counter;
+		}
+	}
+	rbit_counter++;
+}
+
+void check_womid_bit(long w_diff_ns)
+{
+	if (w_diff_ns > wbit_lowtime_buffer[0][0]) {
+		memmove(wbit_lowtime_buffer[1], wbit_lowtime_buffer[0], sizeof(short)*(CRC_CORRECT_BIT_NUMBER-1));
+		wbit_lowtime_buffer[0][0] = w_diff_ns;
+		wbit_lowtime_buffer[0][1] = wbit_counter;
+	}
+	if (w_diff_ns > wbit_lowtime_buffer[1][0] && w_diff_ns <= wbit_lowtime_buffer[0][0]) {
+		memmove(wbit_lowtime_buffer[2], wbit_lowtime_buffer[1], sizeof(short)*(CRC_CORRECT_BIT_NUMBER-2));
+		wbit_lowtime_buffer[1][0] = w_diff_ns;
+		wbit_lowtime_buffer[1][1] = wbit_counter;
+	}
+	if (w_diff_ns > wbit_lowtime_buffer[2][0]) {
+		wbit_lowtime_buffer[2][0] = w_diff_ns;
+		wbit_lowtime_buffer[2][1] = wbit_counter;
+	}
+}
+
 /*  @internal
  Sent/receive standard flow command
  @param[in] write_buf
@@ -1098,6 +1384,12 @@ int standard_cmd_flow(u8 *write_buf, int write_len, int delayms, int expect_read
 	memcpy(&pkt[pkt_len], write_buf, write_len);
 	pkt_len += write_len;
 
+	/* initial 1-wire read/write data correction global variables */
+	wbit_counter = ZERO_VALUE;
+	rbit_counter = ZERO_VALUE;
+	memset((u8 *)rbit_lowtime_buffer, RESULT_FAIL_VERIFY, sizeof(short) * CRC_CORRECT_BIT_NUMBER * 2);
+	memset((u8 *)wbit_lowtime_buffer, RESULT_FAIL_VERIFY, sizeof(short) * CRC_CORRECT_BIT_NUMBER * 2);
+
 	/* send packet to DS28E30 */
 	for(i = 0; i < pkt_len; i++)
 		write_byte(pkt[i]);
@@ -1105,6 +1397,9 @@ int standard_cmd_flow(u8 *write_buf, int write_len, int delayms, int expect_read
 	/* read two CRC bytes */
 	pkt[pkt_len++] = read_byte();
 	pkt[pkt_len++] = read_byte();
+	i = write_data_correction(pkt, pkt_len, write_buf, write_len);  /* try to correct 1-wire write data if wdcrc16 is error */
+	if (i >= 2)
+	  chg_info("%s: correct %d-bit error at write data packet!", __func__, i-1);
 
 	/* check crc16 */
 	crc16 = 0;
@@ -1116,6 +1411,7 @@ int standard_cmd_flow(u8 *write_buf, int write_len, int delayms, int expect_read
 #ifdef SPIN_LOCK_ENABLE
 			mutex_unlock(&ds_cmd_lock);
 #endif
+			chg_info("%s: Tx CRC failed\n", __func__);
 			return false;
 		}
 	}
@@ -1132,13 +1428,28 @@ int standard_cmd_flow(u8 *write_buf, int write_len, int delayms, int expect_read
 	/* read FF and the length byte */
 	pkt[0] = read_byte();
 	pkt[1] = read_byte();
+	if (get_maxim_romid_crc_support()) {
+		if (write_buf[0] == CMD_COMP_READ_AUTH)
+			pkt[1] = EXPECTED_READ_LENGTH_65;
+		if (write_buf[0] == CMD_READ_MEM)
+			pkt[1] = EXPECTED_READ_LENGTH_33;
+	}
 	*read_len = pkt[1];
 
 	/* make sure there is a valid length */
 	if (*read_len != RESULT_FAIL_COMMUNICATION) {
+		if (get_maxim_romid_crc_support()) {
+			rbit_counter = ZERO_VALUE;  /* initialize 1-wire read data correction global variables */
+			memset((u8 *)rbit_lowtime_buffer, RESULT_FAIL_VERIFY, sizeof(short) * CRC_CORRECT_BIT_NUMBER * 2);
+		}
 		/* read packet */
 		for (i = 0; i <  *read_len+2; i++)
 			read_buf[i] = read_byte();
+		if (get_maxim_romid_crc_support()) {
+			i = read_data_correction(read_buf, *read_len, write_buf, write_len);  /* try to correct 1-wire read data if crc16 is error */
+			if (i >= 2)
+				chg_info("%s: correct %d-bit error at read data packet!", __func__, i-1);
+		}
 		/* check crc16 */
 		crc16 = 0;
 		docrc16(*read_len);
@@ -1149,6 +1460,7 @@ int standard_cmd_flow(u8 *write_buf, int write_len, int delayms, int expect_read
 #ifdef SPIN_LOCK_ENABLE
 			mutex_unlock(&ds_cmd_lock);
 #endif
+			chg_info("%s: Rx CRC failed\n", __func__);
 			return false;
 		}
 
@@ -1205,7 +1517,9 @@ int ds28e30_read_romno_manid_hardware_version(void)
 	chg_info("%s entry", __func__);
 	rom_no[0] = 0x00;
 
-	ow_read_rom();	/* search DS28E30 */
+	flag = ow_read_rom();  /* search DS28E30 */
+	if (flag == false)
+		return false;   /*error in reading ROMID */
 	if ((rom_no[0] & 0x7F) == DS28E30_FAM) {
 		for (i = 0; i < 6; i++)
 			temp |= rom_no[1 + i];  /* check if the device is power up at the first time */
@@ -1213,7 +1527,14 @@ int ds28e30_read_romno_manid_hardware_version(void)
 			chg_info("%s temp==0", __func__);
 			rom_no[0] = 0x00;
 			ds28e30_cmd_read_status(pg, buf, man_id, hardware_version);  /* page number=0 */
-			ow_read_rom();      /* read ROMID from DS28E30 */
+			flag = ow_read_rom();      /* read ROMID from DS28E30 */
+			if (flag == false)
+				return false;   /*error in reading ROMID */
+			temp = 0;
+			for (i = 0; i < 6; i++)
+				temp |= rom_no[1 + i];  /* check if the device is power up at the first time */
+			if (temp == 0)
+				return false;  /* power up the device, then read ROMID again */
 			flag = ds28e30_cmd_read_status(0x80 | pg, buf, man_id, hardware_version);  /* page number=0 */
 			chg_info("%s temp==0 flag %d", __func__, flag);
 			return flag;
@@ -1297,8 +1618,16 @@ int ow_read_rom(void)
 
 	if (ow_reset() == 1) {
 		write_byte(0x33); /* READ ROM command */
+		if (get_maxim_romid_crc_support()) {
+			rbit_counter = ZERO_VALUE;  /* initialize 1-wire read data correction global variables */
+			memset((u8 *)rbit_lowtime_buffer, RESULT_FAIL_VERIFY, sizeof(short) * CRC_CORRECT_BIT_NUMBER * 2);
+		}
 		for (i = 0; i < 8; i++)
 			buf[i] = read_byte();
+		if (get_maxim_romid_crc_support()) {
+			i = read_romid_correction(buf);  /* try to correct 1-wire read ROMID if CRC-8 is error */
+			chg_info("%s: correct error at OWReadROM() function i = %d \n", __func__, i);
+		}
 		chg_info("RomID = %02x, %02x, %02x, %02x, %02x, %02x, %02x, %02x\n",
 			buf[0], buf[1], buf[2], buf[3],
 			buf[4], buf[5], buf[6], buf[7]);

@@ -1380,21 +1380,10 @@ static void q_cali_work_func(struct work_struct *work)
 	__pm_relax(chip->cps_wls_wake_lock);
 }
 
-static void max_chg_time_check_work_func(struct work_struct *work)
+static void power_expired_do_check(struct cps_wls_chrg_chip *chip)
 {
-	struct delayed_work *dwork = to_delayed_work(work);
-	struct cps_wls_chrg_chip *chip =
-		container_of(dwork, struct cps_wls_chrg_chip, max_chg_time_check_work);
-
 	struct timeval now_time;
 	uint64_t time_offset = 0;
-
-	if (!chip) {
-		cps_wls_log(CPS_LOG_ERR, "[%s] chip null\n", __func__);
-		return;
-	}
-
-	__pm_stay_awake(chip->cps_wls_wake_lock);
 
 	cps_wls_log(CPS_LOG_ERR, "[%s] [%d %d]\n",
 		__func__, chip->charge_allow, chip->pen_present);
@@ -1409,6 +1398,20 @@ static void max_chg_time_check_work_func(struct work_struct *work)
 			chip->power_disable_reason = PEN_REASON_CHARGE_TIMEOUT;
 		}
 	}
+}
+
+static void max_chg_time_check_work_func(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct cps_wls_chrg_chip *chip =
+		container_of(dwork, struct cps_wls_chrg_chip, max_chg_time_check_work);
+
+	if (!chip) {
+		cps_wls_log(CPS_LOG_ERR, "[%s] chip null\n", __func__);
+		return;
+	}
+	__pm_stay_awake(chip->cps_wls_wake_lock);
+	power_expired_do_check(chip);
 	__pm_relax(chip->cps_wls_wake_lock);
 }
 
@@ -3511,6 +3514,7 @@ static int cps8601_pm_resume(struct device *dev)
 		chip->i2c_ready = true;
 		cps_wls_log(CPS_LOG_ERR, "[%s]cps8601_pm_resume.\n", __func__);
 		wake_up_interruptible(&i2c_waiter);
+		power_expired_do_check(chip);
 	}
 
 	return 0;

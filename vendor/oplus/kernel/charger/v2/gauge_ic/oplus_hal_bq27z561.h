@@ -362,7 +362,6 @@ struct chip_bq27z561 {
 	int min_vol_pre;
 	int batt_num;
 
-	bool fcc_too_small_check_support;
 	bool fcc_too_small_checking;
 	struct work_struct fcc_too_small_check_work;
 

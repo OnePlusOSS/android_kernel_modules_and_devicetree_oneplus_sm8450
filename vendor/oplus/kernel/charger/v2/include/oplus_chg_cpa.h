@@ -28,6 +28,7 @@ struct protocol_map {
 	int type[CHG_PROTOCOL_MAX];
 };
 
+const char *get_protocol_name_str(enum oplus_chg_protocol_type type);
 bool oplus_cpa_support(void);
 int oplus_cpa_request(struct oplus_mms *topic, enum oplus_chg_protocol_type type);
 int oplus_cpa_protocol_ready(struct oplus_mms *topic, enum oplus_chg_protocol_type type);

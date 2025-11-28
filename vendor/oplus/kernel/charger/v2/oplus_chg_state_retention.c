@@ -483,8 +483,6 @@ static void oplus_retention_present_check_work(struct work_struct *work)
 	int ret = 0;
 
 	oplus_state_retention_notify(chip->retention_topic, chip->irq_plugin);
-	chip->cc_detect = oplus_wired_get_hw_detect_recheck();
-	chip->detect_flag = chip->cc_detect;
 	schedule_delayed_work(&chip->update_work, 0);
 	chip->connect_status_flag = oplus_state_retention(chip->retention_topic);
 	chg_debug("plugin = %d, connect_status_flag =%d\n", chip->irq_plugin, chip->connect_status_flag);
@@ -572,6 +570,12 @@ static void oplus_retention_chg_subscribe_wired_topic(struct oplus_mms *topic,
 	chip->wired_online = !!data.intval;
 	oplus_mms_get_item_data(chip->wired_topic, WIRED_ITEM_CHG_TYPE, &data, true);
 	chip->wired_type = data.intval;
+	oplus_mms_get_item_data(chip->wired_topic, WIRED_ITEM_CC_DETECT, &data, true);
+	chip->cc_detect = data.intval;
+	oplus_mms_get_item_data(chip->wired_topic, WIRED_ITEM_PRESENT, &data, true);
+	chip->irq_plugin = data.intval;
+	if (chip->irq_plugin)
+		schedule_delayed_work(&chip->present_check_work, 0);
 }
 
 static void oplus_retention_chg_cpa_subs_callback(struct mms_subscribe *subs,

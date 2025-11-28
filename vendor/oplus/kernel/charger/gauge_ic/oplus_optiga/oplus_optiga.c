@@ -345,11 +345,13 @@ bool oplus_optiga_get_init_done(void)
 {
 	return g_drv_init_done;
 }
+EXPORT_SYMBOL(oplus_optiga_get_init_done);
 
 int oplus_get_batt_id_use_barcode(void)
 {
 	return g_batt_id;
 }
+EXPORT_SYMBOL(oplus_get_batt_id_use_barcode);
 
 int optiga_authenticate(void){
 	int ret = false;
@@ -582,7 +584,7 @@ struct oplus_optiga_chip * oplus_get_optiga_info (void)
 {
 	return g_oplus_optiga_chip;
 }
-
+EXPORT_SYMBOL(oplus_get_optiga_info);
 
 #ifdef CONFIG_OPLUS_CHARGER_MTK
 #define AUTH_MESSAGE_LEN	   20

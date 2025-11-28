@@ -398,6 +398,15 @@ void oplus_cp_master_cfg_bypass(void)
 	pps_err("oplus_cp_master_cfg_bypass\n");
 }
 
+int oplus_cp_master_sstimeout_ucp_enable(bool enable)
+{
+	int rc = true;
+	if (pps_cp_id == PPS_CP_ID_SC8571)
+		rc = sc8571_master_sstimeout_ucp_enable(enable);
+
+	return rc;
+}
+
 void oplus_cp_slave_cfg_bypass(void)
 {
 	if (pps_cp_id == PPS_CP_ID_SC8571) {
@@ -519,6 +528,7 @@ struct oplus_pps_operations oplus_cp_pps_ops = {
 	.pps_cp_reset = oplus_cp_reset,
 	.pps_cp_mode_init = oplus_cp_cfg_mode_init,
 	.pps_cp_pmid2vout_enable = oplus_cp_pmid2vout_enable,
+	.pps_cp_sstimeout_ucp_enable = oplus_cp_master_sstimeout_ucp_enable,
 
 	.pps_mos_ctrl = oplus_cp_master_cp_enable,
 	.pps_get_cp_master_vbus = oplus_cp_master_get_vbus,

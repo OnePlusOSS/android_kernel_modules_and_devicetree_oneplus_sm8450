@@ -1050,6 +1050,7 @@ static struct flag_reason_table track_flag_reason_table[] = {
 	{ TRACK_NOTIFY_FLAG_I2C_ABNORMAL, "I2cAbnormal" },
 	{ TRACK_NOTIFY_FLAG_BOOST_BUCK_ERR, "BoostICAbnormal" },
 	{ TRACK_NOTIFY_FLAG_NTC_ABNORMAL, "NTCAbnormal" },
+	{ TRACK_NOTIFY_FLAG_IC_BURN, "IcBurn" },
 
 	{ TRACK_NOTIFY_FLAG_UFCS_ABNORMAL, "UfcsAbnormal" },
 	{ TRACK_NOTIFY_FLAG_COOLDOWN_ABNORMAL, "CoolDownAbnormal" },
@@ -3675,8 +3676,8 @@ oplus_chg_track_record_charger_info(struct oplus_monitor *monitor,
 
 	if (monitor->plc_support) {
 		index += snprintf(&(p_trigger_data->crux_info[index]), OPLUS_CHG_TRACK_CURX_INFO_LEN - index,
-			"$$plc_support@@%d$$enable_count@@%d$$plc_init_sm_soc@@%d$$plc_init_ui_soc@@%d$$plc_init_temp@@%d",
-			monitor->plc_support,  monitor->enable_count,  monitor->plc_init_sm_soc,  monitor->plc_init_ui_soc,
+			"$$enable_count@@%d$$plc_init_sm_soc@@%d$$plc_init_ui_soc@@%d$$plc_init_temp@@%d",
+			monitor->enable_count, monitor->plc_init_sm_soc, monitor->plc_init_ui_soc,
 			monitor->plc_init_temp);
 	}
 	oplus_chg_track_record_general_info(monitor, track_status,
@@ -6048,7 +6049,8 @@ oplus_chg_track_wired_fastchg_exit_code(struct oplus_chg_track *track_chip)
 		if (!code || code == TRACK_CP_VOOCPHY_FULL ||
 		    code == TRACK_CP_VOOCPHY_BATT_TEMP_OVER ||
 		    code == TRACK_CP_VOOCPHY_USER_EXIT_FASTCHG ||
-		    code == TRACK_CP_VOOCPHY_SWITCH_TEMP_RANGE)
+		    code == TRACK_CP_VOOCPHY_SWITCH_TEMP_RANGE||
+		    code == TRACK_CP_VOOCPHY_IC_BURN)
 			ret = true;
 		else
 			ret = false;
@@ -7068,6 +7070,10 @@ static int oplus_chg_track_upload_ic_err_info(struct oplus_chg_track *track)
 	case OPLUS_IC_ERR_NTC:
 		track->ic_err_msg_load_trigger.flag_reason =
 			TRACK_NOTIFY_FLAG_NTC_ABNORMAL;
+		break;
+	case OPLUS_IC_ERR_BURN:
+		track->ic_err_msg_load_trigger.flag_reason =
+			TRACK_NOTIFY_FLAG_IC_BURN;
 		break;
 	case OPLUS_IC_ERR_UNKNOWN:
 	default:

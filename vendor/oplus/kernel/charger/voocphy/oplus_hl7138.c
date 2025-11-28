@@ -367,13 +367,45 @@ static int hl7138_set_chg_enable(struct oplus_voocphy_manager *chip, bool enable
 		if (oplus_chg_check_pd_svooc_adapater()) {
 			hl7138_write_byte(chip->client, HL7138_REG_13,
 					  HL7138_IBUS_UCP_DEB_100ms << HL7138_IBUS_UCP_DEB_SHIFT); /* UCP debounce time 100ms */
-			return hl7138_write_byte(chip->client, HL7138_REG_12, HL7138_CHG_EN | HL7138_IBUS_UCP_EN | HL7138_IBUS_UCP_DEFAULT);   /* is pdsvooc adapter: disable ucp */
+			return hl7138_update_bits(chip->client, HL7138_REG_12, HL7138_CHG_EN_MASK, HL7138_CHG_EN);
 		} else {
-			return hl7138_write_byte(chip->client, HL7138_REG_12, HL7138_CHG_EN | HL7138_IBUS_UCP_EN | HL7138_IBUS_UCP_DEFAULT);  /* is not pdsvooc adapter: enable ucp */
+			return hl7138_update_bits(chip->client, HL7138_REG_12, HL7138_CHG_EN_MASK, HL7138_CHG_EN);
 		}
 	} else {
-		return hl7138_write_byte(chip->client, HL7138_REG_12, HL7138_CHG_DIS | HL7138_IBUS_UCP_EN | HL7138_IBUS_UCP_DEFAULT);      /* chg disable */
+		return hl7138_update_bits(chip->client, HL7138_REG_12, HL7138_CHG_EN_MASK, HL7138_CHG_DIS);/* chg disable */
 	}
+}
+
+static int hl7138_voocphy_set_sstimeout_ucp_enable(struct oplus_voocphy_manager *chip, bool enable)
+{
+	int ret;
+	u8 reg;
+	struct oplus_chg_chip *chg_chip = oplus_chg_get_chg_struct();
+
+	if (!chip || !chg_chip) {
+		chg_err("chip is null\n");
+		return -EINVAL;
+	}
+
+	if (!chg_chip->full_limit_curr_support)
+		return 0;
+
+	ret = hl7138_read_byte(chip->client, HL7138_REG_12, &reg);
+	if ((enable && (reg & HL7138_IBUS_UCP_DIS_MASK)) || (!enable && !(reg & HL7138_IBUS_UCP_DIS_MASK)))
+		return 0;
+
+	if (enable) {
+		ret = hl7138_update_bits(chip->client, HL7138_REG_12,
+			HL7138_IBUS_UCP_DIS_MASK, HL7138_IBUS_UCP_ENABLE << HL7138_IBUS_UCP_DIS_SHIFT);
+	} else {
+		ret = hl7138_update_bits(chip->client, HL7138_REG_12,
+			HL7138_IBUS_UCP_DIS_MASK, HL7138_IBUS_UCP_DISABLE << HL7138_IBUS_UCP_DIS_SHIFT);
+	}
+
+	chg_info("hl7138 set ucp %s\n", enable ? "enable" : "disable");
+
+	return ret;
+
 }
 
 static int hl7138_get_cp_ichg(struct oplus_voocphy_manager *chip)
@@ -868,6 +900,7 @@ static int hl7138_svooc_hw_setting(struct oplus_voocphy_manager *chip)
 	hl7138_write_byte(chip->client, HL7138_REG_16, 0x2C);	/* JL:OV=500, UV=250 */
 
 	hl7138_write_byte(chip->client, HL7138_REG_3F, 0x91);	/* Loose_det=1,JL:33-3F; */
+	hl7138_voocphy_set_sstimeout_ucp_enable(chip, false);
 
 	return 0;
 }
@@ -886,6 +919,7 @@ static int hl7138_vooc_hw_setting(struct oplus_voocphy_manager *chip)
 	hl7138_write_byte(chip->client, HL7138_REG_15, 0x80);	/* JL:bp mode; */
 	hl7138_write_byte(chip->client, HL7138_REG_16, 0x2C);	/* JL:OV=500, UV=250 */
 	hl7138_write_byte(chip->client, HL7138_REG_3F, 0x91);	/* Loose_det=1,JL:33-3F; */
+	hl7138_voocphy_set_sstimeout_ucp_enable(chip, false);
 
 	return 0;
 }
@@ -1238,6 +1272,7 @@ struct oplus_voocphy_operations oplus_hl7138_ops = {
 	.get_pd_svooc_config	= hl7138_get_pd_svooc_config,
 	.clear_interrupts	= hl7138_clear_interrupts,
 	.get_chip_id		= hl7138_get_chip_id,
+	.set_sstimeout_ucp_enable	= hl7138_voocphy_set_sstimeout_ucp_enable,
 };
 
 static int hl7138_charger_choose(struct oplus_voocphy_manager *chip)

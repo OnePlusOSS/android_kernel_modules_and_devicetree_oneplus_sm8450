@@ -3368,7 +3368,12 @@ end:
 	if (error == CRM_KMD_ERR_FATAL) {
 		uint32_t req_mgr_error_type = CAM_REQ_MGR_ERROR_TYPE_RECOVERY;
 
+#ifdef OPLUS_FEATURE_CAMERA_COMMON
+		if ((error_type == CAM_ISP_HW_ERROR_CSID_FATAL) ||
+			(error_type == CAM_ISP_HW_ERROR_CSID_PKT_PAYLOAD_CORRUPTED))
+#else
 		if (error_type == CAM_ISP_HW_ERROR_CSID_FATAL)
+#endif
 			req_mgr_error_type =
 				CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY;
 

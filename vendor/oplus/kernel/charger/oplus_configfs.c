@@ -485,11 +485,13 @@ static ssize_t cc_report_show(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RO(cc_report);
 
+#define ECO_DESIGN_UPDATE_TIME_DEBUG_FLAG 0xffff
 static ssize_t battery_sn_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	int len = 0;
 	int ret = 0;
 	char batt_sn[OPLUS_BATT_SERIAL_NUM_SIZE * 2] = {"\0"};
+	char eco_design_update_time[] = {"debugTime"};
 	struct oplus_chg_chip *chip = NULL;
 
 	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
@@ -501,8 +503,13 @@ static ssize_t battery_sn_show(struct device *dev, struct device_attribute *attr
 	ret = oplus_gauge_get_bat_info_sn(batt_sn, sizeof(batt_sn));
 	if (ret < 0)
 		chg_err("get battery sn error");
-	else
+	else {
+		if (chip->debug_battery_sn_data == ECO_DESIGN_UPDATE_TIME_DEBUG_FLAG) {
+			len = sprintf(buf, "%s\n", eco_design_update_time);
+			return len;
+		}
 		len = sprintf(buf, "%s\n", batt_sn);
+	}
 
 	if (!chip->debug_battery_sn_data) {
 		return len;
@@ -3001,8 +3008,12 @@ static ssize_t protocol_type_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	if ((last_fast_chg_type != CHARGER_SUBTYPE_DEFAULT) &&
-		oplus_quirks_keep_connect_status() == 1)
+	if (((last_fast_chg_type != CHARGER_SUBTYPE_DEFAULT) &&
+		(last_fast_chg_type != CHARGER_SUBTYPE_PD) &&
+		(last_fast_chg_type != CHARGER_SUBTYPE_QC) &&
+		oplus_quirks_keep_connect_status() == 1) ||
+		(chip->plc_support &&
+		(chip->curr_plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT)))
 		return sprintf(buf, "%d\n", last_fast_chg_type);
 
 	if ((oplus_vooc_get_fastchg_started() == true) ||
@@ -3092,7 +3103,9 @@ static ssize_t ui_power_show(struct device *dev,
 		return -EINVAL;
 	}
 
-	if ((last_ui_power != -1) && oplus_quirks_keep_connect_status() == 1)
+	if (((last_ui_power != -1) && oplus_quirks_keep_connect_status() == 1) ||
+		(chip->plc_support &&
+		(chip->curr_plc_status == PLC_STATUS_ENABLE || chip->plc_status == PLC_STATUS_WAIT)))
 		return sprintf(buf, "%u\n", last_ui_power);
 
 	if (fast_chg_type_by_user > 0)
@@ -3713,6 +3726,80 @@ static ssize_t dec_delta_store(struct device *dev, struct device_attribute *attr
 }
 static DEVICE_ATTR_RW(dec_delta);
 
+static ssize_t plc_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct oplus_chg_chip *chip = NULL;
+	int counts = 0;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (chip->plc_support)
+		counts = chip->curr_plc_status;
+
+	return sprintf(buf, "status=%d\n", counts);
+}
+
+static ssize_t plc_store(struct device *dev, struct device_attribute *attr, const char *buf,
+					 size_t count)
+{
+	int val = 0;
+	struct oplus_chg_chip *chip = NULL;
+	char key[64] = { 0 };
+	int enable_plc_status = PLC_STATUS_ENABLE;
+
+	chip = (struct oplus_chg_chip *)dev_get_drvdata(oplus_battery_dir);
+	if (!chip) {
+		chg_err("chip is NULL\n");
+		return -EINVAL;
+	}
+
+	if (!chip->plc_support) {
+		return -EINVAL;
+	}
+
+	if (sscanf(buf, "%63[^=]=%d", key, &val) != 2) {
+		chg_err("buf %s error\n", buf);
+		return -EINVAL;
+	}
+
+	if (sysfs_streq("switch", key)) {
+		if (strncmp(buf, "switch=1|callname=", 18) && strncmp(buf, "switch=0|callname=", 18)) {
+			chg_info("buf invalid: %s\n", buf);
+			return -EINVAL;
+		}
+		chg_info("buf=[%s], change switch to  %d\n", buf, val);
+		if (chip->curr_plc_status == PLC_STATUS_ENABLE && !val) {
+			chip->curr_plc_status = PLC_STATUS_WAIT;
+			enable_plc_status = PLC_STATUS_WAIT;
+		} else if (chip->curr_plc_status == PLC_STATUS_DISABLE && !!val) {
+			chip->curr_plc_status = PLC_STATUS_ENABLE;
+			enable_plc_status = PLC_STATUS_ENABLE;
+		} else {
+			return count;
+		}
+		oplus_plc_based_buck_setting(chip, enable_plc_status);
+	} else if (sysfs_streq("adapter_support_mask", key)) {
+		chg_info("buf=[%s], change adapter_support_mask to %x\n", buf, val);
+		if (val != chip->plc_support) {
+			if(val)
+				chip->plc_support = true;
+			else
+				chip->plc_support = false;
+		}
+	} else if (sysfs_streq("buck", key)) {
+	}
+	chg_info("[%d, %d, %d][%d, %d]\n",
+		val, enable_plc_status, chip->curr_plc_status,
+		chip->plc_support, chip->plc_status);
+
+	return count;
+}
+static DEVICE_ATTR_RW(plc);
+
 static struct device_attribute *oplus_common_attributes[] = {
 #ifdef OPLUS_CHG_ADB_ROOT_ENABLE
 	&dev_attr_charge_parameter,
@@ -3738,6 +3825,7 @@ static struct device_attribute *oplus_common_attributes[] = {
 	&dev_attr_chg_up_limit,
 	&dev_attr_non_standard_chg_switch,
 	&dev_attr_dec_delta,
+	&dev_attr_plc,
 	NULL
 };
 #ifdef OPLUS_FEATURE_CHG_BASIC

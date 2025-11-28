@@ -3176,6 +3176,43 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static bool oplus_match_sgm41515_cmdline_str(void)
+{
+	struct device_node *cmdline_node = NULL;
+	const char *cmdline;
+	char *match = NULL;
+	char *support_second_chg_ic_str = "support_2ed_chg_ic";
+	char *chg_ic_str = "sgm41515d";
+	int ret = 0;
+
+	cmdline_node = of_find_node_by_path("/chosen");
+	if (!cmdline_node) {
+		chg_err("NULL pointer!!!\n");
+		return true;
+	}
+
+	ret = of_property_read_string(cmdline_node, "bootargs", &cmdline);
+	if (ret) {
+		chg_err("failed to read bootargs\n");
+		return true;
+	}
+
+	match = strstr(cmdline, support_second_chg_ic_str);
+	if (match) {
+		match = strstr(cmdline, chg_ic_str);
+		if (match) {
+			chg_info("match: %s success in cmdline\n", chg_ic_str);
+		} else {
+			chg_err("match: %s fail in cmdline\n", chg_ic_str);
+			return false;
+		}
+	} else {
+		chg_info("not support second chg ic\n");
+	}
+
+	return true;
+}
+
 #define INIT_WORK_NORMAL_DELAY 8000
 #define INIT_WORK_OTHER_DELAY 1000
 static int sgm41542_charger_probe(struct i2c_client *client,
@@ -3441,7 +3478,16 @@ void sgm41542_charger_exit(void)
 int sgm41542_charger_init(void)
 {
 	int ret = 0;
+	bool is_match = false;
 	chg_err(" init start\n");
+
+	is_match = oplus_match_sgm41515_cmdline_str();
+	if (is_match) {
+		chg_info("continue init\n");
+	} else {
+		chg_err("exit init\n");
+		return -EINVAL;
+	}
 
 	if (i2c_add_driver(&sgm41542_charger_driver) != 0) {
 		chg_err(" failed to register sgm41542 i2c driver.\n");

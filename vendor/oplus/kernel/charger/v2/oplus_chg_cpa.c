@@ -16,6 +16,7 @@
 #include <linux/errno.h>
 #include <linux/delay.h>
 #include <linux/list.h>
+#include <linux/jiffies.h>
 
 #include <oplus_chg.h>
 #include <oplus_chg_module.h>
@@ -34,6 +35,7 @@
 
 #define PROTOCAL_SWITCH_REPLY_TIMEOUT_MS	1000
 #define PROTOCAL_READY_TIMEOUT_MS		200000
+#define WIRED_PLUGOUT_TO_PRESENT_MS		2000
 
 struct oplus_cpa_protocol_info {
 	enum oplus_chg_protocol_type type;
@@ -86,7 +88,11 @@ struct oplus_cpa {
 	unsigned int vooc_sid;
 	bool ufcs_online;
 	bool retention_state;
+	bool pre_retention_state;
 	bool retention_state_ready;
+
+	bool wired_present;
+	unsigned long wired_plugout_time;
 
 	struct mutex cpa_request_lock;
 	struct mutex start_lock;
@@ -103,7 +109,7 @@ const char * const protocol_name_str[] = {
 	[CHG_PROTOCOL_QC]	= "QC",
 };
 
-static const char *get_protocol_name_str(enum oplus_chg_protocol_type type)
+const char *get_protocol_name_str(enum oplus_chg_protocol_type type)
 {
 	if (type < 0 || type >= CHG_PROTOCOL_MAX)
 		return "Unknown";
@@ -453,7 +459,9 @@ static void oplus_cpa_protocol_switch_work(struct work_struct *work)
 		if (rc != -EBUSY) {
 			chg_err("switch %s protocol error, rc=%d\n", get_protocol_name_str(type), rc);
 			oplus_cpa_set_current_protocol_type(cpa, CHG_PROTOCOL_INVALID);
+			mutex_lock(&cpa->cpa_request_lock);
 			protocol_identify_request(cpa, cpa->protocol_to_be_switched);
+			mutex_unlock(&cpa->cpa_request_lock);
 		}
 		return;
 	} else {
@@ -464,9 +472,11 @@ static void oplus_cpa_protocol_switch_work(struct work_struct *work)
 			chg_info("switch %s schedule protocol_switch_timeout_work\n", get_protocol_name_str(type));
 		}
 		mutex_unlock(&cpa->start_lock);
+		mutex_lock(&cpa->cpa_request_lock);
 		protocol = READ_ONCE(cpa->protocol_to_be_switched);
 		protocol &= ~BIT(type);
 		WRITE_ONCE(cpa->protocol_to_be_switched, protocol);
+		mutex_unlock(&cpa->cpa_request_lock);
 	}
 	chg_info("switch to %s protocol\n", get_protocol_name_str(type));
 }
@@ -499,10 +509,10 @@ static void oplus_cpa_switch_end_work(struct work_struct *work)
 		}
 	}
 
+	mutex_lock(&cpa->cpa_request_lock);
 	chg_info("%s protocol identify end, to_be_switched=0x%x, disable_mask=0x%lx\n",
 		 get_protocol_name_str(type), cpa->protocol_to_be_switched,
 		 cpa->protocol_disable_mask);
-	mutex_lock(&cpa->cpa_request_lock);
 	protocol_identify_request(cpa, READ_ONCE(cpa->protocol_to_be_switched));
 	mutex_unlock(&cpa->cpa_request_lock);
 }
@@ -543,7 +553,9 @@ static void oplus_cpa_chg_type_change_work(struct work_struct *work)
 						break;
 					}
 					chg_info("wired_type change to PPS, retry PPS");
+					mutex_lock(&cpa->cpa_request_lock);
 					protocol_identify_request(cpa, BIT(CHG_PROTOCOL_PPS));
+					mutex_unlock(&cpa->cpa_request_lock);
 					break;
 				}
 				fallthrough;
@@ -669,6 +681,14 @@ static void oplus_cpa_wired_offline_work(struct work_struct *work)
 	WRITE_ONCE(cpa->status_reset, true);
 }
 
+static bool oplus_wired_offline_clear_cpa_queue(struct oplus_cpa *cpa)
+{
+	unsigned long old_time;
+
+	old_time = cpa->wired_plugout_time + msecs_to_jiffies(WIRED_PLUGOUT_TO_PRESENT_MS);
+	return time_is_before_jiffies(old_time);
+}
+
 static void oplus_cpa_wired_online_work(struct work_struct *work)
 {
 	struct oplus_cpa *cpa =
@@ -679,8 +699,11 @@ static void oplus_cpa_wired_online_work(struct work_struct *work)
 	if (!READ_ONCE(cpa->status_reset)) {
 		chg_info("cpa status not reset\n");
 		if (cpa->retention_topic) {
-			if (cpa->cc_detect == CC_DETECT_NOTPLUG)
+			if (cpa->cc_detect == CC_DETECT_NOTPLUG ||
+			    oplus_wired_offline_clear_cpa_queue(cpa)) {
+				chg_info("cc_detect or offline clear cpa queue, cc_detect=%d\n", cpa->cc_detect);
 				schedule_work(&cpa->wired_offline_work);
+			}
 		} else {
 			schedule_work(&cpa->wired_offline_work);
 		}
@@ -717,8 +740,10 @@ static void oplus_cpa_wired_subs_callback(struct mms_subscribe *subs,
 				cpa->wired_online = false;
 				if (!cpa->retention_topic)
 					schedule_work(&cpa->wired_offline_work);
-				else if (cpa->retention_state_ready && !cpa->retention_state)
+				else if ((cpa->retention_state_ready || cpa->pre_retention_state)
+					&& !cpa->retention_state)
 					schedule_work(&cpa->wired_offline_work);
+				cpa->pre_retention_state = cpa->retention_state;
 			} else {
 				if (!cpa->retention_state)
 					cpa->retention_state_ready = false;
@@ -736,6 +761,12 @@ static void oplus_cpa_wired_subs_callback(struct mms_subscribe *subs,
 			if (!!cpa->retention_topic && !cpa->wired_online &&
 				cpa->cc_detect == CC_DETECT_NOTPLUG)
 				schedule_work(&cpa->wired_offline_work);
+			break;
+		case WIRED_ITEM_PRESENT:
+			oplus_mms_get_item_data(cpa->wired_topic, id, &data, false);
+			cpa->wired_present = data.intval;
+			if (!cpa->wired_present)
+				cpa->wired_plugout_time = jiffies;
 			break;
 		default:
 			break;
@@ -765,6 +796,10 @@ static void oplus_cpa_subscribe_wired_topic(struct oplus_mms *topic, void *prv_d
 	cpa->wired_online = !!data.intval;
 	if (cpa->wired_online)
 		schedule_work(&cpa->chg_type_change_work);
+	oplus_mms_get_item_data(cpa->wired_topic, WIRED_ITEM_PRESENT, &data, true);
+	cpa->wired_present = !!data.intval;
+	if (!cpa->wired_present)
+		cpa->wired_plugout_time = jiffies;
 }
 
 static void oplus_cpa_vooc_subs_callback(struct mms_subscribe *subs,
@@ -870,6 +905,8 @@ static void oplus_cpa_retention_subs_callback(struct mms_subscribe *subs,
 			if (!data.intval && cpa->retention_state != !!data.intval)
 				schedule_work(&cpa->wired_offline_work);
 			cpa->retention_state = !!data.intval;
+			if (cpa->retention_state)
+				cpa->pre_retention_state = cpa->retention_state;
 			break;
 		case RETENTION_ITEM_STATE_READY:
 			cpa->retention_state_ready = true;

@@ -48,7 +48,7 @@ static char *oplus_chg_cmdline = __oplus_chg_cmdline;
 #define OPLUS_MAXIM_AUTH_TAG		"maxim_auth="
 #define OPLUS_MAXIM_AUTH_SUCCESS	"maxim_auth=TRUE"
 #define OPLUS_MAXIM_AUTH_FAILED		"maxim_auth=FALSE"
-#define OPLUS_MAXIM_MAX_RETRY		5
+#define OPLUS_MAXIM_MAX_RETRY		15
 
 struct oplus_maxim_gauge_chip {
 	bool support_maxim_in_lk;
@@ -228,6 +228,21 @@ static int oplus_maxim_parse_dt(struct oplus_maxim_gauge_chip *chip)
 		chip->gpio_info.onewire_gpio_level_low_val = (0x1 << chip->gpio_info.gpio_addr_offset);
 	}
 	chg_err("gpio_level_low_val 0x%x\n", chip->gpio_info.onewire_gpio_level_low_val);
+
+	rc = of_property_read_u32(node, "write_begin_low_level_time", &chip->gpio_info.write_begin_low_level_time);
+	if (rc) {
+		chip->gpio_info.write_begin_low_level_time = 1000;
+	}
+	chg_info("write_begin_low_level_time %d\n", chip->gpio_info.write_begin_low_level_time);
+
+	rc = of_property_read_u32(node, "write_relese_ic_time", &chip->gpio_info.write_relese_ic_time);
+	if (rc) {
+		chip->gpio_info.write_relese_ic_time = 5;
+	}
+	chg_info("write_relese_ic_time %d\n", chip->gpio_info.write_relese_ic_time);
+
+	chip->gpio_info.maxim_romid_crc_support = of_property_read_bool(node, "oplus,maxim_romid_crc_support");
+	chg_info("maxim_romid_crc_support %d\n", chip->gpio_info.maxim_romid_crc_support);
 
 	chip->maxim_in_kernel_init_ok = true;
 	chg_info("maxim_in_kernel_init_ok: %d\n", chip->maxim_in_kernel_init_ok);

@@ -131,6 +131,23 @@ static void oplus_cp_pmid2vout_enable(bool enable)
 	pps_err(" end\n");
 }
 
+static int oplus_cp_sstimeout_ucp_enable(bool enable)
+{
+	int ret = true;
+	int i;
+	for (i = CP_MASTER; i < CP_MAX; i++) {
+		if (cp_device[i].dev_ops != NULL) {
+			if (cp_device[i].dev_ops->oplus_cp_sstimeout_ucp_enable != NULL) {
+				ret = cp_device[i].dev_ops->oplus_cp_sstimeout_ucp_enable(cp_device[i].client, enable);
+			} else {
+				pps_err("%s Not support sstimeout ucp", cp_device[i].dev_name);
+				ret = -EINVAL;
+			}
+		}
+	}
+	return ret;
+}
+
 static int oplus_cp_get_ucp_flag(void)
 {
 	int ucp_fail = 0;
@@ -486,6 +503,7 @@ static struct oplus_pps_operations oplus_cp_pps_ops = {
 	.pps_cp_reset = oplus_cp_reset,
 	.pps_cp_mode_init = oplus_cp_cfg_mode_init,
 	.pps_cp_pmid2vout_enable = oplus_cp_pmid2vout_enable,
+	.pps_cp_sstimeout_ucp_enable = oplus_cp_sstimeout_ucp_enable,
 	.pps_get_ucp_flag = oplus_cp_get_ucp_flag,
 	.pps_get_cp_vbat = oplus_cp_get_vbat,
 

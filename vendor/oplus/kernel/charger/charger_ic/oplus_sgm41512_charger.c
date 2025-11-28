@@ -2258,6 +2258,7 @@ static void do_sgm41512_threaded_irq_work(struct work_struct *data)
 			oplus_chg_wake_update_work();
 		}
 
+		cancel_delayed_work_sync(&charger_modefy_work);
 		sgm41512_enable_chg_type_det(chip->pwr_gd);
 		if (chip->enable_headset_plugin_limit) {
 			if (chip->pwr_gd) {
@@ -2427,14 +2428,17 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			oplus_sgm41512_set_hz_mode(false);
 			pr_err("USB Plug out\n");
-			sgm41512_disable_charging();
-			oplus_chg_set_charger_type_unknown();
-			oplus_vooc_set_fastchg_type_unknow();
-			sgm41512_inform_psy_changed(false);
-			oplus_vooc_reset_fastchg_after_usbout();
-			Charger_Detect_Release();
-			oplus_chg_wake_update_work();
-			pr_err("usb real remove vooc fastchg clear flag!\n");
+			if (oplus_vooc_get_fast_chg_type() == CHARGER_SUBTYPE_FASTCHG_VOOC
+				&& oplus_chg_get_wait_for_ffc_flag() != true) {
+				sgm41512_disable_charging();
+				oplus_chg_set_charger_type_unknown();
+				oplus_vooc_set_fastchg_type_unknow();
+				sgm41512_inform_psy_changed(false);
+				oplus_vooc_reset_fastchg_after_usbout();
+				Charger_Detect_Release();
+				oplus_chg_wake_update_work();
+				pr_err("usb real remove vooc fastchg clear flag!\n");
+			}
 		}
 		break;
 	default:

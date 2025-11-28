@@ -473,12 +473,30 @@ static int cw_update_data(struct cw_battery *cw_bat)
 {
 	int ret = NUM_0;
 
-	ret += cw_get_voltage(cw_bat);
-	ret += cw_get_capacity(cw_bat);
-	ret += cw_get_temp(cw_bat);
-	ret += cw_get_current(cw_bat);
-	ret += cw_get_cycle_count(cw_bat);
-	ret += cw_get_soh(cw_bat);
+	ret = cw_get_voltage(cw_bat);
+	if (ret < 0)
+		chg_err("cw_get_voltage error, ret = %d\n", ret);
+
+	ret = cw_get_capacity(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_capacity error, ret = %d\n", ret);
+
+	ret = cw_get_temp(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_temp error, ret = %d\n", ret);
+
+	ret = cw_get_current(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_current error, ret = %d\n", ret);
+
+	ret = cw_get_cycle_count(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_cycle_count error, ret = %d\n", ret);
+
+	ret = cw_get_soh(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_soh error, ret = %d\n", ret);
+
 	chg_err("vol = %d  current = %ld cap = %d temp = %d\n",
 		cw_bat->voltage, cw_bat->cw_current, cw_bat->ui_soc, cw_bat->temp);
 
@@ -489,14 +507,38 @@ static int cw_init_data(struct cw_battery *cw_bat)
 {
 	int ret = NUM_0;
 
-	ret += cw_get_chip_id(cw_bat);
-	ret += cw_get_voltage(cw_bat);
-	ret += cw_get_capacity(cw_bat);
-	ret += cw_get_temp(cw_bat);
-	ret += cw_get_current(cw_bat);
-	ret += cw_get_cycle_count(cw_bat);
-	ret += cw_get_soh(cw_bat);
-	ret += cw_get_fw_version(cw_bat);
+	ret = cw_get_chip_id(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_chip_id error, ret = %d\n", ret);
+
+	ret = cw_get_voltage(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_voltage error, ret = %d\n", ret);
+
+	ret = cw_get_capacity(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_capacity error, ret = %d\n", ret);
+
+	ret = cw_get_temp(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_temp error, ret = %d\n", ret);
+
+	ret = cw_get_current(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_current error, ret = %d\n", ret);
+
+	ret = cw_get_cycle_count(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_cycle_count error, ret = %d\n", ret);
+
+	ret = cw_get_soh(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_soh error, ret = %d\n", ret);
+
+	ret = cw_get_fw_version(cw_bat);
+	if (ret < 0)
+        	chg_err("cw_get_fw_version error, ret = %d\n", ret);
+
 	chg_err("chip_id = %d vol = %d  cur = %ld cap = %d temp = %d  fw_version = %d\n",
 		cw_bat->chip_id, cw_bat->voltage, cw_bat->cw_current, cw_bat->ui_soc, cw_bat->temp, cw_bat->fw_version);
 
