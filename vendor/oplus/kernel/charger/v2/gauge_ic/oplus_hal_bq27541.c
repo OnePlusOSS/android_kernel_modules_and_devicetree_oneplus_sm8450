@@ -1613,7 +1613,7 @@ static int bq27541_get_battery_cc(struct chip_bq27541 *chip) /*  sjc20150105  */
 		ret = bq27541_read_i2c(chip, chip->cmd_addr.reg_cc, &cc);
 		if (ret) {
 			dev_err(chip->dev, "error reading cc.\n");
-			return ret;
+			return 0;
 		}
 	} else {
 		if (chip->cc_pre) {
@@ -1677,7 +1677,7 @@ static int bq27541_get_battery_soh(struct chip_bq27541 *chip) /*  sjc20150105  *
 		ret = bq27541_read_i2c(chip, chip->cmd_addr.reg_soh, &soh);
 		if (ret) {
 			dev_err(chip->dev, "error reading fcc.\n");
-			return ret;
+			return 0;
 		}
 	} else {
 		if (chip->soh_pre) {

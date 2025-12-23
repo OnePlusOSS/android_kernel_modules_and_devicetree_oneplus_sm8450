@@ -397,7 +397,56 @@ static int oplus_cp_slave_b_get_tdie(void)
 
 	return tdie;
 }
+static bool oplus_cp_slave_support(void)
+{
+	return (cp_device[CP_SLAVE_A].client != NULL);
+}
 
+static bool oplus_cp_slave_get_enable(void)
+{
+	bool enable = false;
+
+	if (cp_device[CP_SLAVE_A].dev_ops != NULL &&
+	    cp_device[CP_SLAVE_A].dev_ops->oplus_get_cp_enable != NULL) {
+		enable = cp_device[CP_SLAVE_A].dev_ops->oplus_get_cp_enable(cp_device[CP_SLAVE_A].client);
+	}
+
+	return enable;
+}
+
+static void oplus_cp_slave_hardware_init(void)
+{
+	if (cp_device[CP_SLAVE_A].dev_ops != NULL &&
+	    cp_device[CP_SLAVE_A].dev_ops->oplus_cp_hardware_init != NULL)
+		cp_device[CP_SLAVE_A].dev_ops->oplus_cp_hardware_init(cp_device[CP_SLAVE_A].client);
+}
+
+static void oplus_cp_slave_reset(void)
+{
+	if (cp_device[CP_SLAVE_A].dev_ops != NULL &&
+	    cp_device[CP_SLAVE_A].dev_ops->oplus_cp_reset != NULL)
+		cp_device[CP_SLAVE_A].dev_ops->oplus_cp_reset(cp_device[CP_SLAVE_A].client);
+}
+
+static bool oplus_cp_slave_get_status(void)
+{
+	bool status = true;
+
+	if (cp_device[CP_SLAVE_A].dev_ops != NULL &&
+	    cp_device[CP_SLAVE_A].dev_ops->oplus_get_cp_status != NULL)
+		return cp_device[CP_SLAVE_A].dev_ops->oplus_get_cp_status(cp_device[CP_SLAVE_A].client);
+	return status;
+}
+
+static int oplus_cp_master_get_maxcur(void)
+{
+	int cur = 0;
+
+	if (cp_device[CP_MASTER].dev_ops != NULL &&
+	    cp_device[CP_MASTER].dev_ops->oplus_get_cp_maxcur != NULL)
+		return cp_device[CP_MASTER].dev_ops->oplus_get_cp_maxcur(cp_device[CP_MASTER].client);
+	return cur;
+}
 /* there no check null in oplus_pps.c call, all pfunc not be null */
 static struct oplus_pps_operations oplus_cp_pps_ops = {
 	.get_vbat0_volt = oplus_chg_read_vbat0_voltage,
@@ -421,6 +470,7 @@ static struct oplus_pps_operations oplus_cp_pps_ops = {
 	.pps_get_cp_master_vac = oplus_cp_master_get_vac,
 	.pps_get_cp_master_vout = oplus_cp_master_get_vout,
 	.pps_get_cp_master_tdie = oplus_cp_master_get_tdie,
+	.pps_get_cp_master_max_cur = oplus_cp_master_get_maxcur,
 
 	.pps_get_cp_slave_vbus = oplus_cp_slave_get_vbus,
 	.pps_get_cp_slave_ibus = oplus_cp_slave_get_ibus,
@@ -428,6 +478,11 @@ static struct oplus_pps_operations oplus_cp_pps_ops = {
 	.pps_get_cp_slave_vac = oplus_cp_slave_get_vac,
 	.pps_get_cp_slave_vout = oplus_cp_slave_get_vout,
 	.pps_get_cp_slave_tdie = oplus_cp_slave_get_tdie,
+	.pps_get_cp_slave_support = oplus_cp_slave_support,
+	.pps_get_cp_slave_enable = oplus_cp_slave_get_enable,
+	.pps_get_cp_slave_status = oplus_cp_slave_get_status,
+	.pps_cp_slave_hardware_init = oplus_cp_slave_hardware_init,
+	.pps_cp_slave_reset = oplus_cp_slave_reset,
 
 	.pps_get_cp_slave_b_vbus = oplus_cp_slave_b_get_vbus,
 	.pps_get_cp_slave_b_ibus = oplus_cp_slave_b_get_ibus,

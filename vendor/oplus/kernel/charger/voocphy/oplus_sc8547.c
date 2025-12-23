@@ -1894,6 +1894,14 @@ irqreturn_t sc8547_protect_interrupt_handler(struct oplus_voocphy_manager *chip)
 	return IRQ_HANDLED;
 }
 
+static int sc8547_cp_get_maxcur(struct i2c_client *client)
+{
+	if (!oplus_voocphy_mg)
+		return 0;
+
+	return oplus_voocphy_mg->voocphy_cp_max_ibus;
+}
+
 static struct oplus_pps_cp_device_operations sc8547_cp_pps_ops = {
 	.oplus_cp_hardware_init = sc8547_cp_hardware_init,
 	.oplus_cp_reset         = sc8547_cp_reg_reset,
@@ -1907,6 +1915,7 @@ static struct oplus_pps_cp_device_operations sc8547_cp_pps_ops = {
 	.oplus_get_cp_vout      = sc8547_cp_get_vout,
 	.oplus_get_cp_vbat      = sc8547_cp_get_vbat,
 	.oplus_get_cp_tdie      = sc8547_cp_get_tdie,
+	.oplus_get_cp_maxcur    = sc8547_cp_get_maxcur,
 };
 
 static int sc8547_charger_choose(struct oplus_voocphy_manager *chip)

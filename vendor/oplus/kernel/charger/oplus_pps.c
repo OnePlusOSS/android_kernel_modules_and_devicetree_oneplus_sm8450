@@ -454,7 +454,7 @@ static int oplus_pps_parse_charge_strategy(struct oplus_pps_chip *chip)
 
 	rc = of_property_read_u32(node, "oplus,pps_support_third", &chip->pps_support_third);
 	if (rc) {
-		chip->pps_support_third = false;
+		chip->pps_support_third = of_property_read_bool(node, "oplus,all_support_third_pps");
 	} else {
 		pps_err("oplus,pps_support_third is %d\n", chip->pps_support_third);
 		chip->pps_support_third = third_pps_supported_from_nvid() ? chip->pps_support_third : 0;
@@ -1269,6 +1269,102 @@ int oplus_pps_get_slave_b_ibus(void)
 		return 0;
 	}
 	return chip->data.cp_slave_b_ibus;
+}
+
+static bool oplus_pps_support_slave_cp(void)
+{
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (!chip || !chip->pps_support_type || !chip->ops || !chip->ops->pps_get_cp_slave_support)
+		return false;
+	else
+		return chip->ops->pps_get_cp_slave_support();
+}
+
+static bool oplus_pps_get_slave_enable(void)
+{
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (!chip || !chip->pps_support_type || !chip->ops || !chip->ops->pps_get_cp_slave_enable)
+		return false;
+	else
+		return chip->ops->pps_get_cp_slave_enable();
+}
+
+static void oplus_pps_slave_hardware_init(void)
+{
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (!chip || !chip->pps_support_type || !chip->ops)
+		return;
+
+	if (!chip->ops->pps_cp_slave_hardware_init)
+		return;
+
+	chip->ops->pps_cp_slave_hardware_init();
+}
+
+static void oplus_pps_slave_cp_reset(void)
+{
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (!chip || !chip->pps_support_type || !chip->ops)
+		return;
+
+	if (!chip->ops->pps_cp_slave_reset)
+		return;
+
+	chip->ops->pps_cp_slave_reset();
+}
+
+static int oplus_pps_master_cp_get_maxcur(void)
+{
+	int max_cur = 0;
+	int ret = 0;
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (chip->pps_adapter_type == PPS_ADAPTER_THIRD)
+		max_cur = PPS_THIRD_IBUS_MASTER_ALLOW_MAX;
+	else
+		max_cur = PPS_CP_IBUS_MAX;
+
+	if (!chip || !chip->pps_support_type || !chip->ops)
+		return max_cur;
+
+	if (!chip->ops->pps_get_cp_master_max_cur)
+		return max_cur;
+
+	ret = chip->ops->pps_get_cp_master_max_cur();
+	if (ret > 0)
+		return ret;
+	else
+		return max_cur;
+}
+
+static int oplus_pps_slave_read_ibus(void)
+{
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (!chip || !chip->ops || !chip->pps_support_type)
+		return 0;
+
+	if (!chip->ops->pps_get_cp_slave_ibus)
+		return 0;
+	else
+		return chip->data.cp_slave_ibus = chip->ops->pps_get_cp_slave_ibus();
+}
+
+static bool oplus_pps_slave_get_status(void)
+{
+	struct oplus_pps_chip *chip = &g_pps_chip;
+
+	if (!chip || !chip->ops || !chip->pps_support_type)
+		return true;
+
+	if (!chip->ops->pps_get_cp_slave_status)
+		return true;
+	else
+		return chip->ops->pps_get_cp_slave_status();
 }
 
 static int oplus_pps_get_charging_data(struct oplus_pps_chip *chip)
@@ -2355,12 +2451,128 @@ static int oplus_pps_check_3cp_ibus_curr(struct oplus_pps_chip *chip)
 	return 0;
 }
 
+static int oplus_3rd_pps_get_ichg_devation(struct oplus_pps_chip *chip)
+{
+	int cp_ibus_devation = 0;
+
+	if (!chip)
+		return 0;
+
+	oplus_pps_read_ibus();
+
+	if (chip->data.cp_master_ibus >= chip->data.cp_slave_ibus)
+		cp_ibus_devation = chip->data.cp_master_ibus - chip->data.cp_slave_ibus;
+	else
+		cp_ibus_devation = chip->data.cp_slave_ibus - chip->data.cp_master_ibus;
+
+	pps_info("cp ibus devation = %d\n", cp_ibus_devation);
+
+	return cp_ibus_devation;
+}
+
+static bool oplus_3rd_pps_check_slave_cp_status(struct oplus_pps_chip *chip)
+{
+	int count = 0;
+	int i;
+
+	for (i = 0; i < 3; i++) {
+		if (oplus_pps_slave_read_ibus() < PPS_THIRD_IBUS_SLAVE_ENABLE_MIN ||
+		    oplus_pps_slave_get_status()== 0 ||
+		    oplus_3rd_pps_get_ichg_devation(chip) > PPS_THIRD_IBUS_CP_IBUS_DEVATION) {
+			count = count + 1;
+		} else {
+			count = 0;
+		}
+		msleep(10);
+	}
+
+	if (count >= 3) {
+		pps_err("count >= 3, return false, slave cp is in trouble!\n");
+		return false;
+	} else {
+		pps_info("count < 3, return true, slave cp is not in trouble!\n");
+		return true;
+	}
+}
+
+static void oplus_3rd_pps_slave_cp_ibus_check(struct oplus_pps_chip *chip)
+{
+	bool slave_cp_enable = 0;
+
+	if (chip->pps_adapter_type != PPS_ADAPTER_THIRD || !oplus_pps_support_slave_cp() ||
+	    chip->pps_status < OPLUS_PPS_STATUS_VOLT_CHANGE)
+		return;
+
+	slave_cp_enable = oplus_pps_get_slave_enable();
+	pps_info("slave_status = %d\n", slave_cp_enable);
+	if (chip->data.ap_input_current > PPS_THIRD_IBUS_SLAVE_ENABLE_MAX &&
+	    !slave_cp_enable && chip->data.slave_trouble_count <= 1) {
+			if (chip->data.slave_trouble_count == 1)
+				oplus_pps_slave_hardware_init();
+
+			pps_info("cp_vbus = %d cp_vbat = %d\n", chip->data.ap_input_volt, chip->data.ap_batt_volt);
+			oplus_pps_charging_enable_slave(chip, true);
+			msleep(200);
+			if (oplus_3rd_pps_check_slave_cp_status(chip)) {
+				chip->data.slave_trouble_count = 0;
+				pps_info("slave cp is normal\n");
+			} else {
+				chip->data.slave_trouble_count = chip->data.slave_trouble_count + 1;
+				pps_err("slave cp is abnormal, disable it!\n");
+				oplus_pps_charging_enable_slave(chip, false);
+				oplus_pps_slave_cp_reset();
+			}
+	}
+
+	if (chip->data.slave_trouble_count == 1 && chip->ilimit.cp_ibus_down > OPLUS_PPS_CURRENT_LIMIT_3A) {
+		chip->ilimit.cp_ibus_down = OPLUS_PPS_CURRENT_LIMIT_3A;
+		oplus_pps_track_upload_err_info(chip, TRACK_PPS_ERR_IBUS_LIMIT, 1);
+	}
+
+	if (chip->data.ap_input_current <= PPS_THIRD_IBUS_SLAVE_DISABLE_MIN && slave_cp_enable) {
+		if (chip->data.disable_sub_cp_count == 3) {
+			pps_err("Ibus < 1.6A 3 times, disable sub cp!\n");
+			oplus_pps_charging_enable_slave(chip, false);
+			chip->data.disable_sub_cp_count = 0;
+		} else {
+			chip->data.disable_sub_cp_count = chip->data.disable_sub_cp_count + 1;
+			pps_err("Ibus < 1.6A count = %d\n", chip->data.disable_sub_cp_count);
+		}
+	} else {
+		chip->data.disable_sub_cp_count = 0;
+		pps_info("Discontinuity satisfies the condition, count = 0!\n");
+	}
+
+	if (slave_cp_enable) {
+		if (chip->data.cp_master_ibus > oplus_pps_master_cp_get_maxcur() ||
+		    chip->data.cp_slave_ibus > oplus_pps_master_cp_get_maxcur())
+			chip->data.ibus_trouble_count++;
+		else {
+			chip->data.ibus_trouble_count = 0;
+		}
+	} else {
+		if (chip->data.cp_master_ibus > oplus_pps_master_cp_get_maxcur())
+			chip->data.ibus_trouble_count++;
+		else
+			chip->data.ibus_trouble_count = 0;
+	}
+
+	if (chip->data.ibus_trouble_count == 3) {
+		pps_err("ibus_trouble_count >= 3, limit current to 3A!\n");
+		chip->ilimit.cp_ibus_down = OPLUS_PPS_CURRENT_LIMIT_3A;
+		oplus_pps_track_upload_err_info(chip, TRACK_PPS_ERR_IBUS_LIMIT, 1);
+	}
+}
+
 static int oplus_pps_3rd_check_ibus_curr(struct oplus_pps_chip *chip)
 {
 	int ibus = 0;
 
 	if (!chip || !chip->ops || !chip->pps_support_type)
 		return -ENODEV;
+
+	if (oplus_pps_support_slave_cp())
+		oplus_3rd_pps_slave_cp_ibus_check(chip);
 
 	if (chip->pps_adapter_type != PPS_ADAPTER_THIRD || chip->pps_status != OPLUS_PPS_STATUS_CHECK)
 		return -ENODEV;
@@ -2976,49 +3188,14 @@ static enum oplus_pps_r_cool_down_ilimit oplus_pps_get_cool_down_by_resistense(v
 	return cool_down_target;
 }
 
-static enum oplus_pps_r_cool_down_ilimit oplus_pps_3rd_get_cool_down_by_resistense(void)
-{
-	int r_result = 0;
-	int r_diff = 0;
-	struct oplus_pps_chip *chip = &g_pps_chip;
-	int vpps = 0, vbus_master = 0, ibus_master = 0;
-	enum oplus_pps_r_cool_down_ilimit cool_down_target = PPS_R_COOL_DOWN_NOLIMIT;
-
-	vpps = chip->data.charger_output_volt;
-	if (vpps <= 0) {
-		/* adapter not support pps_status cmd */
-		return PPS_R_COOL_DOWN_NOLIMIT;
-	}
-	vbus_master = chip->data.ap_input_volt;
-	ibus_master = chip->data.ap_input_current;
-
-	if (ibus_master <= 0)
-		return PPS_R_COOL_DOWN_NOLIMIT;
-
-	r_result = (vpps - vbus_master) * 1000 / ibus_master;
-	r_diff = r_result - PPS_3RD_DEFAULT_R;
-	r_diff = r_diff > 0 ? r_diff : 0;
-
-	if (r_diff > chip->r_limit.limit_exit_mohm)
-		cool_down_target = PPS_R_COOL_DOWN_EXIT;
-	else if (r_diff > chip->r_limit.limit_2a_mohm)
-		cool_down_target = PPS_R_COOL_DOWN_2A;
-
-	pps_err("resistense r_result=%d, cool_down_target=%d", r_result, cool_down_target);
-	return cool_down_target;
-}
-
 static void oplus_pps_check_resistense(struct oplus_pps_chip *chip)
 {
 	enum oplus_pps_r_cool_down_ilimit r_cool_down = PPS_R_COOL_DOWN_NOLIMIT;
 
-	if (chip->pps_status != OPLUS_PPS_STATUS_CHECK)
+	if (chip->pps_status != OPLUS_PPS_STATUS_CHECK || chip->pps_adapter_type == PPS_ADAPTER_THIRD)
 		return;
 
-	if (chip->pps_adapter_type == PPS_ADAPTER_THIRD)
-		r_cool_down = oplus_pps_3rd_get_cool_down_by_resistense();
-	else
-		r_cool_down = oplus_pps_get_cool_down_by_resistense();
+	r_cool_down = oplus_pps_get_cool_down_by_resistense();
 
 	if (r_cool_down == PPS_R_COOL_DOWN_EXIT)
 		chip->pps_stop_status = PPS_STOP_VOTER_RESISTENSE_OVER;
@@ -3766,7 +3943,8 @@ static int oplus_3rd_pps_action_volt_change(struct oplus_pps_chip *chip)
 	if (chip->target_charger_volt < charger_volt_min)
 		chip->target_charger_volt = charger_volt_min;
 
-	if (chip->ask_charger_volt_last > PPS_3RD_ASK_VOLT_MAX) {
+	if (chip->target_charger_volt > PPS_3RD_ASK_VOLT_MAX) {
+		chip->target_charger_volt = PPS_3RD_ASK_VOLT_MAX;
 		chip->count.ask_vbus_over++;
 		pps_err("ask vbus reached max %d times!\n", chip->count.ask_vbus_over);
 		if (chip->count.ask_vbus_over > PPS_3RD_ASK_VOLT_OVER_CNT) {
@@ -4387,10 +4565,8 @@ static void oplus_pps_stop_work(struct work_struct *work)
 	oplus_pps_cancel_update_work_sync();
 
 	oplus_pps_charging_enable_master(chip, false);
-	if (chip->pps_adapter_type != PPS_ADAPTER_THIRD) {
-		oplus_pps_charging_enable_slave(chip, false);
-		oplus_pps_charging_enable_slave_b(chip, false);
-	}
+	oplus_pps_charging_enable_slave(chip, false);
+	oplus_pps_charging_enable_slave_b(chip, false);
 
 	oplus_pps_pd_exit();
 	oplus_pps_delay_exit();
@@ -4679,6 +4855,9 @@ void oplus_pps_data_init(void)
 	chip->data.ap_fg_temperature = oplus_gauge_get_batt_temperature();
 	chip->data.ap_batt_volt = oplus_gauge_get_batt_mvolts();
 	chip->data.ap_batt_current = oplus_gauge_get_batt_current();
+	chip->data.disable_sub_cp_count = 0;
+	chip->data.slave_trouble_count = 0;
+	chip->data.ibus_trouble_count = 0;
 	chip->cp.master_enable = false;
 	chip->cp.slave_enable = false;
 	chip->cp.slave_b_enable = false;
@@ -5005,7 +5184,7 @@ int oplus_pps_check_3rd_support(void)
 
 	rc = of_property_read_u32(node, "oplus,pps_support_third", &chip->pps_support_third);
 	if (rc) {
-		chip->pps_support_third = 0;
+		chip->pps_support_third = of_property_read_bool(node, "oplus,all_support_third_pps");
 	} else {
 		pps_err("oplus,pps_support_third is %d\n", chip->pps_support_third);
 		chip->pps_support_third = third_pps_supported_from_nvid() ? chip->pps_support_third : 0;

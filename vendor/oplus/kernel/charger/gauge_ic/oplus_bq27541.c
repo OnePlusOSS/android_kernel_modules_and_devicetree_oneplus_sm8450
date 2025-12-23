@@ -1487,7 +1487,7 @@ static int bq27541_get_battery_cc(void) /*  sjc20150105  */
 		ret = bq27541_read_i2c(gauge_ic, gauge_ic->cmd_addr.reg_cc, &cc);
 		if (ret) {
 			dev_err(gauge_ic->dev, "error reading cc.\n");
-			return ret;
+			return 0;
 		}
 	} else {
 		if (gauge_ic->cc_pre) {
@@ -1515,7 +1515,7 @@ static int bq27541_get_sub_battery_cc(void)
 		ret = bq27541_read_i2c(sub_gauge_ic, sub_gauge_ic->cmd_addr.reg_cc, &cc);
 		if (ret) {
 			dev_err(sub_gauge_ic->dev, "error reading cc.\n");
-			return ret;
+			return 0;
 		}
 	} else {
 		if (sub_gauge_ic->cc_pre) {
@@ -2787,7 +2787,7 @@ static int bq27541_get_battery_soh(void) /*  sjc20150105  */
 
 		if (ret || (ret_q < 0)) {
 			dev_err(gauge_ic->dev, "error reading soh.\n");
-			return ret;
+			return 0;
 		}
 		sh366002_read_gaugeinfo_block(gauge_ic);
 	} else {
@@ -2827,7 +2827,7 @@ static int bq27541_get_sub_battery_soh(void)
 
 		if (ret || (ret_q < 0)) {
 			dev_err(sub_gauge_ic->dev, "error reading soh.\n");
-			return ret;
+			return 0;
 		}
 		sh366002_read_gaugeinfo_block(sub_gauge_ic);
 	} else {

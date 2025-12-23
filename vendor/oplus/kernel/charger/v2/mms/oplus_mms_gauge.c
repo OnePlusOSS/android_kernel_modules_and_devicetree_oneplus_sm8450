@@ -2932,19 +2932,22 @@ static int oplus_mms_gauge_update_cc(struct oplus_mms *mms, union mms_msg_data *
 	chip = oplus_mms_get_drvdata(mms);
 	rc = oplus_chg_ic_func(chip->gauge_ic_parallel[chip->main_gauge],
 		OPLUS_IC_FUNC_GAUGE_GET_BATT_CC, &main_cc);
-	if (rc < 0) {
+	if ((rc < 0) || (main_cc <= 0)) {
 		chg_err("get battery cc error, rc=%d\n", rc);
 		main_cc = 0;
 	}
 	if (chip->sub_gauge) {
 		rc = oplus_chg_ic_func(chip->gauge_ic_parallel[__ffs(chip->sub_gauge)],
 			OPLUS_IC_FUNC_GAUGE_GET_BATT_CC, &sub_cc);
-		if (rc < 0) {
+		if ((rc < 0) || (sub_cc <= 0)) {
 			chg_err("get sub battery cc error, rc=%d\n", rc);
-			sub_cc = 0;
+			cc = main_cc;
+		} else if (main_cc > 0 && sub_cc > 0) {
+			cc = (main_cc * chip->child_list[chip->main_gauge].capacity_ratio +
+				sub_cc * chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio) / 100;
+		} else {
+			cc = sub_cc;
 		}
-		cc = (main_cc * chip->child_list[chip->main_gauge].capacity_ratio +
-			sub_cc * chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio) / 100;
 		chg_info("main_cc:%d, sub_cc:%d, main_ratio:%d, sub_ratio:%d, cc:%d\n",
 			 main_cc, sub_cc, chip->child_list[chip->main_gauge].capacity_ratio,
 			 chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio, cc);
@@ -2988,9 +2991,23 @@ static int oplus_mms_gauge_get_zy_gauge_soh(struct oplus_mms *mms, int gauge_typ
 		if (is_support_parallel(chip)) {
 			oplus_gauge_get_qmax(mms, 0, &batt_qmax_1);
 			oplus_gauge_get_qmax(mms, 1, &batt_qmax_2);
+			if (batt_qmax_1 > 0 && batt_qmax_2 >= 0) {
+				batt_qmax = batt_qmax_1 + batt_qmax_2;
+				batt_soh = batt_qmax * 100 / batt_capacity_mah;
+			} else if (batt_qmax_1 > 0 && batt_qmax_2 <= 0 &&
+			    chip->child_list[chip->main_gauge].capacity_ratio > 0) {
+				batt_capacity_mah = batt_capacity_mah *
+					chip->child_list[chip->main_gauge].capacity_ratio / 100;
+				batt_soh = batt_qmax_1  / batt_capacity_mah;
+			} else if (batt_qmax_1 <= 0 && batt_qmax_2 > 0 &&
+			    chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio > 0) {
+				batt_capacity_mah = batt_capacity_mah *
+					chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio / 100;
+				batt_soh = batt_qmax_2 / batt_capacity_mah;
+			} else if (batt_qmax_1 <= 0 && batt_qmax_2 <= 0) {
+				batt_soh = 0;
+			}
 
-			batt_qmax = batt_qmax_1 + batt_qmax_2;
-			batt_soh = batt_qmax * 100 / batt_capacity_mah;
 			chg_info("parallel qmax_1:%d, qmax_2:%d, capacity_mah:%d, soh:%d, gauge_type:%d\n",
 				batt_qmax_1, batt_qmax_2, batt_capacity_mah, batt_soh, gauge_type);
 		} else {
@@ -3035,19 +3052,22 @@ static int oplus_mms_gauge_update_soh(struct oplus_mms *mms, union mms_msg_data 
 
 	rc = oplus_chg_ic_func(chip->gauge_ic_parallel[chip->main_gauge],
 		OPLUS_IC_FUNC_GAUGE_GET_BATT_SOH, &main_soh);
-	if (rc < 0) {
+	if (rc < 0 || main_soh <= 0) {
 		chg_err("get main battery soh error, rc=%d\n", rc);
 		main_soh = 0;
 	}
 	if (chip->sub_gauge) {
 		rc = oplus_chg_ic_func(chip->gauge_ic_parallel[__ffs(chip->sub_gauge)],
 			OPLUS_IC_FUNC_GAUGE_GET_BATT_SOH, &sub_soh);
-		if (rc < 0) {
+		if (rc < 0 || sub_soh <= 0) {
 			chg_err("get sub battery soh error, rc=%d\n", rc);
-			sub_soh = 0;
+			soh = main_soh;
+		} else if (main_soh > 0 && sub_soh > 0) {
+			soh = (main_soh * chip->child_list[chip->main_gauge].capacity_ratio +
+				sub_soh * chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio) / 100;
+		} else {
+			soh = sub_soh;
 		}
-		soh = (main_soh * chip->child_list[chip->main_gauge].capacity_ratio +
-			sub_soh * chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio) / 100;
 		chg_info("main_soh:%d, sub_soh:%d, main_ratio:%d, sub_ratio:%d, soh:%d\n",
 			 main_soh, sub_soh, chip->child_list[chip->main_gauge].capacity_ratio,
 			 chip->child_list[__ffs(chip->sub_gauge)].capacity_ratio, soh);

@@ -213,12 +213,17 @@ static int hl7138_slave_set_chg_enable(struct oplus_voocphy_manager *chip, bool 
 
 static int hl7138_slave_init_device(struct oplus_voocphy_manager *chip)
 {
+	u8 reg_data;
+
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_40, 0x05);	/* ADC_CTRL:disable */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0B, 0x88);	/* VBUS_OVP=7V,JL:02->0B; */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0C, 0x0F);	//VBUS_OVP:10.2 2:1 or 1:1V,JL:04-0C; Modify by JL-2023;
-	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_11, 0xEC);	/* ovp:90mV */
-	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_08, 0x3C);	/* VBAT_OVP:4.56	4.56+0.09*/
-	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0E, 0x32);	/* IBUS_OCP:3.5A      ocp:100mA */
+	reg_data = chip->reg_ctrl_1;
+	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_11, reg_data);	/* ovp:90mV */
+	reg_data = chip->ovp_reg;
+	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_08, reg_data);	/* VBAT_OVP:4.56	4.56+0.09*/
+	reg_data = chip->ocp_reg;
+	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0E, reg_data);	/* IBUS_OCP:3.5A      ocp:100mA */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0F, 0x60);	/* IBUS_OCP:3.5A      ocp:250mA */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_02, 0xE1);	/* mask all INT_FLAG */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_10, 0xFC);	/* Dis IIN_REG; */
@@ -328,11 +333,14 @@ int hl7138_slave_init_vooc(struct oplus_voocphy_manager *chip)
 
 static int hl7138_slave_svooc_hw_setting(struct oplus_voocphy_manager *chip)
 {
+	u8 reg_data;
+
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_08, 0x3C);	/* VBAT_OVP:4.65V,JL:00-08; */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_40, 0x05);	/* ADC_CTRL:ADC_EN,JL:11-40; */
-	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_11, 0xEC);	/* Disable IIN Regulation*/
-	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_10, 0xFC);	/* Disable VBAT Regulation*/
-
+	reg_data = chip->reg_ctrl_1;
+	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_11, reg_data);	/* Disable IIN Regulation*/
+	reg_data = chip->ovp_reg;
+	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_10, reg_data);	/* Disable VBAT Regulation*/
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0B, 0x88);	/* VBUS_OVP:12V */
 	hl7138_slave_write_byte(chip->slave_client, HL7138_REG_0C, 0x0F);	/* VIN_OVP:10.2V */
 
@@ -508,10 +516,30 @@ static struct oplus_voocphy_operations oplus_hl7138_slave_ops = {
 
 static int hl7138_slave_parse_dt(struct oplus_voocphy_manager *chip)
 {
+	int rc;
+	struct device_node * node = NULL;
+
 	if (!chip) {
 		chg_debug("chip null\n");
 		return -1;
 	}
+
+	node = chip->slave_dev->of_node;
+
+	rc = of_property_read_u32(node, "ovp_reg", &chip->ovp_reg);
+	if (rc)
+		chip->ovp_reg = 0x3C;
+	chg_info("ovp_reg=0x%2x\n", chip->ovp_reg);
+
+	rc = of_property_read_u32(node, "reg_ctrl_1", &chip->reg_ctrl_1);
+	if (rc)
+		chip->reg_ctrl_1 = 0xFC;
+	chg_info("reg_ctrl_1=0x%2x\n", chip->reg_ctrl_1);
+
+	rc = of_property_read_u32(node, "ocp_reg", &chip->ocp_reg);
+	if (rc)
+		chip->ocp_reg = 0x32;
+	chg_info("ocp_reg=0x%2x\n", chip->ocp_reg);
 
 	return 0;
 }

@@ -22,6 +22,9 @@ struct oplus_pps_cp_device_operations {
 	int (*oplus_get_cp_vout)(struct i2c_client *client);
 	int (*oplus_get_cp_vbat)(struct i2c_client *client);
 	int (*oplus_get_cp_tdie)(struct i2c_client *client);
+	int (*oplus_get_cp_maxcur)(struct i2c_client *client);
+	bool (*oplus_get_cp_enable)(struct i2c_client *client);
+	bool (*oplus_get_cp_status)(struct i2c_client *client);
 };
 
 typedef enum {

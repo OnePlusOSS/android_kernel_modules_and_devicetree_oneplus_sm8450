@@ -20,7 +20,7 @@
 #include <oplus_cfg.h>
 #endif
 #define pps_err(fmt, ...) printk(KERN_ERR "[OPLUS_PPS][%s]" fmt, __func__, ##__VA_ARGS__)
-
+#define pps_info(fmt, ...) printk(KERN_INFO "[OPLUS_PPS][%s]" fmt, __func__, ##__VA_ARGS__)
 #define PPS_MANAGER_VERSION "1.3.0"
 /*pps curve*/
 #define PPS_VOL_MAX_V1 11000
@@ -105,6 +105,11 @@
 #define PPS_IBUS_ABNORMAL_MIN 250
 #define PPS_IBUS_SLAVE_DISABLE_MIN 2000
 #define PPS_IBUS_SLAVE_ENABLE_MIN 2500
+#define PPS_THIRD_IBUS_MASTER_ALLOW_MAX 3200
+#define PPS_THIRD_IBUS_SLAVE_DISABLE_MIN 1600
+#define PPS_THIRD_IBUS_SLAVE_ENABLE_MIN 500
+#define PPS_THIRD_IBUS_SLAVE_ENABLE_MAX 1900
+#define PPS_THIRD_IBUS_CP_IBUS_DEVATION 800
 #define PPS_MASTER_ENALBE_CHECK_CNTS 10
 #define PPS_SLAVLE_ENALBE_CHECK_CNTS 2
 /*pps aciton*/
@@ -441,6 +446,10 @@ struct pps_charging_data {
 	int cp_slave_b_vac;
 	int cp_slave_b_vout;
 	int cp_slave_b_tdie;
+
+	int disable_sub_cp_count;
+	int slave_trouble_count;
+	int ibus_trouble_count;
 };
 
 /*pps current*/
@@ -656,6 +665,7 @@ struct oplus_pps_operations {
 	int (*pps_get_cp_master_vout)(void);
 	int (*pps_get_cp_master_tdie)(void);
 	int (*pps_get_cp_vbat)(void);
+	int (*pps_get_cp_master_max_cur)(void);
 
 	int (*pps_get_cp_slave_vbus)(void);
 	int (*pps_get_cp_slave_ibus)(void);
@@ -663,6 +673,11 @@ struct oplus_pps_operations {
 	int (*pps_get_cp_slave_vac)(void);
 	int (*pps_get_cp_slave_vout)(void);
 	int (*pps_get_cp_slave_tdie)(void);
+	bool (*pps_get_cp_slave_support)(void);
+	bool (*pps_get_cp_slave_enable)(void);
+	bool (*pps_get_cp_slave_status)(void);
+	void (*pps_cp_slave_hardware_init)(void);
+	void (*pps_cp_slave_reset)(void);
 
 	int (*pps_get_cp_slave_b_vbus)(void);
 	int (*pps_get_cp_slave_b_ibus)(void);

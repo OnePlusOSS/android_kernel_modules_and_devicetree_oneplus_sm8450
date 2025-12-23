@@ -386,21 +386,37 @@ int oplus_gauge_get_batt_fcc(void)
 
 int oplus_gauge_get_batt_cc(void)
 {
+	int batt_cc;
+	int sub_batt_cc;
+
 	if (!g_gauge_chip) {
 		return 0;
 	} else {
 		if (!g_sub_gauge_chip || !g_sub_gauge_chip->gauge_ops || !g_sub_gauge_chip->gauge_ops->get_battery_cc) {
 			return g_gauge_chip->gauge_ops->get_battery_cc();
 		} else {
-			return (((g_gauge_chip->gauge_ops->get_battery_cc() * g_gauge_chip->capacity_pct) +
-				 (g_sub_gauge_chip->gauge_ops->get_battery_cc() * g_sub_gauge_chip->capacity_pct)) /
-				100);
+			batt_cc = g_gauge_chip->gauge_ops->get_battery_cc();
+			sub_batt_cc = g_sub_gauge_chip->gauge_ops->get_battery_cc();
+			if ((batt_cc > 0) && (sub_batt_cc > 0)) {
+				return (((batt_cc * g_gauge_chip->capacity_pct) +
+					 (sub_batt_cc * g_sub_gauge_chip->capacity_pct)) /
+					100);
+			} else if (batt_cc > 0) {
+				return batt_cc;
+			} else if (sub_batt_cc > 0) {
+				return sub_batt_cc;
+			} else {
+				return 0;
+			}
 		}
 	}
 }
 
 int oplus_gauge_get_batt_soh(void)
 {
+	int batt_soh = 0;
+	int sub_batt_soh = 0;
+
 	if (!g_gauge_chip) {
 		return 0;
 	} else {
@@ -408,9 +424,19 @@ int oplus_gauge_get_batt_soh(void)
 		    !g_sub_gauge_chip->gauge_ops->get_battery_soh) {
 			return g_gauge_chip->gauge_ops->get_battery_soh();
 		} else {
-			return (((g_gauge_chip->gauge_ops->get_battery_soh() * g_gauge_chip->capacity_pct) +
-				 (g_sub_gauge_chip->gauge_ops->get_battery_soh() * g_sub_gauge_chip->capacity_pct)) /
-				100);
+			batt_soh = g_gauge_chip->gauge_ops->get_battery_soh();
+			sub_batt_soh = g_sub_gauge_chip->gauge_ops->get_battery_soh();
+			if ((batt_soh > 0) && (sub_batt_soh > 0)) {
+				return (((batt_soh * g_gauge_chip->capacity_pct) +
+					 (sub_batt_soh * g_sub_gauge_chip->capacity_pct)) /
+					100);
+			} else if (batt_soh > 0) {
+				return batt_soh;
+			} else if (sub_batt_soh > 0) {
+				return sub_batt_soh;
+			} else {
+				return 0;
+			}
 		}
 	}
 }

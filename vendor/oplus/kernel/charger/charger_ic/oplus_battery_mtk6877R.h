@@ -63,6 +63,7 @@ enum {
 	CHARGER_NORMAL_CHG_CURVE,
 	CHARGER_FASTCHG_SVOOC_CURVE,
 	CHARGER_FASTCHG_VOOC_AND_QCPD_CURVE,
+	CHARGER_FASTCHG_PPS_AND_UFCS_CURVE,
 };
 struct mtk_pmic {
 	struct charger_manager* oplus_info;
