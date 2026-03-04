@@ -1,0 +1,155 @@
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+&soc {
+	//#ifdef CONFIG_OPLUS_FEATURE_PMIC_MONITOR, read pmic info from nvmem(only for xblloader close)
+		oplus-pmic-monitor-log {
+			compatible = "oplus,pmic-monitor-log";
+			nvmem = <&pmk8350_sdam_5>;
+			nvmem-names = "pon_log";
+		};
+	//#endif
+    //add for 6450 & 7435
+		oplus_secure_common {
+			compatible = "oplus,secure_common";
+			oplus,sec_reg_num = <0x221C0094>;
+			oplus,sec_en_anti_reg = <0x221C011C>;
+			oplus,sec_override1_reg = <0x221C011C>;
+			oplus,override1_en_value = <0x1>;
+		};
+};
+&tlmm {
+    aboard_pin {
+        hw_pins_default:hw_pins_default {
+        };
+
+        aboard_pin_gpio0_sleep:aboard_pin_gpio0_sleep {
+            mux {
+                pins = "gpio34";
+                function = "gpio";
+            };
+
+            config {
+                pins = "gpio34";
+                bias-pull-down;
+                input-enable;
+            };
+        };
+
+        aboard_pin_gpio0_active:aboard_pin_gpio0_active {
+            mux {
+                pins = "gpio34";
+                function = "gpio";
+            };
+
+            config {
+                pins = "gpio34";
+                bias-pull-up;
+                input-enable;
+            };
+        };
+
+        aboard_pin_gpio0_idle:aboard_pin_gpio0_idle {
+            mux {
+                pins = "gpio34";
+                function = "gpio";
+            };
+
+            config {
+                pins = "gpio34";
+                bias-disable;
+                input-enable;
+            };
+        };
+    };
+};
+
+&ramoops_mem {
+	alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
+	size = <0x0 0x240000>;
+	pmsg-size = <0x200000>;
+	console-size = <0x40000>;
+	mem-type = <2>;
+};
+
+&reserved_memory {
+        /delete-node/ qheebsp_reserved_mem;
+	/delete-node/ trust_ui_vm_region;
+	/* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
+	/* Add for device_info */
+	dump_device_info_mem: device_info_mem@0xA4F00000 {
+		reg = <0 0xA4F00000 0 0x00008000>;
+		label = "dump_device_info_mem";
+	};
+	/* #endif OPLUS_FEATURE_DUMP_DEVICE_INFO */
+
+
+	/* #ifdef CONFIG_BOOTLOADER_LOG */
+	/* adapt for bootloader log for sm7435/sm6450 */
+	/*
+	This size is from
+	boot_images/boot/QcomPkg/SocPkg/Netrani/Common/uefiplat.cfg
+	0xA7605000, 0x00008000, "Log Buffer",        AddMem, SYS_MEM, SYS_MEM_CAP, RtData, WRITE_BACK_XN
+	so we reserve this for bootloader log
+	*/
+	bootloader_log_mem: botloader_mem@0xA7605000 {
+		reg = <0 0xA7605000 0 0x00008000>;
+		label = "bootloader_log_mem";
+	};
+	/* #endif CONFIG_BOOTLOADER_LOG */
+        qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
+		no-map;
+		reg = <0x0 0xe0000000 0x0 0>;
+	};
+	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
+		no-map;
+		reg = <0x0 0xe0b00000 0x0 0>;
+	};
+};
+
+
+&soc {
+	/* #ifdef CONFIG_BOOTLOADER_LOG */
+	bootloader_log {
+		compatible = "bootloader_log";
+		linux,contiguous-region = <&bootloader_log_mem>;
+	};
+	/* #endif CONFIG_BOOTLOADER_LOG */
+
+
+	/* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
+	/* Add for device_info */
+	dump_device_info {
+		compatible = "dump_device_info";
+		linux,contiguous-region = <&dump_device_info_mem>;
+	};
+	/* #endif OPLUS_FEATURE_DUMP_DEVICE_INFO */
+};
+
+/*modfiy for powerkey*/
+&pmk8350 {
+        pon_pbs@800 {
+                compatible = "qcom,qpnp-power-on";
+                reg = <0x800>;
+                qcom,system-reset;
+                qcom,store-hard-reset-reason;
+        };
+
+        pon_pmicwd@800 {
+                compatible = "oplus,pmicwd_qpnp-power-on";
+                qcom,pmicwd;
+        };
+};
+
+&soc {
+	shell_front {
+		compatible = "oplus,shell-temp";
+	};
+
+	shell_frame {
+		compatible = "oplus,shell-temp";
+	};
+
+	shell_back {
+		compatible = "oplus,shell-temp";
+	};
+};

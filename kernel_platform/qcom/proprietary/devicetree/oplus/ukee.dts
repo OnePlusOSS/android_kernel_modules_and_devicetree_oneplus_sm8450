@@ -1,0 +1,10 @@
+/dts-v1/;
+
+#include "../qcom/ukee.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. Ukee SoC";
+	compatible = "qcom,ukee";
+	qcom,board-id = <0 0>;
+};
+

@@ -1,0 +1,13 @@
+menuconfig OPLUS_UFCS_CLASS
+	tristate "oplus ufcs class"
+	default n
+	help
+	  Say Y or M to enable oplus ufcs class
+
+config OPLUS_UFCS_CLASS_DEBUG
+	bool "oplus ufcs class debug feature"
+	depends on OPLUS_UFCS_CLASS
+	default n
+	help
+	  Say Y to enable oplus ufcs class debug feature
+

@@ -1,0 +1,5 @@
+config OPLUS_I2C_RST_NOTIFY
+	tristate "gauge i2c reset notify"
+	help
+	  Say Y or M to enable gauge i2c reset notify
+

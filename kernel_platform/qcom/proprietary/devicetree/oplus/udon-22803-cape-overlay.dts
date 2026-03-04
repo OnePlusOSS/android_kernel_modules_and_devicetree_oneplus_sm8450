@@ -1,0 +1,68 @@
+/dts-v1/;
+/plugin/;
+#include <dt-bindings/oplus/hw-id.h>
+#include "../qcom/cape-mtp-pm8010-overlay.dts"
+#include "cape_overlay_common.dtsi"
+#include "udon_22803_overlay_common.dtsi"
+#include "nfc/jennie-nfc-sn100t.dtsi"
+#include "tp/udon_22803_extra_config.dtsi"
+#include "oplus_uff/oplus_uff_22015.dtsi"
+#include "oplus_chg/oplus-chg-22803.dtsi"
+#include "nfc/whiteswan-22001-nfc-sn110t.dtsi"
+#include "oplus_sensor/udon-22803-cape-oplus-sensor.dtsi"
+/ {
+        model = "Qualcomm Technologies, Inc. Cape MTP, Udon";
+        oplus,project-id = <22803 22881>;
+        oplus,hw-id = <OPLUS_EVB1 OPLUS_T0 OPLUS_EVT1 OPLUS_DVT1 OPLUS_PVT1 OPLUS_PVT2 OPLUS_MP1>;
+};
+
+&pm8350b_haptics {
+    qcom,vmax-mv = <1260>;
+    qcom,cl-vmax-mv = <1260>;
+    qcom,lra-period-us = <5882>;
+    qcom,fifo-vmax-mv = <8500>;
+    qcom,old-steady-vmax-mv = <8500>;
+    qcom,cal-data-restore;
+    qcom,vibrator-type = <809>;//ela0809
+    qcom,boost-current-limit = /bits/ 8 <0x55>;
+};
+
+&soc {
+	feedback_fb: feedback_fb {
+		compatible = "oplus,haptic-feedback";
+	};
+};
+
+&tlmm {
+  rf_cable0_active: rf_cable0_active {
+    mux {
+      pins = "gpio89";
+      function = "gpio";
+    };
+    config {
+      pins = "gpio89";
+      drive-strength = <2>;
+      input-enable;
+      bias-pull-up;
+    };
+  };
+};
+
+&sdhc_2 {
+	status = "disabled";
+};
+
+&soc {
+  oplus_rf_cable {
+    compatible = "oplus,rf_cable";
+    interrupt-parent = <&tlmm>;
+    rf_cable_support_num = <1>;
+    rf,cable0-gpio = <&tlmm 89 0>;
+    rf,cable-support-timer = <0>;
+    pinctrl-names = "rf_cable_active";
+    pinctrl-0 = <&rf_cable0_active>;
+  };
+};
+&ufshc_mem{
+  qcom,iommu-faults = "non-fatal";
+};

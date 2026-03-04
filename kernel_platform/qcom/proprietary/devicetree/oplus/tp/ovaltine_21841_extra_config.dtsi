@@ -1,0 +1,96 @@
+&synaptics_tcm {
+	/delete-property/ touchpanel,sensitive-level;
+	touchpanel,sensitive-level = <0 105 85 35 15 10>;
+	/delete-property/ prevention,long_edge_condition;
+	prevention,long_edge_condition = <300 150 180 100>;
+};
+
+&pmk8350_vadc {
+	gpio1b_v {
+		reg = <PM8350_ADC7_AMUX_THM5>;
+		label = "gpio1b_v";
+		qcom,pre-scaling = <1 1>;
+	};
+};
+
+&soc {
+    devinfo {
+        status = "disabled";
+    };
+
+	devinfo_ovaltine {
+		compatible = "oplus-devinfo";
+
+		pinctrl-names = "default", "sleep", "active", "idle";
+		pinctrl-0 = <&hw_pins_default>;
+		pinctrl-1 = <&aboard_pin_gpio0_sleep>;
+		pinctrl-2 = <&aboard_pin_gpio0_active>;
+		pinctrl-3 = <&aboard_pin_gpio0_idle>;
+
+		io-channels= <&pmk8350_vadc PM8350_ADC7_AMUX_THM5>;
+		io-channel-names= "vph_pwr_voltage_sub";
+
+		// ovaltine A1 platelets
+		main-sub {
+			compatible = "hw-match, main-sub";
+			use_pmic_adc;
+			adc_ranges = <0 80
+					81 180
+					181 300
+					301 420
+					421 550
+					551 650
+					651 760
+					761 850
+					851 950
+					951 1050
+					1051 1150
+					1151 1300>;
+			aboard-patterns = <0 0 1 2 2>;  // defult 
+
+			/*main board*/
+			match-projects = <21841 21842 21842 21842 21842>;
+		};
+
+		// ovaltine A2 platelets
+		main-sub-a2 {
+			compatible = "hw-match, main-sub-a2";
+			use_tristate_gpio;
+			aboard-gpio0 = <&pm8350c_gpios 3 0>;
+			aboard-patterns = <0 0 0 1 1>;	/*0[high-resistance] 1[pull-down] 2[pull-up]*/
+			/*region id*/
+			region-patterns = <1 1 2 3 3>;
+
+			/*main board*/
+			match-projects = <21841 21842 21842 21842 21842>;
+		};
+	};
+};
+
+&pm8350c_gpios {
+	aboard_pin {
+		hw_pins_default:hw_pins_default {
+		};
+
+		aboard_pin_gpio0_sleep:aboard_pin_gpio0_sleep {
+				pins = "gpio3";
+				function = "gpio";
+				bias-pull-down;
+				input-enable;
+		};
+
+		aboard_pin_gpio0_active:aboard_pin_gpio0_active {
+				pins = "gpio3";
+				function = "gpio";
+				bias-pull-up;
+				input-enable;
+		};
+
+		aboard_pin_gpio0_idle:aboard_pin_gpio0_idle {
+				pins = "gpio3";
+				function = "gpio";
+				bias-disable;
+				input-enable;
+		};
+	};
+};

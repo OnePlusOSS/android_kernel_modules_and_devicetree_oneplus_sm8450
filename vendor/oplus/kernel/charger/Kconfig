@@ -1,0 +1,178 @@
+menuconfig OPLUS_CHARGER
+	bool "OPLUS charging system"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say Y here to enable OPLUS charging system support
+
+if OPLUS_CHARGER
+config OPLUS_CHARGER_DDK_BUILD
+	bool "oplus charger module build by ddk"
+	default n
+	help
+	  Say Y to support ddk build
+
+config OPLUS_CHARGER_MTK
+	bool "OPLUS charger on MTK"
+	help
+	  Say Y here to declare charging system is on MTK
+
+config OPLUS_HVDCP_SUPPORT
+        bool "OPLUS_HVDCP_SUPPORT"
+        default n
+        help
+          Set yes to support mtk hvdcp.
+
+config OPLUS_4400MV_BATTERY_SUPPORT
+	bool "OPLUS_CHECK_CHARGERID_VOLT"
+	default n
+	help
+	  Set yes to support BATTERYID features
+	  smart battery.
+	  Set No to disable BATTERYID features
+	  smart battery.
+
+config OPLUS_CHIP_SOC_NODE
+        bool "OPLUS chip soc node"
+        help
+          Say Y to include support
+
+config MTK_KERNEL_POWER_OFF_CHARGING
+	bool "MTK kernel power off charging"
+	default n
+	help
+	  yes : support KPOC feature, power off charging would running by
+	  kernel and charging animation by kpoc service. no: not support KPOC
+	  feature.
+	  device won't enter charging mode if config is no.
+
+config OPLUS_MTK_DRM_GKI_NOTIFY_CHG
+	default n
+	tristate "chg mtk gki notify"
+
+config DISABLE_OPLUS_FUNCTION
+	bool "CONFIG_DISABLE_OPLUS_FUNCTION"
+	default n
+	help
+	  Say Y to include supports
+
+config OPLUS_CALL_MODE_SUPPORT
+	bool "OPLUS call mode support"
+	help
+	  Say Y to include support
+
+config OPLUS_SMART_CHARGER_SUPPORT
+	bool "OPLUS smart charger support"
+	help
+	  Say Y to include support
+
+config OPLUS_RTC_DET_SUPPORT
+	bool "OPLUS RTC DET SUPPORT"
+	default n
+	help
+	  Say Y to include support
+
+config OPLUS_CHECK_CHARGERID_VOLT
+	bool "OPLUS CHECK CHARGERID VOLT"
+	default n
+	help
+	  Say Y to include support
+
+config OPLUS_SHIP_MODE_SUPPORT
+	bool "OPLUS_SHIP_MODE_SUPPORT"
+	default n
+	help
+	  Say Y to include support
+
+config OPLUS_CHG_DYNAMIC_CONFIG
+	bool "OPLUS_CHG_DYNAMIC_CONFIG"
+	default n
+	help
+	  Say Y to include support
+
+config OPLUS_CHARGER_MTK6877
+	bool "OPLUS_CHARGER_MTK6877"
+	default n
+	help
+	  Set yes to support OPLUS_CHARGER_MTK6877 features
+	  smart battery.
+	  Set No to disable OPLUS_CHARGER_MTK6877 features
+	  smart battery.
+
+config OPLUS_CHARGER_MTK6833
+	bool "OPLUS_CHARGER_MTK6833"
+	default n
+	help
+	  Set yes to support OPLUS_CHARGER_MTK6833 features
+	  smart battery.
+	  Set No to disable OPLUS_CHARGER_MTK6833 features
+	  smart battery.
+config OPLUS_SHORT_HW_CHECK
+	bool "OPLUS batt HW SHORT "
+	help
+	  Say Y here to declare charging system is on MTK
+
+config OPLUS_CHARGER_MTK6769R
+	bool "OPLUS_CHARGER_MTK6769R"
+	default n
+	help
+	  Set yes to support OPLUS_CHARGER_MTK6769R features
+	  smart battery.
+	  Set No to disable OPLUS_CHARGER_MTK6769R features
+	  smart battery.
+
+config CHARGER_SC6607
+        bool "Charger Driver for SC6607 Charger IC"
+        default n
+        depends on MTK_CHARGER
+        help
+          Say Yes to enable SC6607 driver.
+          It depends on config MTK_CHARGER.
+
+config OPLUS_CHARGER_MTK_CHGIC
+        bool "OPLUS_CHARGER_MTK_CHG_IC"
+        default n
+        help
+          Say Yes to use MTK platform charger ic
+          Say No to use extern charger ic
+
+config OPLUS_MAGCVR_NOTIFY
+	tristate "OPLUS_MAGCVR_NOTIFY"
+	default n
+	help
+	  define this config to open magcvr notify
+
+menuconfig OPLUS_CHG
+	tristate "OPLUS CHARGER KO module"
+	default n
+depends on I2C
+	select REGMAP_I2C
+	help
+	  Enables support for the oplus charging v1 framework
+
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/v1/Kconfig"
+
+menuconfig OPLUS_CHG_V2
+	tristate "OPLUS charging V2 system"
+	default n
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Enables support for the oplus charging v2 framework
+
+if OPLUS_CHG_V2
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/v2/Kconfig"
+endif
+
+config OPLUS_CHARGER_WIRELESS_RA9530
+	bool "OPLUS charger wireless pen 9530 ic"
+	help
+	  Say Y to include support
+
+endif #OPLUS_CHARGER
+
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/test-kit/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/debug-kit/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/config/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/wireless_pen/Kconfig"
+source "$(KCONFIG_EXT_PREFIX)drivers/power/oplus/gauge_i2c_rst/Kconfig"

@@ -1,0 +1,8 @@
+&reserved_memory {
+	/delete-node/ trusted_apps_ext_region@ed900000;
+	trusted_apps_ext_mem: trusted_apps_ext_region@ed900000 {
+		no-map;
+		reg = <0x0 0xed900000 0x0 0x6d00000>;
+	};
+
+};

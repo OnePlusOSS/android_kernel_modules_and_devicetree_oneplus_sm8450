@@ -1,0 +1,56 @@
+&soc {
+	// #ifdef OPLUS_FEATURE_UFF_FINGERPRINT
+	fingerprint_dev {
+		status = "ok";
+		compatible = "oplus,fp_spi";
+		interrupt-parent = <&tlmm>;
+		interrupts = <40 0>;
+		power-mode = <2> ; /*0: power mode not set, 1: ldo power, 2: gpio power, 3: auto power */
+		uff,gpio_irq = <&tlmm 40 0x1>;
+		uff,gpio_reset = <&tlmm 41 0x0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fp_irq_gpio_default>,<&fp_reset_gpio_default>;
+		notify_tpinfo_flag = <1>;
+		pw_en_gpio = <&tlmm 183 0x0>;
+		power-num = <1>;
+		power_source_1 {
+			power-mode = <2>;
+			power-name = "pw_en_gpio";
+			poweron-level = <1>;
+			delay-time = <0>;
+		};
+	};
+	//#endif /*OPLUS_FEATURE_UFF_FINGERPRINT*/
+};
+
+&tlmm {
+	// #ifdef OPLUS_FEATURE_UFF_FINGERPRINT
+	fingerprint_dev{
+		fp_irq_gpio_default: fp_irq_gpio_default {
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio40";
+				drive-strength = <2>;
+				bias-disable;
+				input-enable;
+			};
+		};
+
+		fp_reset_gpio_default: fp_reset_gpio_default {
+			mux {
+				pins = "gpio41";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio41";
+				drive-strength = <2>;
+				bias-disable;
+				output-low;
+			};
+		};
+	};
+	//#endif /*OPLUS_FEATURE_UFF_FINGERPRINT*/
+};

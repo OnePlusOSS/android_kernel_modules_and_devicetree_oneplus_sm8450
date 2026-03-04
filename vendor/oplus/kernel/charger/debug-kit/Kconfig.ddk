@@ -1,0 +1,6 @@
+config OPLUS_FEATURE_CHG_DEBUG_KIT
+	tristate "Charger Debug Kit"
+	depends on REGMAP
+	default n
+	help
+	  Say Y or M to enable debug kit

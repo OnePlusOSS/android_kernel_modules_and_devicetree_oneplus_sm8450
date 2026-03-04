@@ -1,0 +1,63 @@
+/* Copyright (c) 2020, Pixelworks
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-oplus22803-nt37705-1240-2772-dsc-cmd-udc-2nd.dtsi"
+
+&soc {
+	/* avoid failed to parse power config */
+	dsi_panel_pwr_sec_supply: dsi_panel_pwr_sec_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "dummy";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <60700>;
+			qcom,supply-disable-load = <80>;
+			qcom,supply-post-on-sleep = <0>;
+		};
+	};
+};
+
+&sde_dsi1 {
+	pinctrl-0 = <&sde_te1_active>;
+	pinctrl-1 = <&sde_te1_suspend>;
+};
+
+&dsi_oplus22803_nt37705_1240_2772_dsc_cmd {
+	pxlw,iris-chip-capability = <0x1 0x1 0x7 0x7f 0x1>;
+	qcom,dsi-ctrl-num = <0>;
+	qcom,dsi-phy-num = <0>;
+	qcom,iris-supply-entries = <&dsi_iris_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
+};
+
+
+&dsi_oplus22803_nt37705_1240_2772_dsc_cmd_2nd {
+	pxlw,iris-chip-capability = <0x1 0x1 0x7 0x7f 0x1>;
+	qcom,dsi-sec-ctrl-num = <1>;
+	qcom,dsi-sec-phy-num = <1>;
+	qcom,panel-sec-supply-entries = <&dsi_panel_pwr_sec_supply>;
+	qcom,mdss-dsi-sec-bl-pmic-control-type = "bl_ctrl_external";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-brightness-max-level = <4095>;
+	//qcom,platform-te-gpio = <&tlmm 87 0>;
+};
+
+/* select panel */
+&mdss_mdp {
+	pxlw,dsi-display-primary-active = "qcom,mdss_dsi_oplus22803_nt37705_1240_2772_dsc_cmd";
+	pxlw,dsi-display-secondary-active = "qcom,mdss_dsi_oplus22803_nt37705_1240_2772_dsc_cmd_2nd";
+};

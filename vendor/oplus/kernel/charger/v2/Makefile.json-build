@@ -1,0 +1,58 @@
+# charger top config
+chg_v2_src = $(KCONFIG_EXT_PREFIX)drivers/power/oplus/v2
+script_dir = $(srctree)/$(chg_v2_src)/scripts
+chg_top_cfg_path = $(srctree)/$(chg_v2_src)/config
+chg_top_cfg = $(chg_top_cfg_path)/oplus_chg_ic.json
+
+# charger ic config
+chg_ic_cfg_path = $(srctree)/$(chg_v2_src)/config/ic
+chg_ic_cfg = $(chg_ic_cfg_path)/common.json
+chg_ic_cfg += $(chg_ic_cfg_path)/wireless_rx.json
+chg_ic_cfg += $(chg_ic_cfg_path)/buck_boost.json
+chg_ic_cfg += $(chg_ic_cfg_path)/charge_pump.json
+chg_ic_cfg += $(chg_ic_cfg_path)/gauge.json
+chg_ic_cfg += $(chg_ic_cfg_path)/misc.json
+chg_ic_cfg += $(chg_ic_cfg_path)/voocphy.json
+chg_ic_cfg += $(chg_ic_cfg_path)/vooc.json
+chg_ic_cfg += $(chg_ic_cfg_path)/ufcs.json
+chg_ic_cfg += $(chg_ic_cfg_path)/pps.json
+chg_ic_cfg += $(chg_ic_cfg_path)/switch.json
+chg_ic_cfg += $(chg_ic_cfg_path)/gauge2.json
+chg_ic_cfg += $(chg_ic_cfg_path)/sec.json
+
+chg_ic_cfg_c = $(chg_v2_src)/oplus_chg_ic_cfg_str.h
+chg_ic_cfg_debug = $(chg_v2_src)/oplus_chg_ic_auto_debug.h
+chg_ic_cfg_h = $(chg_v2_src)/oplus_chg_ic_cfg.h
+chg_ic_cfg_json = $(chg_v2_src)/oplus_chg_ic_cfg.json
+chg_ic_cfg_md = $(chg_v2_src)/oplus_chg_ic_cfg.md
+chg_ic_cfg_parse = $(script_dir)/ic_cfg_parse.py
+ccflags-y += -I$(objtree)/$(chg_v2_src)
+
+sub_objtool_obj += $(objtree)/$(chg_ic_cfg_c)
+sub_objtool_obj += $(objtree)/$(chg_ic_cfg_h)
+sub_objtool_obj += $(objtree)/$(chg_ic_cfg_debug)
+sub_objtool_obj += $(objtree)/$(chg_ic_cfg_json)
+
+quiet_cmd_parse_chg_cfg_h = PARSE   $(<:$(srctree)/%=%)
+      cmd_parse_chg_cfg_h = $(PYTHON3) $(chg_ic_cfg_parse) -hd $@ $<
+
+quiet_cmd_parse_chg_cfg_c = PARSE   $(<:$(srctree)/%=%)
+      cmd_parse_chg_cfg_c = $(PYTHON3) $(chg_ic_cfg_parse) -s $@ $<
+
+quiet_cmd_parse_chg_cfg_debug = PARSE   $(<:$(srctree)/%=%)
+      cmd_parse_chg_cfg_debug = $(PYTHON3) $(chg_ic_cfg_parse) -df $@ $<
+
+quiet_cmd_merge_chg_cfg = MERGE   $(<:$(srctree)/%=%)
+      cmd_merge_chg_cfg = $(PYTHON3) $(chg_ic_cfg_parse) -m $@ -md $(chg_ic_cfg_md) $<
+
+$(objtree)/$(chg_ic_cfg_h): $(chg_top_cfg) $(chg_ic_cfg) $(chg_ic_cfg_parse) FORCE
+	$(call cmd,parse_chg_cfg_h)
+
+$(objtree)/$(chg_ic_cfg_json): $(chg_top_cfg) $(chg_ic_cfg) $(chg_ic_cfg_parse) FORCE
+	$(call cmd,merge_chg_cfg)
+
+$(objtree)/$(chg_ic_cfg_c): $(chg_top_cfg) $(chg_ic_cfg) $(chg_ic_cfg_parse) FORCE
+	$(call cmd,parse_chg_cfg_c)
+
+$(objtree)/$(chg_ic_cfg_debug): $(chg_top_cfg) $(chg_ic_cfg) $(chg_ic_cfg_parse) FORCE
+	$(call cmd,parse_chg_cfg_debug)

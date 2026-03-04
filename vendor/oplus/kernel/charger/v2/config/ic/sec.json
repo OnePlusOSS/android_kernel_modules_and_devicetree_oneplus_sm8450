@@ -1,0 +1,293 @@
+{
+    "type": "ic_cfg",
+    "name": "sec",
+    "max": 100,
+    "enum_list": [],
+    "list": [
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_GET_ROMID",
+            "desc": {
+                "zh": "获取加密IC的硬件ID"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["unsigned char *", "int *"],
+            "parameter_desc": [
+                {
+                    "range": "*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "加密IC的硬件ID"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "加密IC的硬件ID长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_WRITE_PAGE",
+            "desc": {
+                "zh": "向加密IC写入整个page"
+            },
+            "auto_debug_code": false,
+            "parameter_list": ["int", "unsigned char *", "int"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "page id"
+                    }
+                },
+                {
+                    "range": "*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "写入page的数据"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "数据长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_READ_PAGE",
+            "desc": {
+                "zh": "从加密IC读出整个page"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int", "unsigned char *", "int*"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "读出的page id"
+                    }
+                },
+                {
+                    "range": "*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "读出的page数据"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "读出page的数据长度"
+                    }
+                }
+
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_ECDSA",
+            "desc": {
+                "zh": "执行加密IC的ECDSA签名算法"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool *"],
+            "parameter_desc": [
+                {
+                    "range": "0,1",
+                    "type": "out",
+                    "desc": {
+                        "zh": "ecdsa是否成功"
+                    }
+                }
+
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_ECW",
+            "desc": {
+                "zh": "执行加密IC的ECW算法"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool *"],
+            "parameter_desc": [
+                {
+                    "range": "0,1",
+                    "type": "out",
+                    "desc": {
+                        "zh": "ecw是否成功"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_SHUTDOWN",
+            "desc": {
+                "zh": "使加密IC休眠"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool *"],
+            "parameter_desc": [
+                {
+                    "range": "0,1",
+                    "type": "out",
+                    "desc": {
+                        "zh": "休眠是否成功"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_SET_PRIKEY",
+            "desc": {
+                "zh": "给加密IC设置私钥"
+            },
+            "auto_debug_code": false,
+            "parameter_list": ["int", "unsigned char *", "int"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "对应加密IC的序号"
+                    }
+                },
+                {
+                    "range": "*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "私钥数据"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "私钥长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
+
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SEC_GET_PRIKEY_INDEX",
+            "desc": {
+                "zh": "获取加密IC的公钥序号"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int*"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "公钥序号"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        }
+    ],
+
+    "version": "V1.0:8:cb2c481e286ce84c00aae092e57471083c23d16ef489ca465887919edc1c3f1f"
+}

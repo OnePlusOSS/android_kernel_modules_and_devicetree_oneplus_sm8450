@@ -1,0 +1,807 @@
+{
+    "type": "ic_cfg",
+    "name": "charge_pump",
+    "max": 100,
+    "enum_list": [
+        {
+            "name": "oplus_cp_work_mode",
+            "desc":{
+                "zh": "虚拟IC框架CP工作模式类型"
+            },
+            "list": [
+                {
+                    "lable": "CP_WORK_MODE_UNKNOWN",
+                    "desc": {
+                        "zh": "未知的工作模式"
+                    },
+                    "str": "unknown"
+                },
+                {
+                    "lable": "CP_WORK_MODE_AUTO",
+                    "desc": {
+                        "zh": "自动模式"
+                    },
+                    "str": "auto"
+                },
+                {
+                    "lable": "CP_WORK_MODE_BYPASS",
+                    "desc": {
+                        "zh": "bypass模式"
+                    },
+                    "str": "bypass"
+                },
+                {
+                    "lable": "CP_WORK_MODE_2_TO_1",
+                    "desc": {
+                        "zh": "2:1模式"
+                    },
+                    "str": "2:1"
+                },
+                {
+                    "lable": "CP_WORK_MODE_3_TO_1",
+                    "desc": {
+                        "zh": "3:1模式"
+                    },
+                    "str": "3:1"
+                },
+                {
+                    "lable": "CP_WORK_MODE_4_TO_1",
+                    "desc": {
+                        "zh": "4:1模式"
+                    },
+                    "str": "4:1"
+                },
+                {
+                    "lable": "CP_WORK_MODE_1_TO_2",
+                    "desc": {
+                        "zh": "1:2模式"
+                    },
+                    "str": "1:2"
+                },
+                {
+                    "lable": "CP_WORK_MODE_1_TO_3",
+                    "desc": {
+                        "zh": "1:3模式"
+                    },
+                    "str": "1:3"
+                },
+                {
+                    "lable": "CP_WORK_MODE_1_TO_4",
+                    "desc": {
+                        "zh": "1:4模式"
+                    },
+                    "str": "1:4"
+                }
+            ]
+        },
+        {
+            "name": "oplus_cp_strategy_type",
+            "desc":{
+                "zh": "CP开关控制策略类型"
+            },
+            "list": [
+                {
+                    "lable": "CP_STRAT_OPEN_ALL",
+                    "desc": {
+                        "zh": "同时开启或关闭"
+                    },
+                    "str": "open_all"
+                },
+                {
+                    "lable": "CP_STRAT_OPEN_BY_CURR",
+                    "desc": {
+                        "zh": "根据输入电流动态开启或关闭"
+                    },
+                    "str": "open_by_current"
+                }
+            ]
+        },
+        {
+            "name": "oplus_chg_cp_error",
+            "desc":{
+                "zh": "电荷泵故障类型"
+            },
+            "list": [
+                {
+                    "lable": "CP_ERR_HW_OCP",
+                    "desc": {
+                        "zh": "硬件过流保护"
+                    },
+                    "str": "hw_ocp"
+                },
+                {
+                    "lable": "CP_ERR_HW_OVP",
+                    "desc": {
+                        "zh": "硬件过压保护"
+                    },
+                    "str": "hw_ovp"
+                },
+                {
+                    "lable": "CP_ERR_HW_UCP",
+                    "desc": {
+                        "zh": "硬件欠流保护"
+                    },
+                    "str": "hw_ucp"
+                },
+                {
+                    "lable": "CP_ERR_HW_UVP",
+                    "desc": {
+                        "zh": "硬件欠压保护"
+                    },
+                    "str": "hw_uvp"
+                },
+                {
+                    "lable": "CP_ERR_SW_OCP",
+                    "desc": {
+                        "zh": "软件过流保护"
+                    },
+                    "str": "sw_ocp"
+                },
+                {
+                    "lable": "CP_ERR_SW_OVP",
+                    "desc": {
+                        "zh": "软件过压保护"
+                    },
+                    "str": "sw_ovp"
+                },
+                {
+                    "lable": "CP_ERR_SW_UCP",
+                    "desc": {
+                        "zh": "软件欠流保护"
+                    },
+                    "str": "sw_ucp"
+                },
+                {
+                    "lable": "CP_ERR_SW_UVP",
+                    "desc": {
+                        "zh": "软件欠压保护"
+                    },
+                    "str": "sw_uvp"
+                },
+                {
+                    "lable": "CP_ERR_OPEN",
+                    "desc": {
+                        "zh": "开启故障"
+                    },
+                    "str": "open"
+                },
+                {
+                    "lable": "CP_ERR_I2C",
+                    "desc": {
+                        "zh": "i2c总线故障"
+                    },
+                    "str": "i2c"
+                },
+                {
+                    "lable": "CP_ERR_REG_INFO",
+                    "desc": {
+                        "zh": "寄存器信息"
+                    },
+                    "str": "reg_info"
+                },
+                {
+                    "lable": "CP_ERR_ONLINE_CHANGE",
+                    "desc": {
+                        "zh": "子IC在线状态变化"
+                    },
+                    "str": "online_change"
+                }
+            ]
+        }
+    ],
+    "list": [
+        {
+            "lable": "OPLUS_IC_FUNC_CP_ENABLE",
+            "desc": {
+                "zh": "电荷泵使能（并不会开启充电）"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "in",
+                    "desc": {
+                        "zh": "1: 使能, 0: 禁用"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "设置电荷泵是否使能，是否使能由val决定"
+                    }
+                },
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传入的使能状态"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_HW_INTI",
+            "desc": {
+                "zh": "电荷泵硬件初始化"
+            },
+            "auto_debug_code": true,
+            "parameter_list": [],
+            "parameter_desc": [],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S vic-*",
+                    "desc": {
+                        "zh": "设置芯片硬件初始化"
+                    }
+                },
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_SET_WORK_MODE",
+            "desc": {
+                "zh": "设置电荷泵工作模式"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["enum oplus_cp_work_mode"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "待补充"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "设置电荷泵工作模式，工作模式由val决定"
+                    }
+                },
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传入的工作模式"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_WORK_MODE",
+            "desc": {
+                "zh": "获取电荷泵工作模式"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["enum oplus_cp_work_mode *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "待补充"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回电荷泵的工作模式"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的工作模式"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_CHECK_WORK_MODE_SUPPORT",
+            "desc": {
+                "zh": "检查电荷泵是否支持某个工作模式"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["enum oplus_cp_work_mode"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "待补充"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G{val} vic-*",
+                    "desc": {
+                        "zh": "返回val对应的工作模式的检查结果"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖输出的检查结果"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_SET_IIN",
+            "desc": {
+                "zh": "设置电荷泵输入电流（主要用来控制从CP的开启和关闭）"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "电荷泵输入电流，单位mA"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "设置电荷泵的输入电流为val"
+                    }
+                },
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的电压"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_VIN",
+            "desc": {
+                "zh": "获取电荷泵输入电压"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "电荷泵输入电压，单位mV"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回获取到的电压"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的电压"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_IIN",
+            "desc": {
+                "zh": "获取电荷泵输入电流"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "电荷泵输入电流，单位mA"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回获取到的电流"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的电流"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_VOUT",
+            "desc": {
+                "zh": "获取电荷泵输出电压"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "电荷泵输出电压，单位mV"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回获取到的电压"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的电压"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_IOUT",
+            "desc": {
+                "zh": "获取电荷泵输出电流"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "电荷泵输出电流，单位mA"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回获取到的电流"
+                    }
+                },
+                "write": false,
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的电流"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_VAC",
+            "desc": {
+                "zh": "获取USB口输入电压"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "USB口输入电压，单位mV"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回获取到的电压"
+                    }
+                },
+                "write": false,
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖USB口输入电压"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_SET_WORK_START",
+            "desc": {
+                "zh": "开启电荷泵"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "in",
+                    "desc": {
+                        "zh": "0:关闭, 1:开启"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "设置电荷泵是否开启，是否开启由val决定"
+                    }
+                },
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传入的开启状态"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_WORK_STATUS",
+            "desc": {
+                "zh": "获取电荷泵工作（开启）状态"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool *"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "out",
+                    "desc": {
+                        "zh": "0:关闭, 1:开启"
+                    }
+                }
+            ],
+            "vict": {
+               "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回电荷泵的开启状态"
+                    }
+                },
+                "write": false,
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的开启状态"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_SET_ADC_ENABLE",
+            "desc": {
+                "zh": "开启电荷泵的ADC功能"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "in",
+                    "desc": {
+                        "zh": "0:关闭, 1:开启"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "设置电荷泵ADC是否开启，是否开启由val决定"
+                    }
+                },
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传入的开启状态"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_WATCHDOG_ENABLE",
+            "desc": {
+                "zh": "设置电荷泵watchdog开关及timeout时长"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "电荷泵watchgdog timeout时长，单位毫秒"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "设置电荷泵watchdog timeout时长，由val决定，单位毫秒"
+                    }
+                },
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传出的watchdog timeout时长，单位毫秒"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_TEMP",
+            "desc": {
+                "zh": "获取CP温度"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "CP温度，单位摄氏度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_SET_UCP_DISABLE",
+            "desc": {
+                "zh": "关闭ucp"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "in",
+                    "desc": {
+                        "zh": "1:关闭, 0:开启"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "开关UCP"
+                    }
+                },
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传入的开启状态"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_GET_IIN_MAX",
+            "desc": {
+                "zh": "获取CP在某个工作模式下最大支持的输入电流"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["enum oplus_cp_work_mode", "int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "cp的工作模式"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "最大输入电流，单位mA"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_WATCHDOG_RESET",
+            "desc": {
+                "zh": "复位CP的看门狗"
+            },
+            "auto_debug_code": true,
+            "parameter_list": [],
+            "parameter_desc": [],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_CP_SET_SSTIMEOUT_UCP_ENABLE",
+            "desc": {
+                "zh": "SS timeout和ucp开关"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "in",
+                    "desc": {
+                        "zh": "1:打开, 0:关闭"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S{val} vic-*",
+                    "desc": {
+                        "zh": "SS timeout和ucp开关"
+                    }
+                },
+                 "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "使用val覆盖传入的开启状态"
+                    }
+                }
+            }
+        }
+    ],
+
+    "version": "V2.3:20:f5b8fe23dec6d58f3e5980881af2bb23af34eb7f0a541058c6a13bb833a102c6"
+}

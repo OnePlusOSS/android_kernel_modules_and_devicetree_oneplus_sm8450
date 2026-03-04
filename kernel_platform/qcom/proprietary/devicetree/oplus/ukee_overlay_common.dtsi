@@ -1,0 +1,336 @@
+#include <dt-bindings/regulator/qcom,rpmh-regulator-levels.h>
+
+&apps_rsc {
+
+	//#ifdef OPLUS_FEATURE_FINGERPRINT
+	rpmh-regulator-ldoc11 {
+		compatible = "qcom,rpmh-vrm-regulator";
+		qcom,resource-name = "ldoc11";
+		qcom,regulator-type = "pmic5-ldo";
+		qcom,supported-modes =
+			<RPMH_REGULATOR_MODE_LPM
+			 RPMH_REGULATOR_MODE_HPM>;
+		qcom,mode-threshold-currents = <0 10000>;
+		L11C: pm8350c_l11: regulator-pm8350c-l11 {
+			regulator-name = "pm8350c_l11";
+			qcom,set = <RPMH_REGULATOR_SET_ALL>;
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3000000>;
+			qcom,init-voltage = <3000000>;
+			qcom,init-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+	//#endif /*OPLUS_FEATURE_FINGERPRINT*/
+
+};
+
+/* #ifdef OPLUS_ARCH_EXTENDS */
+&fsa4480 {
+	status = "disabled";
+};
+
+&qupv3_se14_i2c {
+	status = "ok";
+	fsa4480_new: fsa4480_new@42 {
+		status = "ok";
+		compatible = "qcom,fsa4480-i2c";
+		reg = <0x42>;
+	};
+};
+/* OPLUS_ARCH_EXTENDS */
+
+/* #ifdef OPLUS_ARCH_EXTENDS */
+&video_mem {
+	reg = <0x0 0x9fd00000 0x0 0x700000>;
+};
+
+&adsp_mem {
+	reg = <0x0 0x85700000 0x0 0x2800000>;
+};
+/* OPLUS_ARCH_EXTENDS */
+
+&soc {
+	//#ifdef CONFIG_OPLUS_FEATURE_PMIC_MONITOR, read pmic info from nvmem(only for xblloader close)
+		oplus-pmic-monitor-log {
+			compatible = "oplus,pmic-monitor-log";
+			nvmem = <&pmk8350_sdam_5>;
+			nvmem-names = "pon_log";
+		};
+	//#endif
+	//#ifdef CONFIG_OPLUS_OMRG
+	oplus-omrg {
+		compatible = "oplus,oplus-omrg";
+		oplus-omrg0 {
+			oplus,divider-cells = <2>;
+			oplus,omrg-master = <&CPU4 1555200 1996800>;
+			oplus,omrg-slave = <&CPU0 1440000 1804800>;
+			up_limit_enable;
+			/* down_limit_enable; */
+			/* thermal_enable; */
+		};
+	};
+	//#endif
+	//#ifdef CONFIG_OPLUS_IPA_THERMAL
+	ipa_sensor0: ipa-sensor@0 {
+		compatible = "oplus,ipa-thermal-sensor";
+		#thermal-sensor-cells = <1>;
+	};
+	//#endif
+};
+//ukee-pinctrl.dtsi
+&tlmm {
+	uphall_tri_state_key_active: uphall_tri_state_key_active {
+		mux {
+			pins = "gpio71";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio71";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+
+	downhall_tri_state_key_active: downhall_tri_state_key_active {
+		mux {
+			pins = "gpio117";
+			function = "gpio";
+		};
+		config {
+			pins = "gpio117";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
+	};
+//#endif /*OPLUS_FEATURE_TP_BASIC*/
+
+	//#ifdef OPLUS_FEATURE_FINGERPRINT
+	oplus_fp_common{
+		gpio_id2_default: gpio_id2_default {
+			mux {
+				pins = "gpio42";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio42";
+				drive-strength = <2>;
+				bias-pull-up;
+				input-enable;
+			};
+		};
+	};
+	goodix_fp{
+		gpio_goodix_irq_default: gpio_goodix_irq_default {
+			mux {
+				pins = "gpio40";
+				function = "gpio";
+			};
+			config {
+				pins = "gpio40";
+				drive-strength = <2>;
+				bias-pull-down;
+				input-enable;
+			};
+		};
+	};
+	//#endif /*OPLUS_FEATURE_FINGERPRINT*/
+};
+
+&soc {
+	/*#ifdef OPLUS_FEATURE_TP_BASIC*/
+	gpio_keys {
+		compatible = "gpio-keys";
+		label = "gpio-keys";
+
+		pinctrl-names = "default";
+		pinctrl-1 = <&key_vol_down>;
+
+		vol_up {
+			status="disabled";
+		};
+
+		vol_down {
+			label = "volume_down";
+			gpios = <&pm8350_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,input-type = <1>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+			linux,can-disable;
+		};
+	};
+	/*#endif OPLUS_FEATURE_TP_BASIC*/
+};
+
+/*#ifdef OPLUS_FEATURE_TP_BASIC*/
+&pmk8350 {
+	pon_hlos@1300 {
+		resin {
+		    qcom,pon-type = <PON_POWER_ON_TYPE_RESIN>;
+		    linux,code = <KEY_VOLUMEUP>;
+		};
+	};
+
+//#ifdef CONFIG_OPLUS_FEATURE_QCOM_PMICWD
+//pmicwd depend on pon_pbs@800
+	pon_pbs@800 {
+		compatible = "qcom,qpnp-power-on";
+		reg = <0x800>;
+		qcom,system-reset;
+	};
+
+	pon_pmicwd@800 {
+		compatible = "oplus,pmicwd_qpnp-power-on";
+		qcom,pmicwd;
+	};
+//#endif /* CONFIG_OPLUS_FEATURE_QCOM_PMICWD */
+};
+
+&pm8350_gpios {
+	key_vol_down {
+		key_vol_down: key_vol_down {
+			pins = "gpio6";
+			function = "normal";
+			input-enable;
+			bias-pull-up;
+			power-source = <1>;
+		};
+	};
+};
+/*#endif OPLUS_FEATURE_TP_BASIC*/
+
+/*#ifdef OPLUS_FEATURE_SECURITY_COMMON*/
+&firmware {
+	android {
+		vbmeta {
+			parts = "vbmeta,boot,system,vendor,dtbo,recovery,vendor_boot";
+		};
+
+		fstab {
+			vendor {
+				fsmgr_flags = "wait,slotselect,avb";
+			};
+		};
+	};
+};
+/*#endif OPLUS_FEATURE_SECURITY_COMMON*/
+
+/*#ifdef OPLUS_FEATURE_SECURITY_COMMON*/
+&soc {
+	oplus_secure_common {
+		compatible = "oplus,secure_common";
+		oplus,sec_reg_num = <0x221C8604>;
+		oplus,sec_en_anti_reg = <0x221C21B0>;
+		oplus,sec_override1_reg = <0x221C21B0>;
+		oplus,override1_en_value = <0x1>;
+	};
+};
+//#endif /*OPLUS_FEATURE_SECURITY_COMMON*/
+
+/* #ifdef OPLUS_FEATURE_DUMP_DEVICE_INFO */
+&reserved_memory {
+	dump_device_info_mem: device_info_mem@0xA4F00000 {
+		reg = <0 0xA4F00000 0 0x00008000>;
+		label = "dump_device_info_mem";
+	};
+};
+
+&soc {
+	dump_device_info {
+		compatible = "dump_device_info";
+		linux,contiguous-region = <&dump_device_info_mem>;
+	};
+};
+
+&ramoops_mem {
+	alloc-ranges = <0x0 0x00000000 0xffffffff 0xffffffff>;
+	size = <0x0 0x240000>;
+	pmsg-size = <0x200000>;
+	console-size = <0x40000>;
+	mem-type = <2>;
+};
+/* #endif OPLUS_FEATURE_DUMP_DEVICE_INFO */
+
+/* #ifdef CONFIG_BOOTLOADER_LOG */
+&reserved_memory {
+        /delete-node/ qheebsp_reserved_mem;
+	/delete-node/ trust_ui_vm_region;
+        /*
+        This size is from
+        boot_images/boot/QcomPkg/SocPkg/Palima/Common/uefiplat.cfg
+        0xA7605000, 0x00008000, "Log Buffer",        AddMem, SYS_MEM, SYS_MEM_CAP, RtData, WRITE_BACK_XN
+        so we reserve this for bootloader log
+        */
+        bootloader_log_mem: botloader_mem@0xA7605000 {
+                reg = <0 0xA7605000 0 0x00008000>;
+                label = "bootloader_log_mem";
+        };
+
+        qheebsp_reserved_mem: qheebsp_reserved_region@e0000000 {
+		no-map;
+		reg = <0x0 0xe0000000 0x0 0>;
+	};
+	trust_ui_vm_mem: trust_ui_vm_region@e0b00000 {
+		no-map;
+		reg = <0x0 0xe0b00000 0x0 0>;
+	};
+};
+
+&soc {
+        bootloader_log {
+                compatible = "bootloader_log";
+                linux,contiguous-region = <&bootloader_log_mem>;
+        };
+};
+/* #endif CONFIG_BOOTLOADER_LOG */
+
+//#ifdef CONFIG_OPLUS_IPA_THERMAL
+&thermal_zones {
+	soc_thermal_ipa {
+		thermal-governor = "power_allocator";
+		polling-delay = <2000>;
+		polling-delay-passive = <50>;
+		sustainable-power = <9999>;
+
+		thermal-sensors = <&ipa_sensor0 0>;
+
+		trips {
+			threshold: trip-point@0 {
+				temperature = <30000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+			target: trip-point@1 {
+				temperature = <50000>;
+				hysteresis = <2000>;
+				type = "passive";
+			};
+		};
+
+		cooling-maps {
+			map0 {
+				trip = <&target>;
+				contribution = <1024>;
+				cooling-device = <&CPU0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+			map1 {
+				trip = <&target>;
+				contribution = <1024>;
+				cooling-device = <&CPU4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+			map2 {
+				trip = <&target>;
+				contribution = <1024>;
+				cooling-device = <&CPU7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+			};
+			/*
+			map3 {
+				trip = <&target>;
+				contribution = <1024>;
+				cooling-device = <&gpu 0 4>;
+			};
+			*/
+		};
+	};
+};
+//#endif

@@ -1,0 +1,323 @@
+{
+    "type": "ic_cfg",
+    "name": "gauge2",
+    "max": 100,
+    "list": [
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SET_BATT_HISTSOH_DATA",
+            "desc": {
+                "zh": "设置电池SOH历史数据"
+            },
+            "auto_debug_code": false,
+            "parameter_list": ["const int *"],
+            "parameter_desc": [
+                {
+                    "range": "字符串",
+                    "type": "in",
+                    "desc": {
+                        "zh": "设置电池SOH历史数据"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_GET_BATT_HISTSOH_DATA",
+            "desc": {
+                "zh": "获取电池SOH历史数据"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *", "int"],
+            "parameter_desc": [
+                {
+                    "range": "字符串",
+                    "type": "out",
+                    "desc": {
+                        "zh": "用于接收输出结果的buf"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "参数0对应的buf长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回电池SOH历史数据"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SET_RESET_GAUGE_DATE",
+            "desc": {
+                "zh": "设置电池电量计重置"
+            },
+            "auto_debug_code": false,
+            "parameter_list": ["const int *"],
+            "parameter_desc": [
+                {
+                    "range": "字符串",
+                    "type": "in",
+                    "desc": {
+                        "zh": "设置电池电量计重置数据"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_GET_BATT_IC_SN",
+            "desc": {
+                "zh": "获取电池SN"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["char *", "int"],
+            "parameter_desc": [
+                {
+                    "range": "字符串",
+                    "type": "out",
+                    "desc": {
+                        "zh": "用于接收输出结果的buf"
+                    }
+                },
+                {
+                    "range": "0-*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "参数0对应的buf长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回电池SN"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_GET_THREE_LEVEL_TERM_VOLT",
+            "desc": {
+                "zh": "获取电量计三级截止电压相关的参数"
+            },
+            "auto_debug_code": false,
+            "parameter_list": ["char *", "int"],
+            "parameter_desc": [
+                {
+                    "range": "*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "三级截止电压参数"
+                    }
+                },
+                {
+                    "range": "1-32",
+                    "type": "in",
+                    "desc": {
+                        "zh": "三级截止电压参数长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "返回 三级截止电压寄存器配置的参数：截止电压，HOLDTIME"
+                    }
+                },
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SET_THREE_LEVEL_TERM_VOLT",
+            "desc": {
+                "zh": "设置电量计三级截止电压参数"
+            },
+            "auto_debug_code": false,
+            "parameter_list": ["char *", "int"],
+            "parameter_desc": [
+                {
+                    "range": "*",
+                    "type": "in",
+                    "desc": {
+                        "zh": "电量计三级截止电压参数"
+                    }
+                },
+                {
+                    "range": "1-32",
+                    "type": "in",
+                    "desc": {
+                        "zh": "电量计三级截止电压参数长度"
+                    }
+                }
+            ],
+            "vict": {
+                "read": false,
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_GET_FCL_VOLT",
+            "desc": {
+                "zh": "获取FCL电压"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-*",
+                    "type": "out",
+                    "desc": {
+                        "zh": "获取FCL电压"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_GET_BATT_SOC_CENTI",
+            "desc": {
+                "zh": "获取当前电池电量(2位小数)"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["int *"],
+            "parameter_desc": [
+                {
+                    "range": "0-10000",
+                    "type": "out",
+                    "desc": {
+                        "zh": "当前电池电量, 单位是0.01%"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SET_TRUE_FCC",
+            "desc": {
+                "zh": "通知电量计, 设置真实的FCC"
+            },
+            "auto_debug_code": true,
+            "parameter_list": [],
+            "parameter_desc": [],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "overwrite": false
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_GET_SN_MATCH",
+            "desc": {
+                "zh": "获取SN是否匹配"
+            },
+            "auto_debug_code": true,
+            "parameter_list": ["bool *"],
+            "parameter_desc": [
+                {
+                    "range": "0-1",
+                    "type": "out",
+                    "desc": {
+                        "zh": "0:不匹配, 1:匹配"
+                    }
+                }
+            ],
+            "vict": {
+                "read": {
+                    "cmd": "vict -f {id} -G vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "write": false,
+                "overwrite": {
+                    "cmd": "vict -f {id} -O {val} vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                }
+            }
+        },
+        {
+            "lable": "OPLUS_IC_FUNC_GAUGE_SYNC_PLUGIN",
+            "desc": {
+                "zh": "通知MTK电量计, 插入状态"
+            },
+            "auto_debug_code": true,
+            "parameter_list": [],
+            "parameter_desc": [],
+            "vict": {
+                "read": false,
+                "write": {
+                    "cmd": "vict -f {id} -S vic-*",
+                    "desc": {
+                        "zh": "N/A"
+                    }
+                },
+                "overwrite": false
+            }
+        }
+    ],
+
+    "version": "V6.1:11:62bb2a4abafd34f37d6973d70b379e98a6872be17ac17d9816bc36568b80c895"
+}

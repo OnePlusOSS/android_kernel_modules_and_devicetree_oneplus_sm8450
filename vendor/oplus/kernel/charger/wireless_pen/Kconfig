@@ -1,0 +1,15 @@
+menuconfig OPLUS_WIRELESS_PEN
+	tristate "OPLUS_WIRELESS_PEN_CONFIG"
+	default n
+	help
+	  Say Y or m to include support
+
+if OPLUS_WIRELESS_PEN
+
+config OPLUS_WIRELESS_PEN_CPS8601
+	bool "OPLUS_WIRELESS_PEN_CPS8601"
+	default n
+	depends on OPLUS_WIRELESS_PEN
+	help
+	  Say Y to include support
+endif #OPLUS_WIRELESS_PEN
