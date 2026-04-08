@@ -8520,9 +8520,9 @@ static int cam_isp_blob_vfe_out_update(
 
 		res_id_out = wm_config->port_type & 0xFF;
 
-		CAM_DBG(CAM_ISP, "%s out config idx: %d port: 0x%x",
+		/*CAM_DBG(CAM_ISP, "%s out config idx: %d port: 0x%x",
 			(hw_type == CAM_ISP_HW_TYPE_SFE ? "SFE" : "VFE"),
-			i, wm_config->port_type);
+			i, wm_config->port_type);*/
 
 		if (res_id_out >= size_isp_out) {
 			CAM_ERR(CAM_ISP, "Invalid out port:0x%x",
